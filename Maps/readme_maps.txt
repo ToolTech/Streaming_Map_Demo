@@ -1,0 +1,1 @@
+This folder is supposed to contain maps for various areas in the world or a large global map.
