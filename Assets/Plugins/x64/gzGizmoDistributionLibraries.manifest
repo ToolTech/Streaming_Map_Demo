@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <assemblyIdentity name="gzGizmoDistributionLibraries" version="1.0.0.0" type="win32" />
+  <file name="gzDistribution64.dll" />
+  <file name="gzDistributionBridge64.dll" />
+</assembly>
