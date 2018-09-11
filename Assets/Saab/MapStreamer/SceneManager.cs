@@ -16,7 +16,7 @@
 //
 // Who	Date	Description
 //
-// AMO	180607	Created file                                                        (2.9.1)
+// AMO	180607	Created file        (2.9.1)
 //
 //******************************************************************************
 
@@ -51,6 +51,18 @@ using Saab.Unity.PluginLoader;
 
 namespace Saab.Unity.MapStreamer
 {
+    public static class UnityGizmoExtensions
+    {
+        public static Vec3D ToVec3D(this Vector3 vec)
+        {
+            return new Vec3D(vec.x, vec.y, vec.z);
+        }
+        public static Vector3 ToVector3(this Vec3D vec)
+        {
+            return new Vector3((float)vec.x, (float)vec.y, (float)vec.z);
+        }
+    }
+
     // The SceneManager behaviour takes a unity camera and follows that to populate the current scene with GameObjects in a scenegraph hierarchy
     public class SceneManager : MonoBehaviour
     {
@@ -76,7 +88,7 @@ namespace Saab.Unity.MapStreamer
         private int _unusedCounter = 0;
         private readonly Controller _controller = new Controller();
 
-        private UnityPluginInitializer _plugin_initializer;
+        private UnityPluginInitializer _plugin_initializer;   // If we need our own plugin initializer
 
         #endregion
 
@@ -627,18 +639,19 @@ namespace Saab.Unity.MapStreamer
             // As GizmoSDK has a flipped Z axis going out of the screen we need a top transform to flip Z
             _root.transform.localScale = new Vector3(1, 1, -1);
 
+            // Add example object under ROI --------------------------------------------------------------
 
-            ////Test to add object at position
-            //unTransform trans;
-            //Vector3 pos;
+            MapPos mapPos;
 
-            //GetMapPosition(new LatPos(1.0084718541, 0.24984267815,300), GroundClampType.NONE, out trans, out pos);
+            GetMapPosition(new LatPos(1.0084718541, 0.24984267815,300),out mapPos, GroundClampType.GROUND,true);
 
-            //GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
 
-            //sphere.transform.parent = trans;
-            //sphere.transform.localPosition = pos;
+            sphere.transform.parent = FindFirstGameObjectTransform(mapPos.roiNode);
+            sphere.transform.localPosition = mapPos.position.ToVector3();
+            sphere.transform.localScale = new Vector3(10,10,10);
 
+            // ------------------------------------------------------------------------------------------
 
             NodeLock.UnLock();
 
@@ -676,7 +689,7 @@ namespace Saab.Unity.MapStreamer
 
         public bool Initialize()
         {
-			_plugin_initializer = new UnityPluginInitializer();
+            _plugin_initializer = new UnityPluginInitializer();  // in case we need it our own
 
             _actionReceiver = new NodeAction("DynamicLoadManager");
             _actionReceiver.OnAction += ActionReceiver_OnAction;
@@ -684,8 +697,6 @@ namespace Saab.Unity.MapStreamer
             _zflipMatrix = new Matrix4x4(new Vector4(1, 0, 0), new Vector4(0, 1, 0), new Vector4(0, 0, -1), new Vector4(0, 0, 0, 1));
 
             GizmoSDK.Gizmo3D.Platform.Initialize();
-
-            Message.SetMessageLevel(MessageLevel.DEBUG);
 
             NodeLock.WaitLockEdit();
 
@@ -741,8 +752,7 @@ namespace Saab.Unity.MapStreamer
 
             return true;
         }
-
-                     
+        
 
         void Start()
         {
@@ -818,31 +828,36 @@ namespace Saab.Unity.MapStreamer
 
         }
 
-        public bool GetMapPosition(LatPos latpos, GroundClampType groundClamp,out unTransform roi,out Vector3 position)
+        public bool GetMapPosition(LatPos latpos, out MapPos pos, GroundClampType groundClamp,bool waitForDynamicData=false)
         {
-            MapPos pos;
-
-            roi = null;
-
-            position = new Vector3(0, 0, 0);
-
-            if (!_controller.GetPosition(latpos, out pos, groundClamp))
+            if (!_controller.GetPosition(latpos, out pos, groundClamp,waitForDynamicData))
                 return false;
-
-            List<GameObject> gameObjectList;
-
-            if (!FindGameObjects(pos.roiNode, out gameObjectList))
-                return false;
-
-            roi = gameObjectList[0].transform;
-            position.x = (float)pos.position.x;
-            position.y = (float)pos.position.y;
-            position.z = (float)pos.position.z;
 
             return true;
         }
 
-        public bool FindGameObjects(Node node,out List<GameObject> gameObjectList)
+        public bool UpdateMapPosition(ref MapPos pos, GroundClampType groundClamp,bool waitForDynamicData = false)
+        {
+            // Right now this is trivial as we assume same coordinate system between unity and gizmo but we need a double precision conversion
+
+            if (!_controller.UpdatePosition(ref pos, groundClamp,waitForDynamicData))
+                return false;
+
+            return true;
+        }
+
+
+        public unTransform FindFirstGameObjectTransform(Node node)
+        {
+            List<GameObject> gameObjectList;
+
+            if (!FindGameObjects(node, out gameObjectList))
+                return null;
+
+            return gameObjectList[0].transform;
+        }
+
+        public bool FindGameObjects(Node node, out List<GameObject> gameObjectList)
         {
             gameObjectList = null;
 
@@ -854,7 +869,7 @@ namespace Saab.Unity.MapStreamer
 
             NodeLock.WaitLockEdit();
 
-            bool result=currentObjects.TryGetValue(node.GetNativeReference(), out gameObjectList);
+            bool result = currentObjects.TryGetValue(node.GetNativeReference(), out gameObjectList);
 
             NodeLock.UnLock();
 
