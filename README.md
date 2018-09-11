@@ -32,5 +32,11 @@ Good Luck !
 Technology Info
 ===============
 
-The demo is based on a 3D scenegraph written in native C++ that manages the logistics for loading/unloading data and manages LOD levels and transitions between LOD depending on what data is currently loaded.
+The demo is based on a 3D scenegraph written in native C++ that manages the logistics for loading/unloading data and manages LOD levels and transitions between LOD depending on what data is currently loaded. It uses up to 16 paralell threads to load data from multiple URL based datasources dynamically.
 The demo uses a large double precision coordinate system and a ROI (Region Of Interest) subsystem that translates HUGE coordinates into local islands of single precision data. 
+
+The system handles geocentric coordinate systems as well as flat UTM and other conic projections and provides a uniform WGS84 API to control all objects and queries.
+
+The SceneGraph API also allows a fast intersector query to be performed to find ground features and clamp object to the ground.
+
+The demo shows an example of SBD maps (Streaming Binary Data) that are quad or octree based spatial data in 3D. The format allows very large databases (entire globe) to be divided on multiple servers and that can have details down to (mm) in resolution.
