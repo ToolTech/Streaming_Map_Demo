@@ -36,6 +36,7 @@ using gzImage = GizmoSDK.GizmoBase.Image;
 
 // Map utility
 using Saab.Map.CoordUtil;
+using Saab.Unity.Extensions;
 
 // Fix unity conflicts
 using unTransform = UnityEngine.Transform;
@@ -976,62 +977,6 @@ namespace Saab.Unity.MapStreamer
         }
 
       
-        public static Matrix4x4 Convert(Matrix4 matrix)
-        {
-            Matrix4x4 result = new Matrix4x4
-            {
-                m00 = matrix.v11,
-                m01 = matrix.v12,
-                m02 = matrix.v13,
-                m03 = matrix.v14,
-
-                m10 = matrix.v21,
-                m11 = matrix.v22,
-                m12 = matrix.v23,
-                m13 = matrix.v24,
-
-                m20 = matrix.v31,
-                m21 = matrix.v32,
-                m22 = matrix.v33,
-                m23 = matrix.v34,
-
-                m30 = matrix.v41,
-                m31 = matrix.v42,
-                m32 = matrix.v43,
-                m33 = matrix.v44
-            };
-
-            return result;
-        }
-
-        public static Matrix4 Convert(Matrix4x4 matrix)
-        {
-            Matrix4 result = new Matrix4
-            {
-                v11 = matrix.m00,
-                v12 = matrix.m01,
-                v13 = matrix.m02,
-                v14 = matrix.m03,
-
-                v21 = matrix.m10,
-                v22 = matrix.m11,
-                v23 = matrix.m12,
-                v24 = matrix.m13,
-
-                v31 = matrix.m20,
-                v32 = matrix.m21,
-                v33 = matrix.m22,
-                v34 = matrix.m23,
-
-                v41 = matrix.m30,
-                v42 = matrix.m31,
-                v43 = matrix.m32,
-                v44 = matrix.m33,
-            };
-
-            return result;
-        }
-
         // Update is called once per frame
         private void Update()
         {
@@ -1051,13 +996,11 @@ namespace Saab.Unity.MapStreamer
                 perspCamera.FarClipPlane = UnityCamera.farClipPlane;
             }
 
-
-
             Matrix4x4 unity_camera_transform = UnityCamera.transform.worldToLocalMatrix;
 
             Matrix4x4 gz_transform = _zflipMatrix * unity_camera_transform * _zflipMatrix;
 
-            _native_camera.Transform = Convert(gz_transform);
+            _native_camera.Transform = gz_transform.ToMatrix4(); 
 
             CameraControl ctrl = UnityCamera.GetComponent<CameraControl>();
 
