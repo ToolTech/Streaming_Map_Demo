@@ -1,4 +1,3 @@
-
 Streaming Map Demo
 ==================
 
@@ -26,6 +25,7 @@ Running the demo
 
 Press the "play" button in the Unity editor and use the keys 'a' and 'd' for left/right and the keys 'w' and 's' for forward/backward
 Use the arrow keys to rotate the view. Remember to install a "Maps" folder from the url http://www.tooltech-software.com/Maps.zip
+<b>Note Win64 only right now</b>
 Good Luck !
 
 
