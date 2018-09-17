@@ -703,6 +703,7 @@ namespace Saab.Unity.MapStreamer
 
             _native_camera = new PerspCamera("Test");
             _native_camera.RoiPosition = true;
+            _controller.Camera = _native_camera;
 
             _native_scene = new Scene("TestScene");
 
@@ -829,24 +830,39 @@ namespace Saab.Unity.MapStreamer
 
         }
 
-        public bool GetMapPosition(LatPos latpos, out MapPos pos, GroundClampType groundClamp,bool waitForDynamicData=false)
+        #region ---- Map and object position update utilities ---------------------------------------------------------------
+
+        public double GetAltitude(LatPos pos, bool waitForDynamicData = false, bool useViewQuality = true)
         {
-            if (!_controller.GetPosition(latpos, out pos, groundClamp,waitForDynamicData))
+            return _controller.GetAltitude(pos, waitForDynamicData, useViewQuality);
+        }
+
+        bool GetScreenGroundPosition(int x, int y, uint size_x, uint size_y, out MapPos result, bool waitForDynamicData = false)
+        {
+            return _controller.GetScreenGroundPosition(x, y, size_x, size_y, out result, waitForDynamicData);
+        }
+
+        public bool GetMapPosition(LatPos latpos, out MapPos pos, GroundClampType groundClamp, bool waitForDynamicData = false)
+        {
+            if (!_controller.GetPosition(latpos, out pos, groundClamp, waitForDynamicData))
                 return false;
 
             return true;
         }
 
-        public bool UpdateMapPosition(ref MapPos pos, GroundClampType groundClamp,bool waitForDynamicData = false)
+        public bool UpdateMapPosition(ref MapPos pos, GroundClampType groundClamp, bool waitForDynamicData = false)
         {
             // Right now this is trivial as we assume same coordinate system between unity and gizmo but we need a double precision conversion
 
-            if (!_controller.UpdatePosition(ref pos, groundClamp,waitForDynamicData))
+            if (!_controller.UpdatePosition(ref pos, groundClamp, waitForDynamicData))
                 return false;
 
             return true;
         }
 
+        #endregion -----------------------------------------------------------------------------------------------
+
+        #region --- Object lookup - Translation between GameObjects and Node ---------------------------
 
         public unTransform FindFirstGameObjectTransform(Node node)
         {
@@ -876,6 +892,9 @@ namespace Saab.Unity.MapStreamer
 
             return result;
         }
+
+        #endregion ------------------------------------------------------------------------------------
+
 
         private void ProcessPendingUpdates()
         {
@@ -1005,10 +1024,7 @@ namespace Saab.Unity.MapStreamer
             CameraControl ctrl = UnityCamera.GetComponent<CameraControl>();
 
             if (ctrl != null)
-            {
                 _native_camera.Position = new Vec3D(ctrl.X, ctrl.Y, -ctrl.Z);
-                _controller.RoiPosition = _native_camera.Position;
-            }
 
             NodeLock.UnLock();
 
