@@ -37,6 +37,7 @@ using gzImage = GizmoSDK.GizmoBase.Image;
 // Map utility
 using Saab.Map.CoordUtil;
 using Saab.Unity.Extensions;
+using Saab.Unity.PluginLoader;
 
 // Fix unity conflicts
 using unTransform = UnityEngine.Transform;
@@ -87,7 +88,9 @@ namespace Saab.Unity.MapStreamer
         private int _unusedCounter = 0;
         private readonly Controller _controller = new Controller();
 
-       
+        private UnityPluginInitializer _plugin_initializer;   // If we need our own plugin initializer
+
+
         #endregion
 
         struct NodeLoadInfo
@@ -684,11 +687,13 @@ namespace Saab.Unity.MapStreamer
             return true;
         }
 
+        private void Awake()
+        {
+            _plugin_initializer = new UnityPluginInitializer();  // in case we need it our own
+        }
 
         public bool Initialize()
         {
-            UnityPlugin_Initialize();
-            
             _actionReceiver = new NodeAction("DynamicLoadManager");
             _actionReceiver.OnAction += ActionReceiver_OnAction;
 
@@ -751,7 +756,7 @@ namespace Saab.Unity.MapStreamer
 
             GizmoSDK.Gizmo3D.Platform.Uninitialize();
 
-            UnityPlugin_UnInitialize();
+            _plugin_initializer = null;
 
             return true;
         }
@@ -1043,11 +1048,6 @@ namespace Saab.Unity.MapStreamer
             //native_camera.DebugRefresh();
             NodeLock.UnLock();
         }
-
-        [DllImport("UnityPluginInterface", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-        private static extern void UnityPlugin_Initialize();
-        [DllImport("UnityPluginInterface", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-        private static extern void UnityPlugin_UnInitialize();
 
     }
 
