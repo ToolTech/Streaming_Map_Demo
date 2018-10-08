@@ -47,8 +47,6 @@ using System.Runtime.InteropServices;
 using System;
 using System.Collections;
 using UnityEngine.Networking;
-using Saab.Unity.PluginLoader;
-
 
 namespace Saab.Unity.MapStreamer
 {
@@ -89,8 +87,7 @@ namespace Saab.Unity.MapStreamer
         private int _unusedCounter = 0;
         private readonly Controller _controller = new Controller();
 
-        private UnityPluginInitializer _plugin_initializer;   // If we need our own plugin initializer
-
+       
         #endregion
 
         struct NodeLoadInfo
@@ -640,19 +637,19 @@ namespace Saab.Unity.MapStreamer
             // As GizmoSDK has a flipped Z axis going out of the screen we need a top transform to flip Z
             _root.transform.localScale = new Vector3(1, 1, -1);
 
-            // Add example object under ROI --------------------------------------------------------------
+            //// Add example object under ROI --------------------------------------------------------------
 
-            MapPos mapPos;
+            //MapPos mapPos;
 
-            GetMapPosition(new LatPos(1.0084718541, 0.24984267815,300),out mapPos, GroundClampType.GROUND,true);
+            //GetMapPosition(new LatPos(1.0084718541, 0.24984267815,300),out mapPos, GroundClampType.GROUND,true);
 
-            GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            //GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
 
-            sphere.transform.parent = FindFirstGameObjectTransform(mapPos.roiNode);
-            sphere.transform.localPosition = mapPos.position.ToVector3();
-            sphere.transform.localScale = new Vector3(10,10,10);
+            //sphere.transform.parent = FindFirstGameObjectTransform(mapPos.roiNode);
+            //sphere.transform.localPosition = mapPos.position.ToVector3();
+            //sphere.transform.localScale = new Vector3(10,10,10);
 
-            // ------------------------------------------------------------------------------------------
+            //// ------------------------------------------------------------------------------------------
 
             NodeLock.UnLock();
 
@@ -690,12 +687,14 @@ namespace Saab.Unity.MapStreamer
 
         public bool Initialize()
         {
-            _plugin_initializer = new UnityPluginInitializer();  // in case we need it our own
-
+            UnityPlugin_Initialize();
+            
             _actionReceiver = new NodeAction("DynamicLoadManager");
             _actionReceiver.OnAction += ActionReceiver_OnAction;
 
             _zflipMatrix = new Matrix4x4(new Vector4(1, 0, 0), new Vector4(0, 1, 0), new Vector4(0, 0, -1), new Vector4(0, 0, 0, 1));
+
+            GizmoSDK.GizmoBase.Message.Send("SceneManager", MessageLevel.DEBUG,"Loading Graph");
 
             GizmoSDK.Gizmo3D.Platform.Initialize();
 
@@ -751,6 +750,8 @@ namespace Saab.Unity.MapStreamer
             NodeLock.UnLock();
 
             GizmoSDK.Gizmo3D.Platform.Uninitialize();
+
+            UnityPlugin_UnInitialize();
 
             return true;
         }
@@ -837,27 +838,36 @@ namespace Saab.Unity.MapStreamer
             return _controller.GetAltitude(pos, waitForDynamicData, useViewQuality);
         }
 
-        bool GetScreenGroundPosition(int x, int y, uint size_x, uint size_y, out MapPos result, bool waitForDynamicData = false)
+        public bool GetScreenGroundPosition(int x, int y, uint size_x, uint size_y, out MapPos result, bool waitForDynamicData = false)
         {
             return _controller.GetScreenGroundPosition(x, y, size_x, size_y, out result, waitForDynamicData);
         }
 
+        public bool GetLatPos(MapPos pos, out LatPos latpos)
+        {
+            return _controller.GetPosition(pos, out latpos);
+        }
+
         public bool GetMapPosition(LatPos latpos, out MapPos pos, GroundClampType groundClamp, bool waitForDynamicData = false)
         {
-            if (!_controller.GetPosition(latpos, out pos, groundClamp, waitForDynamicData))
-                return false;
-
-            return true;
+            return _controller.GetPosition(latpos, out pos, groundClamp, waitForDynamicData);
         }
 
         public bool UpdateMapPosition(ref MapPos pos, GroundClampType groundClamp, bool waitForDynamicData = false)
         {
             // Right now this is trivial as we assume same coordinate system between unity and gizmo but we need a double precision conversion
 
-            if (!_controller.UpdatePosition(ref pos, groundClamp, waitForDynamicData))
-                return false;
+            return _controller.UpdatePosition(ref pos, groundClamp, waitForDynamicData);
+        }
 
-            return true;
+        Vec3D LocalToWorld(MapPos mappos)
+        {
+            return _controller.LocalToWorld(mappos);
+        }
+
+        MapPos WorldToLocal(Vec3D position)
+        {
+            return _controller.WorldToLocal(position);
         }
 
         #endregion -----------------------------------------------------------------------------------------------
@@ -1033,6 +1043,11 @@ namespace Saab.Unity.MapStreamer
             //native_camera.DebugRefresh();
             NodeLock.UnLock();
         }
+
+        [DllImport("UnityPluginInterface", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+        private static extern void UnityPlugin_Initialize();
+        [DllImport("UnityPluginInterface", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+        private static extern void UnityPlugin_UnInitialize();
 
     }
 
