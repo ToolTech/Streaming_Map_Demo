@@ -21,29 +21,21 @@ namespace Saab.Unity.PluginLoader
 
             Message.OnMessage += On_Gizmo_Message;
 
-            if (!KeyDatabase.SetLocalRegistry("config.xml"))
-            {
-                Message.Send("ConfigManager", MessageLevel.FATAL, "Couldn't load 'config.xml'");
-            }
         }
 
         private static void On_Gizmo_Message(string sender, MessageLevel level, string message)
         {
             if ((level & (MessageLevel.DEBUG | MessageLevel.MEM_DEBUG)) > 0)
             {
-                // Add your own
             }
             else if ((level & (MessageLevel.NOTICE | MessageLevel.ALWAYS)) > 0)
             {
-               
             }
             else if ((level & MessageLevel.WARNING) > 0)
             {
-               
             }
             else if ((level & (MessageLevel.FATAL | MessageLevel.ASSERT)) > 0)
             {
-               
             }
         }
 

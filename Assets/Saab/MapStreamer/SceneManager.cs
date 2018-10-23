@@ -3,7 +3,7 @@
 // Module		:
 // Description	: Management of dynamic asset loader from GizmoSDK
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.9.1
+// Product		: Gizmo3D 2.10.1
 //
 // Copyright © 2003- Saab Training Systems AB, Sweden
 //
@@ -37,18 +37,17 @@ using gzImage = GizmoSDK.GizmoBase.Image;
 // Map utility
 using Saab.Map.CoordUtil;
 using Saab.Unity.Extensions;
+using Saab.Unity.PluginLoader;
 
 // Fix unity conflicts
 using unTransform = UnityEngine.Transform;
 
 // System
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using System;
 using System.Collections;
 using UnityEngine.Networking;
-using Saab.Unity.PluginLoader;
-
+using Saab.Core;
 
 namespace Saab.Unity.MapStreamer
 {
@@ -90,6 +89,7 @@ namespace Saab.Unity.MapStreamer
         private readonly Controller _controller = new Controller();
 
         private UnityPluginInitializer _plugin_initializer;   // If we need our own plugin initializer
+
 
         #endregion
 
@@ -640,19 +640,19 @@ namespace Saab.Unity.MapStreamer
             // As GizmoSDK has a flipped Z axis going out of the screen we need a top transform to flip Z
             _root.transform.localScale = new Vector3(1, 1, -1);
 
-            // Add example object under ROI --------------------------------------------------------------
+            //// Add example object under ROI --------------------------------------------------------------
 
-            MapPos mapPos;
+            //MapPos mapPos;
 
-            GetMapPosition(new LatPos(1.0084718541, 0.24984267815,300),out mapPos, GroundClampType.GROUND,true);
+            //GetMapPosition(new LatPos(1.0084718541, 0.24984267815,300),out mapPos, GroundClampType.GROUND,true);
 
-            GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            //GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
 
-            sphere.transform.parent = FindFirstGameObjectTransform(mapPos.roiNode);
-            sphere.transform.localPosition = mapPos.position.ToVector3();
-            sphere.transform.localScale = new Vector3(10,10,10);
+            //sphere.transform.parent = FindFirstGameObjectTransform(mapPos.roiNode);
+            //sphere.transform.localPosition = mapPos.position.ToVector3();
+            //sphere.transform.localScale = new Vector3(10,10,10);
 
-            // ------------------------------------------------------------------------------------------
+            //// ------------------------------------------------------------------------------------------
 
             NodeLock.UnLock();
 
@@ -687,15 +687,19 @@ namespace Saab.Unity.MapStreamer
             return true;
         }
 
+        private void Awake()
+        {
+            _plugin_initializer = new UnityPluginInitializer();  // in case we need it our own
+        }
 
         public bool Initialize()
         {
-            _plugin_initializer = new UnityPluginInitializer();  // in case we need it our own
-
             _actionReceiver = new NodeAction("DynamicLoadManager");
             _actionReceiver.OnAction += ActionReceiver_OnAction;
 
             _zflipMatrix = new Matrix4x4(new Vector4(1, 0, 0), new Vector4(0, 1, 0), new Vector4(0, 0, -1), new Vector4(0, 0, 0, 1));
+
+            GizmoSDK.GizmoBase.Message.Send("SceneManager", MessageLevel.DEBUG,"Loading Graph");
 
             GizmoSDK.Gizmo3D.Platform.Initialize();
 
@@ -703,6 +707,7 @@ namespace Saab.Unity.MapStreamer
 
             _native_camera = new PerspCamera("Test");
             _native_camera.RoiPosition = true;
+            _controller.Camera = _native_camera;
 
             _native_scene = new Scene("TestScene");
 
@@ -750,6 +755,8 @@ namespace Saab.Unity.MapStreamer
             NodeLock.UnLock();
 
             GizmoSDK.Gizmo3D.Platform.Uninitialize();
+
+            _plugin_initializer = null;
 
             return true;
         }
@@ -829,24 +836,48 @@ namespace Saab.Unity.MapStreamer
 
         }
 
-        public bool GetMapPosition(LatPos latpos, out MapPos pos, GroundClampType groundClamp,bool waitForDynamicData=false)
-        {
-            if (!_controller.GetPosition(latpos, out pos, groundClamp,waitForDynamicData))
-                return false;
+        #region ---- Map and object position update utilities ---------------------------------------------------------------
 
-            return true;
+        public double GetAltitude(LatPos pos, ClampFlags flags = ClampFlags.DEFAULT)
+        {
+            return _controller.GetAltitude(pos, flags);
         }
 
-        public bool UpdateMapPosition(ref MapPos pos, GroundClampType groundClamp,bool waitForDynamicData = false)
+        public bool GetScreenGroundPosition(int x, int y, uint size_x, uint size_y, out MapPos result, ClampFlags flags = ClampFlags.DEFAULT)
+        {
+            return _controller.GetScreenGroundPosition(x, y, size_x, size_y, out result, flags);
+        }
+
+        public bool GetLatPos(MapPos pos, out LatPos latpos)
+        {
+            return _controller.GetPosition(pos, out latpos);
+        }
+
+        public bool GetMapPosition(LatPos latpos, out MapPos pos, GroundClampType groundClamp, ClampFlags flags = ClampFlags.DEFAULT)
+        {
+            return _controller.GetPosition(latpos, out pos, groundClamp, flags);
+        }
+
+        public bool UpdateMapPosition(ref MapPos pos, GroundClampType groundClamp, ClampFlags flags = ClampFlags.DEFAULT)
         {
             // Right now this is trivial as we assume same coordinate system between unity and gizmo but we need a double precision conversion
 
-            if (!_controller.UpdatePosition(ref pos, groundClamp,waitForDynamicData))
-                return false;
-
-            return true;
+            return _controller.UpdatePosition(ref pos, groundClamp, flags);
         }
 
+        public Vec3D LocalToWorld(MapPos mappos)
+        {
+            return _controller.LocalToWorld(mappos);
+        }
+
+        public MapPos WorldToLocal(Vec3D position)
+        {
+            return _controller.WorldToLocal(position);
+        }
+
+        #endregion -----------------------------------------------------------------------------------------------
+
+        #region --- Object lookup - Translation between GameObjects and Node ---------------------------
 
         public unTransform FindFirstGameObjectTransform(Node node)
         {
@@ -876,6 +907,9 @@ namespace Saab.Unity.MapStreamer
 
             return result;
         }
+
+        #endregion ------------------------------------------------------------------------------------
+
 
         private void ProcessPendingUpdates()
         {
@@ -1000,15 +1034,12 @@ namespace Saab.Unity.MapStreamer
 
             Matrix4x4 gz_transform = _zflipMatrix * unity_camera_transform * _zflipMatrix;
 
-            _native_camera.Transform = gz_transform.ToMatrix4(); 
+            _native_camera.Transform = gz_transform.ToMatrix4();
 
-            CameraControl ctrl = UnityCamera.GetComponent<CameraControl>();
+            IWorldCoord ctrl = UnityCamera.GetComponent<IWorldCoord>();
 
             if (ctrl != null)
-            {
-                _native_camera.Position = new Vec3D(ctrl.X, ctrl.Y, -ctrl.Z);
-                _controller.RoiPosition = _native_camera.Position;
-            }
+                _native_camera.Position = ctrl.Position;
 
             NodeLock.UnLock();
 
