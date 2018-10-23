@@ -3,7 +3,7 @@
 // Module		:
 // Description	: Management of dynamic asset loader from GizmoSDK
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.9.1
+// Product		: Gizmo3D 2.10.1
 //
 // Copyright © 2003- Saab Training Systems AB, Sweden
 //
@@ -44,10 +44,10 @@ using unTransform = UnityEngine.Transform;
 
 // System
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using System;
 using System.Collections;
 using UnityEngine.Networking;
+using Saab.Core;
 
 namespace Saab.Unity.MapStreamer
 {
@@ -838,14 +838,14 @@ namespace Saab.Unity.MapStreamer
 
         #region ---- Map and object position update utilities ---------------------------------------------------------------
 
-        public double GetAltitude(LatPos pos, bool waitForDynamicData = false, bool useViewQuality = true)
+        public double GetAltitude(LatPos pos, ClampFlags flags = ClampFlags.DEFAULT)
         {
-            return _controller.GetAltitude(pos, waitForDynamicData, useViewQuality);
+            return _controller.GetAltitude(pos, flags);
         }
 
-        public bool GetScreenGroundPosition(int x, int y, uint size_x, uint size_y, out MapPos result, bool waitForDynamicData = false)
+        public bool GetScreenGroundPosition(int x, int y, uint size_x, uint size_y, out MapPos result, ClampFlags flags = ClampFlags.DEFAULT)
         {
-            return _controller.GetScreenGroundPosition(x, y, size_x, size_y, out result, waitForDynamicData);
+            return _controller.GetScreenGroundPosition(x, y, size_x, size_y, out result, flags);
         }
 
         public bool GetLatPos(MapPos pos, out LatPos latpos)
@@ -853,24 +853,24 @@ namespace Saab.Unity.MapStreamer
             return _controller.GetPosition(pos, out latpos);
         }
 
-        public bool GetMapPosition(LatPos latpos, out MapPos pos, GroundClampType groundClamp, bool waitForDynamicData = false)
+        public bool GetMapPosition(LatPos latpos, out MapPos pos, GroundClampType groundClamp, ClampFlags flags = ClampFlags.DEFAULT)
         {
-            return _controller.GetPosition(latpos, out pos, groundClamp, waitForDynamicData);
+            return _controller.GetPosition(latpos, out pos, groundClamp, flags);
         }
 
-        public bool UpdateMapPosition(ref MapPos pos, GroundClampType groundClamp, bool waitForDynamicData = false)
+        public bool UpdateMapPosition(ref MapPos pos, GroundClampType groundClamp, ClampFlags flags = ClampFlags.DEFAULT)
         {
             // Right now this is trivial as we assume same coordinate system between unity and gizmo but we need a double precision conversion
 
-            return _controller.UpdatePosition(ref pos, groundClamp, waitForDynamicData);
+            return _controller.UpdatePosition(ref pos, groundClamp, flags);
         }
 
-        Vec3D LocalToWorld(MapPos mappos)
+        public Vec3D LocalToWorld(MapPos mappos)
         {
             return _controller.LocalToWorld(mappos);
         }
 
-        MapPos WorldToLocal(Vec3D position)
+        public MapPos WorldToLocal(Vec3D position)
         {
             return _controller.WorldToLocal(position);
         }
@@ -1034,12 +1034,12 @@ namespace Saab.Unity.MapStreamer
 
             Matrix4x4 gz_transform = _zflipMatrix * unity_camera_transform * _zflipMatrix;
 
-            _native_camera.Transform = gz_transform.ToMatrix4(); 
+            _native_camera.Transform = gz_transform.ToMatrix4();
 
-            CameraControl ctrl = UnityCamera.GetComponent<CameraControl>();
+            IWorldCoord ctrl = UnityCamera.GetComponent<IWorldCoord>();
 
             if (ctrl != null)
-                _native_camera.Position = new Vec3D(ctrl.X, ctrl.Y, -ctrl.Z);
+                _native_camera.Position = ctrl.Position;
 
             NodeLock.UnLock();
 
