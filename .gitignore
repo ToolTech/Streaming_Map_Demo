@@ -36,6 +36,9 @@ ExportedObj/
 # Unity3D Generated File On Crash Reports 
 sysinfo.txt 
 
+# Extra removed from native code at Saab
+Assets/Plugins/*
+
 
 # Builds 
 *.apk 
