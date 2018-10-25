@@ -88,8 +88,9 @@ namespace Saab.Unity.MapStreamer
         private int _unusedCounter = 0;
         private readonly Controller _controller = new Controller();
 
+        #pragma warning disable 414
         private UnityPluginInitializer _plugin_initializer;   // If we need our own plugin initializer
-
+        #pragma warning restore 414
 
         #endregion
 

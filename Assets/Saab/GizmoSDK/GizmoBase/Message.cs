@@ -76,7 +76,9 @@ namespace GizmoSDK
                 }
             }
 
+            #pragma warning disable 414
             static private readonly Initializer s_class_init =new Initializer();
+            #pragma warning restore 414
 
             static private EventHandler_OnMessage s_dispatcher;
 

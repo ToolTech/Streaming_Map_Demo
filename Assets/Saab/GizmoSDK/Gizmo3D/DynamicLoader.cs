@@ -74,7 +74,7 @@ namespace GizmoSDK
                     s_dispatcher = new Native_OnDynamicLoad(MessageHandler);
                     DynamicLoader_SetCallback(s_dispatcher);
                 }
-
+                
                 ~Initializer()
                 {
                     DynamicLoader_SetCallback(null);
@@ -82,9 +82,10 @@ namespace GizmoSDK
                 }
             }
 
+            #pragma warning disable 414
             static private readonly Initializer s_class_init = new Initializer();
-            
-                            
+            #pragma warning restore 414
+
             private static void MessageHandler(DynamicLoadingState state, IntPtr loader_reference, IntPtr node_reference)
             {
                 OnDynamicLoad?.Invoke(state,CreateObject(loader_reference) as DynamicLoader,CreateObject(node_reference) as Node);
