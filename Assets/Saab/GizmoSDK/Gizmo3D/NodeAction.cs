@@ -70,6 +70,11 @@ namespace GizmoSDK
                 AddFactory(new NodeAction());
             }
 
+            public static void UnInitializeFactory()
+            {
+                RemoveFactory("gzNodeAction");
+            }
+
             public override Reference Create(IntPtr nativeReference)
             {
                 return new NodeAction(nativeReference) as Reference;

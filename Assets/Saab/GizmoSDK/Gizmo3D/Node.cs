@@ -42,6 +42,11 @@ namespace GizmoSDK
                 AddFactory(new Node());
             }
 
+            public static void UnInitializeFactory()
+            {
+                RemoveFactory("gzNode");
+            }
+
             public override Reference Create(IntPtr nativeReference)
             {
                 return new Node(nativeReference) as Reference;

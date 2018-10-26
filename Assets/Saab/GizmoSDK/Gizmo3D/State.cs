@@ -65,6 +65,11 @@ namespace GizmoSDK
                 AddFactory(new State());
             }
 
+            public static void UnInitializeFactory()
+            {
+                RemoveFactory("gzState");
+            }
+
             public bool HasTexture(UInt32 unit=0)
             {
                 return State_hasTexture(GetNativeReference(),unit);

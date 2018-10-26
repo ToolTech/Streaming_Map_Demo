@@ -42,6 +42,11 @@ namespace GizmoSDK
                 AddFactory(new Context());
             }
 
+            public static void UnInitializeFactory()
+            {
+                RemoveFactory("gzContext");
+            }
+
             public override Reference Create(IntPtr nativeReference)
             {
                 return new Context(nativeReference) as Reference;

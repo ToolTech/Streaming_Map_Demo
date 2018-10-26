@@ -42,6 +42,11 @@ namespace GizmoSDK
                 AddFactory(new Roi());
             }
 
+            public static new void UnInitializeFactory()
+            {
+                RemoveFactory("gzRoi");
+            }
+
             public override Reference Create(IntPtr nativeReference)
             {
                 return new Roi(nativeReference) as Reference;

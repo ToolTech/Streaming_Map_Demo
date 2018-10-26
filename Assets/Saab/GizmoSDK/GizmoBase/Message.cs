@@ -58,27 +58,43 @@ namespace GizmoSDK
                 Message_setMessageLevel(level);
             }
 
+            static public void Initialize()
+            {
+                if (s_class_init == null)
+                    s_class_init = new Initializer();
+            }
+
+            static public void UnInitialize()
+            {
+                if (s_class_init != null)
+                    s_class_init = null;
+            }
+
             // --------------------- private ----------------------------
 
-           
+
             private sealed class Initializer
             {
                 public Initializer()
                 {
-                    s_dispatcher = new EventHandler_OnMessage(MessageHandler);
-                    Message_SetCallback(s_dispatcher);
+                    if (s_dispatcher == null)
+                    {
+                        s_dispatcher = new EventHandler_OnMessage(MessageHandler);
+                        Message_SetCallback(s_dispatcher);
+                    }
                 }
 
                 ~Initializer()
                 {
-                    Message_SetCallback(null);
-                    s_dispatcher = null;
+                    if (s_dispatcher != null)
+                    {
+                        Message_SetCallback(null);
+                        s_dispatcher = null;
+                    }
                 }
             }
-
-            #pragma warning disable 414
-            static private readonly Initializer s_class_init =new Initializer();
-            #pragma warning restore 414
+            
+            static private Initializer s_class_init =new Initializer();
 
             static private EventHandler_OnMessage s_dispatcher;
 

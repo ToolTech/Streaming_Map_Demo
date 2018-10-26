@@ -59,6 +59,11 @@ namespace GizmoSDK
                 AddFactory(new DynamicLoader());
             }
 
+            public static new void UnInitializeFactory()
+            {
+                RemoveFactory("gzDynamicLoader");
+            }
+
             public override Reference Create(IntPtr nativeReference)
             {
                 return new DynamicLoader(nativeReference) as Reference;
@@ -67,24 +72,42 @@ namespace GizmoSDK
             [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
             delegate void Native_OnDynamicLoad(DynamicLoadingState state, IntPtr loader_ref, IntPtr node_ref);
 
+            static public void Initialize()
+            {
+                if (s_class_init == null)
+                    s_class_init = new Initializer();
+            }
+
+            static public void UnInitialize()
+            {
+                if (s_class_init != null)
+                    s_class_init = null;
+            }
+
+            // Private ------------------------------------------------------------
+
             private sealed class Initializer
             {
                 public Initializer()
                 {
-                    s_dispatcher = new Native_OnDynamicLoad(MessageHandler);
-                    DynamicLoader_SetCallback(s_dispatcher);
+                    if (s_dispatcher == null)
+                    {
+                        s_dispatcher = new Native_OnDynamicLoad(MessageHandler);
+                        DynamicLoader_SetCallback(s_dispatcher);
+                    }
                 }
                 
                 ~Initializer()
                 {
-                    DynamicLoader_SetCallback(null);
-                    s_dispatcher = null;
+                    if (s_dispatcher != null)
+                    {
+                        DynamicLoader_SetCallback(null);
+                        s_dispatcher = null;
+                    }
                 }
             }
 
-            #pragma warning disable 414
-            static private readonly Initializer s_class_init = new Initializer();
-            #pragma warning restore 414
+            static private Initializer s_class_init = new Initializer();
 
             private static void MessageHandler(DynamicLoadingState state, IntPtr loader_reference, IntPtr node_reference)
             {

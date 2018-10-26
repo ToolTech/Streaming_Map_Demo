@@ -755,7 +755,7 @@ namespace Saab.Unity.MapStreamer
 
             NodeLock.UnLock();
 
-            GizmoSDK.Gizmo3D.Platform.Uninitialize();
+            GizmoSDK.Gizmo3D.Platform.UnInitialize();
 
             _plugin_initializer = null;
 

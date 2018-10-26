@@ -42,6 +42,11 @@ namespace GizmoSDK
                 AddFactory(new Texture());
             }
 
+            public static void UnInitializeFactory()
+            {
+                RemoveFactory("gzTexture");
+            }
+
             public override Reference Create(IntPtr nativeReference)
             {
                 return new Texture(nativeReference) as Reference;

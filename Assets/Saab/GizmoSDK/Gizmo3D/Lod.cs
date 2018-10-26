@@ -42,6 +42,11 @@ namespace GizmoSDK
                 AddFactory(new Lod());
             }
 
+            public new static void UnInitializeFactory()
+            {
+                RemoveFactory("gzLod");
+            }
+
             public override Reference Create(IntPtr nativeReference)
             {
                 return new Lod(nativeReference) as Reference;

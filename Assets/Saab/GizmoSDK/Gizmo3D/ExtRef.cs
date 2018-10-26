@@ -42,6 +42,11 @@ namespace GizmoSDK
                 AddFactory(new ExtRef());
             }
 
+            public static new void UnInitializeFactory()
+            {
+                RemoveFactory("gzExtRef");
+            }
+
             public override Reference Create(IntPtr nativeReference)
             {
                 return new ExtRef(nativeReference) as Reference;

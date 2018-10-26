@@ -43,11 +43,30 @@ namespace GizmoSDK
                 CullTraverseAction.InitializeFactory();
                 NodeAction.InitializeFactory();
                 Context.InitializeFactory();
-                State.InitializeFactory();
                 Texture.InitializeFactory();
                 Roi.InitializeFactory();
                 RoiNode.InitializeFactory();
                 ExtRef.InitializeFactory();
+            }
+
+            static public void UnInitializeFactories()
+            {
+                Node.UnInitializeFactory();
+                Group.UnInitializeFactory();
+                Transform.UnInitializeFactory();
+                Lod.UnInitializeFactory();
+                State.UnInitializeFactory();
+                Geometry.UnInitializeFactory();
+                Scene.UnInitializeFactory();
+                PerspCamera.UnInitializeFactory();
+                DynamicLoader.UnInitializeFactory();
+                CullTraverseAction.UnInitializeFactory();
+                NodeAction.UnInitializeFactory();
+                Context.UnInitializeFactory();
+                Texture.UnInitializeFactory();
+                Roi.UnInitializeFactory();
+                RoiNode.UnInitializeFactory();
+                ExtRef.UnInitializeFactory();
             }
 
             public static bool Initialize()
@@ -60,13 +79,16 @@ namespace GizmoSDK
                 if (result)
                     InitializeFactories();
 
-                
+                DynamicLoader.Initialize();
 
                 return result;
             }
 
-            public static bool Uninitialize(bool forceShutdown=false, bool shutdownBase=false)
+            public static bool UnInitialize(bool forceShutdown=false, bool shutdownBase=false)
             {
+                DynamicLoader.UnInitialize();
+
+                UnInitializeFactories();
                 return Platform_uninitialize(forceShutdown,shutdownBase);
             }
 

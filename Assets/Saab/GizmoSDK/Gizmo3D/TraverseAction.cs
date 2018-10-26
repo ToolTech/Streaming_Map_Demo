@@ -54,6 +54,11 @@ namespace GizmoSDK
                 AddFactory(new CullTraverseAction());
             }
 
+            public static void UnInitializeFactory()
+            {
+                RemoveFactory("gzCullTraverseAction");
+            }
+
             public override Reference Create(IntPtr nativeReference)
             {
                 return new CullTraverseAction(nativeReference) as Reference;

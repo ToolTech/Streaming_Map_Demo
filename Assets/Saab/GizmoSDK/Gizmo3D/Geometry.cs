@@ -42,6 +42,11 @@ namespace GizmoSDK
                 AddFactory(new Geometry());
             }
 
+            public new static void UnInitializeFactory()
+            {
+                RemoveFactory("gzGeometry");
+            }
+
             public override Reference Create(IntPtr nativeReference)
             {
                 return new Geometry(nativeReference) as Reference;

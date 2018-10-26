@@ -42,6 +42,11 @@ namespace GizmoSDK
                 AddFactory(new Scene());
             }
 
+            public new static void UnInitializeFactory()
+            {
+                RemoveFactory("gzScene");
+            }
+
             public override Reference Create(IntPtr nativeReference)
             {
                 return new Scene(nativeReference) as Reference;

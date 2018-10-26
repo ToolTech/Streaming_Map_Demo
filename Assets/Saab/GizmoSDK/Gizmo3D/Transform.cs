@@ -42,6 +42,11 @@ namespace GizmoSDK
                 AddFactory(new Transform());
             }
 
+            public new static void UnInitializeFactory()
+            {
+                RemoveFactory("gzTransform");
+            }
+
             public override Reference Create(IntPtr nativeReference)
             {
                 return new Transform(nativeReference) as Reference;

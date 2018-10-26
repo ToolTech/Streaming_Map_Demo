@@ -95,6 +95,11 @@ namespace GizmoSDK
                 AddFactory(new Group());
             }
 
+            public new static void UnInitializeFactory()
+            {
+                RemoveFactory("gzGroup");
+            }
+
             public override Reference Create(IntPtr nativeReference)
             {
                 return new Group(nativeReference) as Reference;

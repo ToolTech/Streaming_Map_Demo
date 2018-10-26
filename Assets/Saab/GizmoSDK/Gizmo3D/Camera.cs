@@ -215,6 +215,11 @@ namespace GizmoSDK
                 AddFactory(new PerspCamera());
             }
 
+            public static void UnInitializeFactory()
+            {
+                RemoveFactory("gzPerspCamera");
+            }
+
             public override Reference Create(IntPtr nativeReference)
             {
                 return new PerspCamera(nativeReference) as Reference;
