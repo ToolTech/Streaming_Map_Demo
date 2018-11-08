@@ -62,6 +62,21 @@ namespace GizmoSDK
                 return new Intersector(nativeReference) as Reference;
             }
 
+            // We added NodeLock to Release to allow GC to be locked by edit or render
+            // The intersector can run in edit or render mode but we must not release any scene graph data during rendering mode
+            override public void Release()
+            {
+                if (IsValid())
+                {
+                    NodeLock.WaitLockEdit();
+
+                    base.Release();
+
+                    NodeLock.UnLock();
+                }
+            }
+                        
+
             public string GetName()
             {
                 return Marshal.PtrToStringUni(Intersector_getName(GetNativeReference()));

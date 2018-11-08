@@ -109,7 +109,7 @@ namespace GizmoSDK
                 return Reference_isOfType(m_reference.Handle, native_type);
             }
 
-            public void UnRefNoDelete()
+            virtual public void ReleaseNoDelete()
             {
                 if (m_reference.Handle != IntPtr.Zero)
                     Reference_unrefNoDelete(m_reference.Handle);
@@ -118,9 +118,8 @@ namespace GizmoSDK
                 m_reference = new HandleRef(this, IntPtr.Zero);
             }
 
-            #region ----------------- privates --------------------
-
-            private void Release()
+            
+            virtual public void Release()
             {
                 if(m_reference.Handle != IntPtr.Zero)
                     Reference_unref(m_reference.Handle);
@@ -129,7 +128,8 @@ namespace GizmoSDK
                 m_reference = new HandleRef(this, IntPtr.Zero);
             }
 
-            
+            #region ----------------- privates --------------------
+
             // -------------- Native calls ------------------
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]

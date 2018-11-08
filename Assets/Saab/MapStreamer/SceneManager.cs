@@ -780,10 +780,10 @@ namespace Saab.Unity.MapStreamer
                 pendingActivations.Add(new ActivationInfo(action, trigger as Node));
             }
             else
-                trigger?.UnRefNoDelete();      // We are getting ref counts on objects in scene graph and these need to be released immediately
+                trigger?.ReleaseNoDelete();      // We are getting ref counts on objects in scene graph and these need to be released immediately
 
-            traverser?.UnRefNoDelete();
-            context?.UnRefNoDelete();
+            traverser?.ReleaseNoDelete();
+            context?.ReleaseNoDelete();
         }
 
         private void OnDestroy()
@@ -806,8 +806,8 @@ namespace Saab.Unity.MapStreamer
             }
             else
             {
-                loader?.UnRefNoDelete();      // Same here. We are getting refs to objects in scene graph that we shouldnt release in GC
-                node?.UnRefNoDelete();
+                loader?.ReleaseNoDelete();      // Same here. We are getting refs to objects in scene graph that we shouldnt release in GC
+                node?.ReleaseNoDelete();
             }
         }
 

@@ -33,8 +33,11 @@ namespace GizmoSDK
     {
         public abstract class Camera : GizmoBase.Object, INameInterface
         {
-            public Camera(IntPtr nativeReference) : base(nativeReference) { }
+            // Camera is locked in ref/unref by own instance mutex
+            // The camera must be able to use ref/unref in both render/edit mode
 
+            public Camera(IntPtr nativeReference) : base(nativeReference) { }
+                        
             public void Debug(Context context,bool on=true)
             {
                 Camera_debug(GetNativeReference(), context.GetNativeReference(),on);

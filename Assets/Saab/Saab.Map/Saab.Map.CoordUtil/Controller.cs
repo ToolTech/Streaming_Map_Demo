@@ -39,6 +39,7 @@ namespace Saab.Map.CoordUtil
     {
         NONE,
         GROUND,
+        GROUND_NORMAL_TO_SURFACE,
         BUILDING,
     }
 
@@ -129,9 +130,7 @@ namespace Saab.Map.CoordUtil
 
             }
 
-            isect.Dispose();
-
-            if (_topRoi != null)
+             if (_topRoi != null)
             {
 
                 result.roiNode = _topRoi.GetClosestRoiNode(result.position);
@@ -218,10 +217,12 @@ namespace Saab.Map.CoordUtil
 
                 Vec3 up = new Vec3(result.local_orientation.v13, result.local_orientation.v23, result.local_orientation.v33);
 
+                // TODO: Fix this....
+                if (up.x == 0 && up.y == 0 && up.z == 0)
+                    up.y = 1;
+
                 isect.SetStartPosition((Vec3)(result.position - eyePos) + 10000.0f * up);
                 isect.SetDirection(-up);
-
-                result.normal = -up;
 
                 if (isect.Intersect(_currentMap, IntersectQuery.NEAREST_POINT|IntersectQuery.NORMAL | ( (flags & ClampFlags.WAIT_FOR_DATA)!=0 ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0), 1, true, eyePos))
                 {
@@ -233,15 +234,23 @@ namespace Saab.Map.CoordUtil
                     result.position.y = data.position.y + eyePos.y;
                     result.position.z = data.position.z + eyePos.z;
 
+                    
                     result.normal = data.normal;
-
                     result.clamped = true;
-
+                }
+                else
+                {
+                    result.normal = up;
+                    result.clamped = false;
                 }
 
-                isect.Dispose();
+                if (groundClamp == GroundClampType.GROUND)
+                {
+                    result.normal = result.local_orientation.GetCol(2);
+                }
 
-                // Remove ROINode position as offset - Go to local coordinate system under ROI Node
+
+                 // Remove ROINode position as offset - Go to local coordinate system under ROI Node
 
                 if (result.roiNode != null && result.roiNode.IsValid())
                     result.position -= result.roiNode.Position;

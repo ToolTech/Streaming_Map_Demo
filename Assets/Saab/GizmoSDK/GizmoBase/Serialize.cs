@@ -54,7 +54,6 @@ namespace GizmoSDK
             public static SerializeAdapter GetURLAdapter(string url, SerializeAction action=SerializeAction.INPUT, AdapterFlags flags=AdapterFlags.DEFAULT,string password="")
             {
                 SerializeAdapter adapter= new SerializeAdapter(SerializeAdapter_getURLAdapter(url,action,flags,password));
-
                 return adapter;
             }
 

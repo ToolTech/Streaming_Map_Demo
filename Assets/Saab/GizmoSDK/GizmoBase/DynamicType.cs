@@ -212,6 +212,11 @@ namespace GizmoSDK
                 return AsString();
             }
 
+            public static DynamicType FromString(string type, string value,bool skipDynTag = true)
+            {
+                return new DynamicType(DynamicType_fromString(type,value, skipDynTag));
+            }
+
             public string ToXML(bool skipDynTag=true)
             {
                 return AsString(false, skipDynTag);
@@ -303,6 +308,8 @@ namespace GizmoSDK
             private static extern IntPtr DynamicType_asString(IntPtr dynamic_reference, bool stripXML, bool skipDynTag, string tagName);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DynamicType_asJSON(IntPtr dynamic_reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr DynamicType_fromString(string type,string value, bool skipDynTag);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DynamicType_fromXML(string xml,bool skipDynTag);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]

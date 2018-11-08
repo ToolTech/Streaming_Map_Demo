@@ -54,7 +54,13 @@ namespace GizmoSDK
 
             public RoiNode GetClosestRoiNode(Vec3D position)
             {
-                return CreateObject(Roi_getClosestRoiNode(GetNativeReference(), ref position)) as RoiNode;
+                //NodeLock.WaitLockEdit();
+
+                RoiNode node = CreateObject(Roi_getClosestRoiNode(GetNativeReference(), ref position)) as RoiNode;
+
+                //NodeLock.UnLock();
+
+                return node;
             }
 
             public Vec3D Position
