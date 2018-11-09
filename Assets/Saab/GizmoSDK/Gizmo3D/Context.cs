@@ -52,6 +52,18 @@ namespace GizmoSDK
                 return new Context(nativeReference) as Reference;
             }
 
+            override public void Release()
+            {
+                if (IsValid())
+                {
+                    NodeLock.WaitLockEdit();
+
+                    base.Release();
+
+                    NodeLock.UnLock();
+                }
+            }
+
             #region Native dll interface ----------------------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr Context_create();

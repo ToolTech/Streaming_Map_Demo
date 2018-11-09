@@ -34,13 +34,25 @@ namespace GizmoSDK
         public abstract class TraverseAction : Reference
         {
             public TraverseAction(IntPtr nativeReference) : base(nativeReference) { }
-                       
-           
+
+
             //#region Native dll interface ----------------------------------
             //[DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             //private static extern IntPtr TraverseAction_create();
 
             //#endregion
+
+            override public void Release()
+            {
+                if (IsValid())
+                {
+                    NodeLock.WaitLockEdit();
+
+                    base.Release();
+
+                    NodeLock.UnLock();
+                }
+            }
         }
 
         public class CullTraverseAction : TraverseAction

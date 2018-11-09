@@ -75,6 +75,18 @@ namespace GizmoSDK
                 NodeActionProvider_addActionInterface(GetNativeReference(), receiver.GetNativeReference(), action, userdata);
             }
 
+            override public void Release()
+            {
+                if (IsValid())
+                {
+                    NodeLock.WaitLockEdit();
+
+                    base.Release();
+
+                    NodeLock.UnLock();
+                }
+            }
+
             #region Native dll interface ----------------------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void NodeActionProvider_addActionInterface(IntPtr nodeact_reference, IntPtr recv_ref, NodeActionEvent action,IntPtr userdata);

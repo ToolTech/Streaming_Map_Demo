@@ -34,6 +34,18 @@ namespace GizmoSDK
         public abstract class NodeActionInterface : Reference
         {
             public NodeActionInterface(IntPtr nativeReference) : base(nativeReference) { }
+
+            override public void Release()
+            {
+                if (IsValid())
+                {
+                    NodeLock.WaitLockEdit();
+
+                    base.Release();
+
+                    NodeLock.UnLock();
+                }
+            }
         }
     }
 }

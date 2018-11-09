@@ -70,6 +70,18 @@ namespace GizmoSDK
                 RemoveFactory("gzState");
             }
 
+            override public void Release()
+            {
+                if (IsValid())
+                {
+                    NodeLock.WaitLockEdit();
+
+                    base.Release();
+
+                    NodeLock.UnLock();
+                }
+            }
+
             public bool HasTexture(UInt32 unit=0)
             {
                 return State_hasTexture(GetNativeReference(),unit);

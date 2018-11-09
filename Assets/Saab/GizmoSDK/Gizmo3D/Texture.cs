@@ -52,6 +52,18 @@ namespace GizmoSDK
                 return new Texture(nativeReference) as Reference;
             }
 
+            override public void Release()
+            {
+                if (IsValid())
+                {
+                    NodeLock.WaitLockEdit();
+
+                    base.Release();
+
+                    NodeLock.UnLock();
+                }
+            }
+
             public bool HasImage()
             {
                 return Texture_hasImage(GetNativeReference());
