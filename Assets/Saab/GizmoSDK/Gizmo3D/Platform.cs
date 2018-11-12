@@ -86,10 +86,17 @@ namespace GizmoSDK
 
             public static bool UnInitialize(bool forceShutdown=false, bool shutdownBase=false)
             {
+                NodeLock.WaitLockEdit();
+
                 DynamicLoader.UnInitialize();
 
                 UnInitializeFactories();
-                return Platform_uninitialize(forceShutdown,shutdownBase);
+
+                NodeLock.UnLock();
+
+                bool result= Platform_uninitialize(forceShutdown,shutdownBase);
+                                
+                return result;
             }
 
 #if INTERNAL_LIB

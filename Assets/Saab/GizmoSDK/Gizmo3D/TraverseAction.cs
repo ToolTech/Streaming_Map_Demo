@@ -53,6 +53,18 @@ namespace GizmoSDK
                     NodeLock.UnLock();
                 }
             }
+
+            virtual public void ReleaseInRender()
+            {
+                if (IsValid())
+                {
+                    NodeLock.WaitLockRender();
+
+                    base.Release();
+
+                    NodeLock.UnLock();
+                }
+            }
         }
 
         public class CullTraverseAction : TraverseAction

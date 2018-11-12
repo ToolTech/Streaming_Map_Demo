@@ -60,6 +60,18 @@ namespace GizmoSDK
                 }
             }
 
+            virtual public void ReleaseInRender()
+            {
+                if (IsValid())
+                {
+                    NodeLock.WaitLockRender();
+
+                    base.Release();
+
+                    NodeLock.UnLock();
+                }
+            }
+
             public IntersectorData GetData(UInt32 index)
             {
                 IntersectorData data = new IntersectorData();

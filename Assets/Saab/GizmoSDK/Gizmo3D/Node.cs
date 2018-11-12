@@ -52,20 +52,7 @@ namespace GizmoSDK
                 return new Node(nativeReference) as Reference;
             }
 
-            // We added NodeLock to Release to allow GC to be locked by edit or render
-            override public void Release()
-            {
-                if(IsValid())
-                {
-                    NodeLock.WaitLockEdit();
-
-                    base.Release();
-
-                    NodeLock.UnLock();
-                }
-            }
-
-            
+                      
             public string GetName()
             {
                 return Marshal.PtrToStringUni(Node_getName(GetNativeReference()));

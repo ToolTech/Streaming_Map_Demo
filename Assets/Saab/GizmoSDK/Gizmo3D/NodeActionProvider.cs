@@ -75,11 +75,25 @@ namespace GizmoSDK
                 NodeActionProvider_addActionInterface(GetNativeReference(), receiver.GetNativeReference(), action, userdata);
             }
 
+            // We added NodeLock to Release to allow GC to be locked by edit or render
             override public void Release()
             {
                 if (IsValid())
                 {
                     NodeLock.WaitLockEdit();
+
+                    base.Release(); 
+
+                    NodeLock.UnLock();
+                }
+            }
+
+            
+            virtual public void ReleaseInRender()
+            {
+                if (IsValid())
+                {
+                    NodeLock.WaitLockRender();
 
                     base.Release();
 

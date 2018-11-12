@@ -82,6 +82,18 @@ namespace GizmoSDK
                 }
             }
 
+            virtual public void ReleaseInRender()
+            {
+                if (IsValid())
+                {
+                    NodeLock.WaitLockRender();
+
+                    base.Release();
+
+                    NodeLock.UnLock();
+                }
+            }
+
             public bool HasTexture(UInt32 unit=0)
             {
                 return State_hasTexture(GetNativeReference(),unit);

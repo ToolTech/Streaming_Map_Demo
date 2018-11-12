@@ -64,6 +64,18 @@ namespace GizmoSDK
                 }
             }
 
+            virtual public void ReleaseInRender()
+            {
+                if (IsValid())
+                {
+                    NodeLock.WaitLockRender();
+
+                    base.Release();
+
+                    NodeLock.UnLock();
+                }
+            }
+
             #region Native dll interface ----------------------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr Context_create();

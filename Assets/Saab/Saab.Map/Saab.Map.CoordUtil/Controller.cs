@@ -130,7 +130,9 @@ namespace Saab.Map.CoordUtil
 
             }
 
-             if (_topRoi != null)
+            isect.Dispose();   // Drop handle and ignore GC
+
+            if (_topRoi != null)
             {
 
                 result.roiNode = _topRoi.GetClosestRoiNode(result.position);
@@ -250,7 +252,9 @@ namespace Saab.Map.CoordUtil
                 }
 
 
-                 // Remove ROINode position as offset - Go to local coordinate system under ROI Node
+                isect.Dispose();    // Drop handle and ignore GC
+
+                // Remove ROINode position as offset - Go to local coordinate system under ROI Node
 
                 if (result.roiNode != null && result.roiNode.IsValid())
                     result.position -= result.roiNode.Position;
