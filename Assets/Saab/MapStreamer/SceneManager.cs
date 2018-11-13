@@ -666,15 +666,15 @@ namespace Saab.Unity.MapStreamer
 
             foreach (var p in pendingLoaders)
             {
-                p.loader.Dispose();
-                p.node.Dispose();
+                p.loader?.Dispose();
+                p.node?.Dispose();
             }
 
             pendingLoaders.Clear();
 
             foreach (var p in pendingActivations)
             {
-                p.node.Dispose();
+                p.node?.Dispose();
             }
 
             pendingActivations.Clear();

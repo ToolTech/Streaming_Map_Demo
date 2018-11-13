@@ -5,7 +5,7 @@ rem ---- Set up all paths in the project as relative paths - Saab Dev Only ---
 rem ------------- GizmoSDK dependencies --------------------------------------
 
 if not defined GIZMOSDK (
-  set GIZMOSDK=..\..\..\..\GizmoSDK
+  set GIZMOSDK=..\GizmoSDK
 )
 
 rmdir /S / Q Assets\Saab\GizmoSDK

@@ -43,8 +43,8 @@ namespace GizmoSDK
         public class DistRemoteChannel : Reference , IDistRemoteChannelInterface
         {
             public const string DEFAULT_IP_ADDRESS = "234.5.6.7";
-            public const UInt32 DEFAULT_SERVER_PORT = 1122;
-            public const UInt32 DEFAULT_SESSION_PORT = 2211;
+            public const UInt16 DEFAULT_SERVER_PORT = 1122;
+            public const UInt16 DEFAULT_SESSION_PORT = 2211;
 
             static public DistRemoteChannel CreateDefaultSessionChannel(bool reliable=true, DistTransportType transportType=DistTransportType.MULTICAST, string interfaceAddress=null)
             {
@@ -54,7 +54,7 @@ namespace GizmoSDK
             {
                 return new DistRemoteChannel(DistCreateDefaultServerChannel(reliable, transportType, interfaceAddress));
             }
-            static public DistRemoteChannel CreateChannel(UInt32 reliableBufferSize = 5000, DistTransportType transportType = DistTransportType.MULTICAST, string address= DEFAULT_IP_ADDRESS, UInt32 port= DEFAULT_SESSION_PORT, string interfaceAddress = null)
+            static public DistRemoteChannel CreateChannel(UInt32 reliableBufferSize = 5000, DistTransportType transportType = DistTransportType.MULTICAST, string address= DEFAULT_IP_ADDRESS, UInt16 port= DEFAULT_SESSION_PORT, string interfaceAddress = null)
             {
                 return new DistRemoteChannel(DistCreateChannel(reliableBufferSize, transportType, address, port, interfaceAddress));
             }
@@ -69,7 +69,7 @@ namespace GizmoSDK
             [DllImport(Platform.GZ_DYLIB_REMOTE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DistCreateDefaultServerChannel(bool reliable, DistTransportType transportType, string interfaceAddress);
             [DllImport(Platform.GZ_DYLIB_REMOTE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr DistCreateChannel(UInt32 reliableBufferSize, DistTransportType transportType, string address, UInt32 port, string interfaceAddress);
+            private static extern IntPtr DistCreateChannel(UInt32 reliableBufferSize, DistTransportType transportType, string address, UInt16 port, string interfaceAddress);
         }
     }
 }

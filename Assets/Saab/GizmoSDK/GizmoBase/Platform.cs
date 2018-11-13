@@ -33,30 +33,30 @@ namespace GizmoSDK
 #else
         public const string GZ_LIB_EXT=".dll";
 #endif
-#endif
 
-#if WIN64  // ---------------- WinNT , 2000, XP  ---------------
+#elif WIN64  // ---------------- WinNT , 2000, XP  ---------------
 #if NATIVE_DEBUG
         public const string GZ_LIB_EXT = "64_d.dll";
 #else
         public const string GZ_LIB_EXT="64.dll";
 #endif
-#endif
 
-#if UNIX  // ---------------- Unix systems  ---------------
+
+#elif UNIX  // ---------------- Unix systems  ---------------
 #if NATIVE_DEBUG
         public const string GZ_LIB_EXT = "-g.so";
 #else
         public const string GZ_LIB_EXT=".so";
 #endif
-#endif
 
-#if UNIX64  // ---------------- Unix 64 bits systems  ---------------
+#elif UNIX64  // ---------------- Unix 64 bits systems  ---------------
 #if NATIVE_DEBUG
         public const string GZ_LIB_EXT = "64-g.so";
 #else
         public const string GZ_LIB_EXT="64.so";
 #endif
+#else
+#error "No platform Definition Win64,WIN32,UNIX64 etc.."
 #endif
 
     }

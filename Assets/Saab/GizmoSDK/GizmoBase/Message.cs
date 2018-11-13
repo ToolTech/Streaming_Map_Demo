@@ -39,6 +39,8 @@ namespace GizmoSDK
             FATAL = 0x5000,
             ASSERT = 0x6000,
             ALWAYS = 0x7000,
+
+            INTERNAL=(1<<11),
         }
 
         public class Message
