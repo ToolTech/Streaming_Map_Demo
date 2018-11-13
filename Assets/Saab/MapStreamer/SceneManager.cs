@@ -88,8 +88,9 @@ namespace Saab.Unity.MapStreamer
         private int _unusedCounter = 0;
         private readonly Controller _controller = new Controller();
 
+        #pragma warning disable 414
         private UnityPluginInitializer _plugin_initializer;   // If we need our own plugin initializer
-
+        #pragma warning restore 414
 
         #endregion
 
@@ -665,15 +666,15 @@ namespace Saab.Unity.MapStreamer
 
             foreach (var p in pendingLoaders)
             {
-                p.loader.Dispose();
-                p.node.Dispose();
+                p.loader?.Dispose();
+                p.node?.Dispose();
             }
 
             pendingLoaders.Clear();
 
             foreach (var p in pendingActivations)
             {
-                p.node.Dispose();
+                p.node?.Dispose();
             }
 
             pendingActivations.Clear();
@@ -754,7 +755,7 @@ namespace Saab.Unity.MapStreamer
 
             NodeLock.UnLock();
 
-            GizmoSDK.Gizmo3D.Platform.Uninitialize();
+            GizmoSDK.Gizmo3D.Platform.UnInitialize();
 
             _plugin_initializer = null;
 
@@ -779,10 +780,10 @@ namespace Saab.Unity.MapStreamer
                 pendingActivations.Add(new ActivationInfo(action, trigger as Node));
             }
             else
-                trigger?.UnRefNoDelete();      // We are getting ref counts on objects in scene graph and these need to be released immediately
+                trigger?.ReleaseNoDelete();      // We are getting ref counts on objects in scene graph and these need to be released immediately
 
-            traverser?.UnRefNoDelete();
-            context?.UnRefNoDelete();
+            traverser?.ReleaseNoDelete();
+            context?.ReleaseNoDelete();
         }
 
         private void OnDestroy()
@@ -805,8 +806,8 @@ namespace Saab.Unity.MapStreamer
             }
             else
             {
-                loader?.UnRefNoDelete();      // Same here. We are getting refs to objects in scene graph that we shouldnt release in GC
-                node?.UnRefNoDelete();
+                loader?.ReleaseNoDelete();      // Same here. We are getting refs to objects in scene graph that we shouldnt release in GC
+                node?.ReleaseNoDelete();
             }
         }
 

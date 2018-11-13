@@ -1,0 +1,177 @@
+﻿//******************************************************************************
+// File			: DistEvent.cs
+// Module		: GizmoDistribution C#
+// Description	: C# Bridge to gzDistEvent class
+// Author		: Anders Modén		
+// Product		: GizmoDistribution 2.10.1
+//		
+// Copyright © 2003- Saab Training Systems AB, Sweden
+//			
+// NOTE:	GizmoBase is a platform abstraction utility layer for C++. It contains 
+//			design patterns and C++ solutions for the advanced programmer.
+//
+//
+// Revision History...							
+//									
+// Who	Date	Description						
+//									
+// AMO	180301	Created file 	
+//
+//******************************************************************************
+
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using GizmoSDK.GizmoBase;
+
+
+namespace GizmoSDK
+{
+    namespace GizmoDistribution
+    {
+        public class DistEventAttributeIterator : Reference,IEnumerator<DistAttribute>
+        {
+            public DistEventAttributeIterator(DistEvent e):base(DistEventAttributeIterator_create(e.GetNativeReference())){}
+
+            public DistAttribute Current => m_current;
+
+            object IEnumerator.Current => Current;
+
+            public bool MoveNext()
+            {
+                if(DistEventAttributeIterator_iterate(GetNativeReference()))
+                {
+                    m_current = new DistAttribute(DistEventAttributeIterator_current(GetNativeReference()));
+
+                    return true;
+                }
+
+                return false;
+            }
+
+            public void Reset()
+            {
+                DistEventAttributeIterator_reset(GetNativeReference());
+            }
+
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr DistEventAttributeIterator_create(IntPtr event_ref);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool DistEventAttributeIterator_iterate(IntPtr iterator_ref);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr DistEventAttributeIterator_current(IntPtr iterator_ref);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void DistEventAttributeIterator_reset(IntPtr iterator_ref);
+
+            private DistAttribute m_current;
+        }
+                     
+        public class DistEvent : Reference, IEnumerable<DistAttribute>
+        {
+            public DistEvent(IntPtr nativeReference) : base(nativeReference){}
+
+            public DistEvent():base(DistEvent_createDefaultEvent()){}
+
+            public bool SetAttributeValue(string name, DynamicType value)
+            {
+                return DistEvent_setAttributeValue(GetNativeReference(), name, value.GetNativeReference());
+            }
+
+            public DynamicType GetAttributeValue(string name)
+            {
+                return new DynamicType(DistEvent_getAttributeValue(GetNativeReference(), name));
+            }
+
+            public bool HasAttribute(string name)
+            {
+                return DistEvent_hasAttribute(GetNativeReference(), name);
+            }
+
+            public DistInstanceID GetSource()
+            {
+                return new DistInstanceID(DistEvent_getSource(GetNativeReference()));
+            }
+
+            public DistInstanceID GetDestination()
+            {
+                return new DistInstanceID(DistEvent_getDestination(GetNativeReference()));
+            }
+
+
+            public static void InitializeFactory()
+            {
+                AddFactory(new DistEvent());
+            }
+
+            public static void UninitializeFactory()
+            {
+                RemoveFactory("gzDistEvent");
+            }
+
+            public override Reference Create(IntPtr nativeReference)
+            {
+                return new DistEvent(nativeReference) as Reference;
+            }
+
+            
+            public override string ToString()
+            {
+                return Marshal.PtrToStringUni(DistEvent_asString(GetNativeReference()));
+            }
+
+            public string ToJSON()
+            {
+                return Marshal.PtrToStringUni(DistEvent_asJSON(GetNativeReference()));
+            }
+
+            public bool RestoreFromXML(string xml)
+            {
+                return DistEvent_fromXML(GetNativeReference(),xml);
+            }
+
+            public bool RestoreFromJSON(string json)
+            {
+                return DistEvent_fromJSON(GetNativeReference(), json);
+            }
+
+            #region --------------------------- private ----------------------------------------------
+
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool DistEvent_fromXML(IntPtr event_reference,string xml);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool DistEvent_fromJSON(IntPtr event_reference, string json);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr DistEvent_createDefaultEvent();
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool DistEvent_setAttributeValue(IntPtr event_reference,string name,IntPtr dynamic_reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr DistEvent_getAttributeValue(IntPtr event_reference, string name);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool DistEvent_hasAttribute(IntPtr event_reference, string name);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr DistEvent_asString(IntPtr event_reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr DistEvent_asJSON(IntPtr event_reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr DistEvent_getSource(IntPtr event_reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr DistEvent_getDestination(IntPtr event_reference);
+
+
+            public IEnumerator<DistAttribute> GetEnumerator()
+            {
+                return new DistEventAttributeIterator(this);
+            }
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return GetEnumerator();
+            }
+
+
+            
+            #endregion
+        }
+    }
+}
