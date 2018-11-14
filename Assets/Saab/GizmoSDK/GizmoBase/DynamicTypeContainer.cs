@@ -82,7 +82,7 @@ namespace GizmoSDK
             }
 
             public DynamicTypeContainer() : base(DynamicTypeContainer_create_cont()) { }
-            public  DynamicTypeContainer(DynamicType data) : base(DynamicTypeContainer_unpack_cont(data.GetNativeReference()))
+            public  DynamicTypeContainer(DynamicType data) : base(DynamicTypeContainer_unpack_cont(data?.GetNativeReference() ?? IntPtr.Zero))
             {
                 if (GetNativeReference()==IntPtr.Zero)
                     throw (new Exception("DynamicType is not a CONTAINER"));

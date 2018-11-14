@@ -67,7 +67,7 @@ namespace GizmoSDK
 
             public DynamicTypeInt64(UInt64 value) : base(DynamicTypeInt64_create((Int64)value)) { }
 
-            public DynamicTypeInt64(DynamicType data) : base(data.GetNativeReference())
+            public DynamicTypeInt64(DynamicType data) : base(data?.GetNativeReference() ?? IntPtr.Zero)
             {
                 if (!data.Is(DynamicType.Type.INT64))
                     throw (new Exception("DynamicType is not a INT64"));

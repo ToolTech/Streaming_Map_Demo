@@ -85,12 +85,15 @@ namespace GizmoSDK
 
             public static implicit operator DynamicTypeArray(DynamicType data)
             {
+                if (data == null)
+                    return null;
+
                 return new DynamicTypeArray(data);
             }
 
             public DynamicTypeArray() : base(DynamicTypeArray_create_array()) { }
 
-            public DynamicTypeArray(DynamicType data) : base(DynamicTypeArray_unpack_array(data.GetNativeReference()))
+            public DynamicTypeArray(DynamicType data) : base(DynamicTypeArray_unpack_array(data?.GetNativeReference() ?? IntPtr.Zero))
             {
                 if (GetNativeReference() == IntPtr.Zero)
                     throw (new Exception("DynamicType is not an ARRAY"));
