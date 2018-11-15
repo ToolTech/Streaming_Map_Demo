@@ -33,18 +33,27 @@ namespace GizmoSDK
         {
             public static implicit operator DynamicType(DynamicTypeTimeTagged ttag)
             {
+                if (ttag == null)
+                    return null;
+
                 return new DynamicType(ttag.GetNativeReference());
             }
 
             public static implicit operator DynamicTypeTimeTagged(DynamicType data)
             {
+                if (data == null)
+                    return null;
+
                 return new DynamicTypeTimeTagged(data);
             }
 
-            public DynamicTypeTimeTagged(double time,DynamicType data) : base(DynamicTypeTimeTagged_create_timetag(time,data.GetNativeReference())) { }
+            public DynamicTypeTimeTagged(double time,DynamicType data) : base(DynamicTypeTimeTagged_create_timetag(time,data?.GetNativeReference() ?? IntPtr.Zero )) { }
 
-            public DynamicTypeTimeTagged(DynamicType data) : base(data.GetNativeReference())
+            public DynamicTypeTimeTagged(DynamicType data) : base(data?.GetNativeReference() ?? IntPtr.Zero)
             {
+                if (data == null)
+                    throw (new Exception("DynamicType is null"));
+
                 if (!data.Is(DynamicType.Type.TIME_TAGGED))
                     throw (new Exception("DynamicType is not a TIME_TAGGED"));
             }

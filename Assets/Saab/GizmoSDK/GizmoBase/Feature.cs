@@ -1,7 +1,7 @@
 //******************************************************************************
-// File			: License.cs
+// File			: Feature.cs
 // Module		: GizmoBase C#
-// Description	: C# Bridge to gzLicense class
+// Description	: C# Bridge to gzFeature class
 // Author		: Anders Modén		
 // Product		: GizmoBase 2.10.1
 //		
@@ -27,37 +27,41 @@ namespace GizmoSDK
     namespace GizmoBase
     {
        
-        public class License
+        public class Feature
         {
-          
-            public static UInt64 SplashLicenseText(string header,string text,UInt64 id=0)
+            static public void SetApplicationMask(UInt32 mask)
             {
-                return License_splashLicenseText(header, text, id);
+                Feature_setApplicationMask(mask);
             }
 
-            public static UInt64 GetMachineID()
+            static public void SetRoleMask(UInt32 mask)
             {
-                return License_getMachineID();
+                Feature_setRoleMask(mask);
             }
 
-            public static UInt16 GetFeatureKey(string feature="")
+            static public bool HasAllowedFeature(string featureName)
             {
-                return License_getFeatureKey(feature);
+                return Feature_hasAllowedFeature(featureName);
+            }
+
+            static public Int32 GetFeatureExpirationDays(string featureName)
+            {
+                return Feature_getFeatureExpirationDays(featureName);
             }
 
             #region // --------------------- Native calls -----------------------
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern UInt64 License_splashLicenseText(string header,string text,UInt64 id);
+            private static extern void Feature_setApplicationMask(UInt32 mask);
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern UInt64 License_getMachineID();
+            private static extern void Feature_setRoleMask(UInt32 mask);
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern UInt16 License_getFeatureKey(string feature);
+            private static extern bool Feature_hasAllowedFeature(string featureName);
+            [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern Int32 Feature_getFeatureExpirationDays(string featureName);
             #endregion
         }
 
-
-
-        
+                     
 
        
     }

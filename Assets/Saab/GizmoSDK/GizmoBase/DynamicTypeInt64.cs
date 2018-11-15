@@ -33,11 +33,17 @@ namespace GizmoSDK
         {
             public static implicit operator DynamicType(DynamicTypeInt64 i64)
             {
+                if (i64 == null)
+                    return null;
+
                 return new DynamicType(i64.GetNativeReference());
             }
 
             public static implicit operator DynamicTypeInt64(DynamicType data)
             {
+                if (data == null)
+                    return null;
+
                 return new DynamicTypeInt64(data);
             }
 
@@ -53,11 +59,17 @@ namespace GizmoSDK
 
             public static implicit operator Int64(DynamicTypeInt64 i64)
             {
+                if(i64==null)
+                    throw (new Exception("DynamicTypeInt64 is null"));
+
                 return i64.GetInt64();
             }
 
             public static implicit operator UInt64(DynamicTypeInt64 i64)
             {
+                if (i64 == null)
+                    throw (new Exception("DynamicTypeInt64 is null"));
+
                 return i64.GetUInt64();
             }
 
@@ -69,6 +81,9 @@ namespace GizmoSDK
 
             public DynamicTypeInt64(DynamicType data) : base(data?.GetNativeReference() ?? IntPtr.Zero)
             {
+                if (data == null)
+                    throw (new Exception("DynamicType is null"));
+
                 if (!data.Is(DynamicType.Type.INT64))
                     throw (new Exception("DynamicType is not a INT64"));
             }
