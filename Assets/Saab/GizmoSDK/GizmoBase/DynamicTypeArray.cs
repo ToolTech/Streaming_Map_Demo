@@ -80,18 +80,27 @@ namespace GizmoSDK
 
             public static implicit operator DynamicType(DynamicTypeArray cont)
             {
+                if (cont == null)
+                    return null;
+
                 return new DynamicType(DynamicTypeArray_pack_array(cont.GetNativeReference()));
             }
 
             public static implicit operator DynamicTypeArray(DynamicType data)
             {
+                if (data == null)
+                    return null;
+
                 return new DynamicTypeArray(data);
             }
 
             public DynamicTypeArray() : base(DynamicTypeArray_create_array()) { }
 
-            public DynamicTypeArray(DynamicType data) : base(DynamicTypeArray_unpack_array(data.GetNativeReference()))
+            public DynamicTypeArray(DynamicType data) : base(DynamicTypeArray_unpack_array(data?.GetNativeReference() ?? IntPtr.Zero))
             {
+                if (data == null)
+                    throw (new Exception("DynamicType is null"));
+
                 if (GetNativeReference() == IntPtr.Zero)
                     throw (new Exception("DynamicType is not an ARRAY"));
             }
@@ -104,6 +113,9 @@ namespace GizmoSDK
 
             public void Insert(int index, DynamicType item)
             {
+                if (item == null)
+                    throw (new Exception("Insert DynamicType is null"));
+
                 DynamicTypeArray_insert_at(GetNativeReference(),(UInt32)index,item.GetNativeReference());
             }
 
@@ -115,6 +127,9 @@ namespace GizmoSDK
 
             public void Add(DynamicType item)
             {
+                if (item == null)
+                    throw (new Exception("Add DynamicType is null"));
+
                 DynamicTypeArray_add(GetNativeReference(), item.GetNativeReference());
             }
 
@@ -125,6 +140,9 @@ namespace GizmoSDK
 
             public bool Contains(DynamicType item)
             {
+                if (item == null)
+                    return false;
+
                 return DynamicTypeArray_index_of(GetNativeReference(), item.GetNativeReference())!=-1;
             }
 
@@ -135,6 +153,9 @@ namespace GizmoSDK
 
             public bool Remove(DynamicType item)
             {
+                if (item == null)
+                    throw (new Exception("Remove DynamicType is null"));
+
                 int index = IndexOf(item);
 
                 if (index >= 0)

@@ -73,33 +73,54 @@ namespace GizmoSDK
         {
             public static implicit operator DynamicType(DynamicTypeContainer cont)
             {
+                if (cont == null)
+                    return null;
+
                 return new DynamicType(DynamicTypeContainer_pack_cont(cont.GetNativeReference()));
             }
 
             public static implicit operator DynamicTypeContainer(DynamicType data)
             {
+                if (data == null)
+                    return null;
+
                 return new DynamicTypeContainer(data);
             }
 
             public DynamicTypeContainer() : base(DynamicTypeContainer_create_cont()) { }
-            public  DynamicTypeContainer(DynamicType data) : base(DynamicTypeContainer_unpack_cont(data.GetNativeReference()))
+            public  DynamicTypeContainer(DynamicType data) : base(DynamicTypeContainer_unpack_cont(data?.GetNativeReference() ?? IntPtr.Zero))
             {
+                if (data == null)
+                    throw (new Exception("DynamicType is null"));
+
                 if (GetNativeReference()==IntPtr.Zero)
                     throw (new Exception("DynamicType is not a CONTAINER"));
             }
 
             public void SetAttribute(string name, DynamicType value)
             {
+                if (name == null)
+                    throw (new Exception("SetAttribute name is null"));
+
+                if (value == null)
+                    throw (new Exception("SetAttribute DynamicType is null"));
+
                 DynamicTypeContainer_setAttribute(GetNativeReference(), name, value.GetNativeReference());
             }
 
             public DynamicType GetAttribute(string name)
             {
+                if (name == null)
+                    throw (new Exception("GetAttribute name is null"));
+
                 return new DynamicType(DynamicTypeContainer_getAttribute(GetNativeReference(), name));
             }
 
             public bool HasAttribute(string name)
             {
+                if (name == null)
+                    throw (new Exception("HasAttribute name is null"));
+
                 return DynamicTypeContainer_hasAttribute(GetNativeReference(), name);
             }
 
