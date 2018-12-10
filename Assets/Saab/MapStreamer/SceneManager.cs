@@ -1,14 +1,14 @@
-ï»¿//*****************************************************************************
+//*****************************************************************************
 // File			: SceneManager.cs
 // Module		:
 // Description	: Management of dynamic asset loader from GizmoSDK
-// Author		: Anders ModÃ©n
+// Author		: Anders Modén
 // Product		: Gizmo3D 2.10.1
 //
-// Copyright Â© 2003- Saab Training Systems AB, Sweden
+// Copyright © 2003- Saab Training Systems AB, Sweden
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
-//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and IRIXÂ® for  
+//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and IRIX® for  
 //			usage in Game or VisSim development.
 //
 //
@@ -19,6 +19,7 @@
 // AMO	180607	Created file        (2.9.1)
 //
 //******************************************************************************
+
 
 // Unity Managed classes
 using UnityEngine;
@@ -37,7 +38,6 @@ using gzImage = GizmoSDK.GizmoBase.Image;
 // Map utility
 using Saab.Map.CoordUtil;
 using Saab.Unity.Extensions;
-using Saab.Unity.PluginLoader;
 
 // Fix unity conflicts
 using unTransform = UnityEngine.Transform;
@@ -48,6 +48,9 @@ using System;
 using System.Collections;
 using UnityEngine.Networking;
 using Saab.Core;
+
+// PLugin loader
+using Saab.Unity.PluginLoader;
 
 namespace Saab.Unity.MapStreamer
 {
@@ -89,7 +92,7 @@ namespace Saab.Unity.MapStreamer
         private readonly Controller _controller = new Controller();
 
         #pragma warning disable 414
-        private UnityPluginInitializer _plugin_initializer;   // If we need our own plugin initializer
+        private UnityPluginInitializer _plugin_initializer;
         #pragma warning restore 414
 
         #endregion
@@ -681,6 +684,10 @@ namespace Saab.Unity.MapStreamer
 
             RemoveGameObjectHandles(_root);
 
+            GameObject.Destroy(_root);
+
+            _root = null;
+
             _controller.Reset();
 
             NodeLock.UnLock();
@@ -688,11 +695,7 @@ namespace Saab.Unity.MapStreamer
             return true;
         }
 
-        private void Awake()
-        {
-            _plugin_initializer = new UnityPluginInitializer();  // in case we need it our own
-        }
-
+        
         public bool Initialize()
         {
             _actionReceiver = new NodeAction("DynamicLoadManager");
@@ -701,9 +704,7 @@ namespace Saab.Unity.MapStreamer
             _zflipMatrix = new Matrix4x4(new Vector4(1, 0, 0), new Vector4(0, 1, 0), new Vector4(0, 0, -1), new Vector4(0, 0, 0, 1));
 
             GizmoSDK.GizmoBase.Message.Send("SceneManager", MessageLevel.DEBUG,"Loading Graph");
-
-            GizmoSDK.Gizmo3D.Platform.Initialize();
-
+                       
             NodeLock.WaitLockEdit();
 
             _native_camera = new PerspCamera("Test");
@@ -724,13 +725,15 @@ namespace Saab.Unity.MapStreamer
 
             NodeLock.UnLock();
 
-            DbManager.Initialize();
-
+           
+            DynamicLoaderManager.StartManager();
+                       
             return true;
         }
 
         public bool Uninitialize()
         {
+            DynamicLoaderManager.StopManager();
 
             ResetMap();
 
@@ -755,22 +758,13 @@ namespace Saab.Unity.MapStreamer
 
             NodeLock.UnLock();
 
-            GizmoSDK.Gizmo3D.Platform.UnInitialize();
 
-            _plugin_initializer = null;
-
+                  
             return true;
         }
         
 
-        void Start()
-        {
-            StartCoroutine(AssetLoader());
-
-            Initialize();
-            LoadMap(MapUrl);
-        }
-
+        
         private void ActionReceiver_OnAction(NodeAction sender, NodeActionEvent action, Context context, NodeActionProvider trigger, TraverseAction traverser, IntPtr userdata)
         {
             // Locked in edit or render (render) by caller
@@ -786,10 +780,43 @@ namespace Saab.Unity.MapStreamer
             context?.ReleaseNoDelete();
         }
 
+
+        private void Awake()
+        {
+            _plugin_initializer = new UnityPluginInitializer();
+
+        }
+
+        void Start()
+        {
+            StartCoroutine(AssetLoader());
+        }
+
         private void OnDestroy()
         {
-            Uninitialize();
         }
+
+        private void OnEnable()
+        {
+            // Initialize runtimes and factories
+            GizmoSDK.Gizmo3D.Platform.Initialize();
+
+            // Initialize formats
+            DbManager.Initialize();
+            
+            // Initialize this manager
+            Initialize();
+
+            // Load the map
+            LoadMap(MapUrl);
+        }
+
+
+        private void OnDisable()
+        {
+           Uninitialize();
+        }
+
 
         private void DynamicLoader_OnDynamicLoad(DynamicLoadingState state, DynamicLoader loader, Node node)
         {
@@ -811,6 +838,7 @@ namespace Saab.Unity.MapStreamer
             }
         }
 
+
         private void RemoveGameObjectHandles(GameObject obj)
         {
             if (obj == null)
@@ -831,11 +859,12 @@ namespace Saab.Unity.MapStreamer
                     h.inObjectDict = false;
                 }
 
-                h.node.Dispose();
+                h.node?.Dispose();
                 h.node = null;
             }
 
         }
+
 
         #region ---- Map and object position update utilities ---------------------------------------------------------------
 
@@ -1015,7 +1044,8 @@ namespace Saab.Unity.MapStreamer
         // Update is called once per frame
         private void Update()
         {
-            NodeLock.WaitLockEdit();
+            if (!NodeLock.TryLockEdit(100))
+                return;
 
             ProcessPendingUpdates();
 
@@ -1044,7 +1074,9 @@ namespace Saab.Unity.MapStreamer
 
             NodeLock.UnLock();
 
-            NodeLock.WaitLockRender();
+            if (!NodeLock.TryLockRender(100))
+                return;
+
             _native_camera.Render(_native_context, 1000, 1000, 1000, _native_traverse_action);
             //native_camera.DebugRefresh();
             NodeLock.UnLock();

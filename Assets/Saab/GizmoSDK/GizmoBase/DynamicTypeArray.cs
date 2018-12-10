@@ -105,7 +105,18 @@ namespace GizmoSDK
                     throw (new Exception("DynamicType is not an ARRAY"));
             }
 
-           
+            public void Set(DynamicType t)
+            {
+                if (t == null)
+                    return;
+
+                if (!t.Is(DynamicType.Type.ARRAY))
+                    return;
+
+                Reset(DynamicTypeArray_unpack_array(t.GetNativeReference()));
+            }
+
+
             public int IndexOf(DynamicType item)
             {
                 return DynamicTypeArray_index_of(GetNativeReference(),item.GetNativeReference());
@@ -181,6 +192,28 @@ namespace GizmoSDK
             {
                 return ((DynamicType)(this)).AsString();
             }
+
+            // --- Reflection mechanisms --------------------------------
+                        
+
+            static public void RestoreArray(DynamicTypeArray array, Array list, bool allProperties=false)
+            {
+                for (int i = 0; i < list.GetLength(0); i++)
+                    list.SetValue(array[i].GetObject(list.GetType().GetElementType(), allProperties),i);
+            }
+
+            static public void StoreEnumerable(DynamicTypeArray array, IEnumerable enumer, bool allProperties = false,Type type=null)
+            {
+                foreach (object o in enumer)
+                    array.Add(DynamicType.CreateDynamicType(o, allProperties,type!=null && o!=null ? type!=o.GetType() : false ));
+            }
+
+            static public void RestoreList(DynamicTypeArray array, IList list, Type type,bool allProperties = false)
+            {
+                foreach (DynamicType t in array)
+                    list.Add(t.GetObject(type, allProperties));
+            }
+
 
             #region ---------------------- private -------------------------------------
 

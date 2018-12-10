@@ -1,7 +1,7 @@
 ﻿//******************************************************************************
-// File			: Lod.cs
+// File			: DynamicLoader.cs
 // Module		: Gizmo3D C#
-// Description	: C# Bridge to gzLod class
+// Description	: C# Bridge to gzDynamicLoader class
 // Author		: Anders Modén		
 // Product		: Gizmo3D 2.10.1
 //		
@@ -31,30 +31,23 @@ namespace GizmoSDK
 {
     namespace Gizmo3D
     {
-        public class Lod : Group
+        public class DynamicLoaderManager
         {
-            public Lod(IntPtr nativeReference) : base(nativeReference) { }
-
-            public Lod(string name="") : base(Lod_create(name)) { }
-
-            public new static void InitializeFactory()
+            static public void StartManager(bool startAll=true, Byte manager_index =0)
             {
-                AddFactory(new Lod());
+                DynamicLoaderManager_startManager(startAll, manager_index);
             }
 
-            public new static void UninitializeFactory()
+            static public void StopManager(bool stopAll = true, Byte manager_index = 0)
             {
-                RemoveFactory("gzLod");
-            }
-
-            public override Reference Create(IntPtr nativeReference)
-            {
-                return new Lod(nativeReference) as Reference;
+                DynamicLoaderManager_stopManager(stopAll, manager_index);
             }
 
             #region Native dll interface ----------------------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr Lod_create(string name);
+            private static extern void DynamicLoaderManager_startManager(bool startAll, Byte manager_index);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void DynamicLoaderManager_stopManager(bool startAll, Byte manager_index);
             #endregion
         }
     }

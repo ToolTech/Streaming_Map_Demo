@@ -28,6 +28,9 @@ namespace GizmoSDK
     {
         public class DynamicType : Reference , ISerializeData
         {
+            public static Func<System.Reflection.AssemblyName, System.Reflection.Assembly> AssemblyResolver;
+            public static Func<System.Reflection.Assembly, string, bool, System.Type> TypeResolver;
+
             public static class Type
             {
                 public static string STRING = "str";
@@ -46,6 +49,8 @@ namespace GizmoSDK
                 public static string GUID = "guid";
                 public static string TIME_TAGGED = "ttag";
             }
+
+            const string TYPE_REFLECT = "_type_";
 
             #region ---------------------- implicits --------------------
 
@@ -125,6 +130,287 @@ namespace GizmoSDK
 
             public DynamicType(Reference reference) : base(DynamicType_create_reference(reference.GetNativeReference())) { }
 
+            public static DynamicType CreateDynamicType(object obj,bool allProperties=false,bool addReflectedType=false)
+            {
+                if (obj == null)
+                    return new DynamicType();
+
+                System.Type t = obj.GetType();
+
+                if (obj is DynamicType)
+                    return obj as DynamicType;
+
+                if(obj is DynamicTypeContainer)
+                    return (DynamicType)(obj as DynamicTypeContainer);
+
+                if (obj is DynamicTypeArray)
+                    return (DynamicType)(obj as DynamicTypeArray);
+
+                if (t == typeof(string))
+                    return new DynamicType((string)obj);
+
+                if (t == typeof(Int64))
+                    return new DynamicTypeInt64((Int64)obj);
+
+                if (t == typeof(UInt64))
+                    return new DynamicTypeInt64((UInt64)obj);
+
+                if (t == typeof(Vec2))
+                    return new DynamicType((Vec2)obj);
+
+                if (t == typeof(Vec3))
+                    return new DynamicType((Vec3)obj);
+
+                if (t == typeof(Vec4))
+                    return new DynamicType((Vec4)obj);
+
+                if (t == typeof(Guid))
+                    return new DynamicType((Guid)obj);
+
+                if (t == typeof(Reference))
+                    return new DynamicType((Reference)obj);
+
+                if (t == typeof(System.Type))
+                    return new DynamicType(t.AssemblyQualifiedName);
+
+                if (t.IsEnum)
+                {
+                    if (Marshal.SizeOf(Enum.GetUnderlyingType(obj.GetType())) <= sizeof(UInt32))
+                        return new DynamicType((UInt32)Convert.ChangeType(obj, typeof(UInt32)));
+                    else
+                        return new DynamicType((UInt64)Convert.ChangeType(obj, typeof(UInt64)));
+                }
+                               
+
+                if(t.IsValueType && !t.IsPrimitive)     // Struct
+                {
+                    DynamicTypeContainer cont = new DynamicTypeContainer();
+                    DynamicTypeContainer.StorePropertiesAndFields(cont, obj, allProperties);
+
+                    if (addReflectedType)
+                        cont.SetAttribute(TYPE_REFLECT, t.AssemblyQualifiedName);
+
+                    return cont;
+                }
+
+                if (obj is System.Collections.IEnumerable) 
+                {
+                    System.Type elemType = obj.GetType().GetElementType();
+
+                    if (elemType==null && obj.GetType().IsGenericType)
+                        elemType = obj.GetType().GenericTypeArguments[0];
+
+                    DynamicTypeArray array = new DynamicTypeArray();
+                    DynamicTypeArray.StoreEnumerable(array, (System.Collections.IEnumerable)obj, allProperties,elemType);
+
+                    return array;
+                }
+
+                if (t.IsClass)
+                {
+                    DynamicTypeContainer cont = new DynamicTypeContainer();
+                    DynamicTypeContainer.StorePropertiesAndFields(cont, obj, allProperties);
+
+                    if(addReflectedType)
+                        cont.SetAttribute(TYPE_REFLECT, t.AssemblyQualifiedName);
+
+                    return cont;
+                }
+
+                return new DynamicType((double)Convert.ChangeType(obj,typeof(double)));    // default to double
+            }
+
+            public T GetObject<T>(bool allProperties = false)
+            {
+                return (T)GetObject(typeof(T), allProperties);
+            }
+
+            public object GetObject(System.Type t,bool allProperties=false)
+            {
+                if (Is(DynamicType.Type.VOID))
+                    return null;
+
+                if (t==typeof(DynamicType))
+                    return this;
+
+                if (t.IsSubclassOf(typeof(DynamicType)))
+                    return this;
+
+                if (t == typeof(DynamicTypeArray) && Is(DynamicType.Type.ARRAY))
+                    return (DynamicTypeArray)this;
+
+                if (t.IsSubclassOf(typeof(DynamicTypeArray)) && Is(DynamicType.Type.ARRAY))
+                {
+                    object o = Activator.CreateInstance(t);
+
+                    ((DynamicTypeArray)o).Set(this);
+
+                    return o;
+                }
+
+                if (t == typeof(DynamicTypeContainer) && Is(DynamicType.Type.CONTAINER))
+                    return (DynamicTypeContainer)this;
+
+                if (t.IsSubclassOf(typeof(DynamicTypeContainer)) && Is(DynamicType.Type.CONTAINER))
+                {
+                    object o=Activator.CreateInstance(t);
+
+                    ((DynamicTypeContainer)o).Set(this);
+                    
+                    return o;
+                }
+
+                // ------- Converts to builtins --------------------
+
+                if (t==typeof(string))
+                    return (string)this;
+
+                if (t == typeof(UInt64))
+                    return (UInt64)(DynamicTypeInt64)this;
+
+                if (t == typeof(Int64))
+                    return (Int64)(DynamicTypeInt64)this;
+
+                if (t == typeof(Vec2))
+                    return (Vec2)this;
+
+                if (t == typeof(Vec3))
+                    return (Vec3)this;
+
+                if (t == typeof(Vec4))
+                    return (Vec4)this;
+
+                if (t == typeof(Guid))
+                    return (Guid)this;
+
+                if(t==typeof(System.Type))
+                {
+                    if (TypeResolver != null)
+                        return System.Type.GetType((string)this, AssemblyResolver, TypeResolver);
+                    else
+                        return System.Type.GetType((string)this);
+                }
+
+                if (t == typeof(Reference) && Is(DynamicType.Type.REFERENCE))
+                    return (Reference)this;
+                
+                if (t.IsSubclassOf(typeof(Reference)) && Is(DynamicType.Type.REFERENCE))
+                    return (Reference)this;
+
+                if (t == typeof(object) && !Is(Type.CONTAINER))
+                {
+                    // ------- Converts to builtins --------------------
+
+                    if (Is(Type.STRING))
+                        return (string)this;
+
+                    if (Is(Type.INT64))
+                        return (Int64)this;
+
+                    if (Is(Type.VEC2))
+                        return (Vec2)this;
+
+                    if (Is(Type.VEC3))
+                        return (Vec3)this;
+
+                    if (Is(Type.VEC4))
+                        return (Vec4)this;
+
+                    if (Is(Type.GUID))
+                        return (Guid)this;
+
+                    if(Is(Type.REFERENCE))
+                        return (Reference)this;
+                }
+
+                if (t.IsEnum)
+                {
+                    if(Marshal.SizeOf(Enum.GetUnderlyingType(t))<=sizeof(UInt32))
+                        return Enum.ToObject(t, (UInt32)this);
+                    else
+                        return Enum.ToObject(t, (UInt64)this);
+                }
+
+                if (Is(DynamicType.Type.ARRAY))
+                {
+                    if (typeof(Array).IsAssignableFrom(t))        // Array
+                    {
+                        DynamicTypeArray array = (DynamicTypeArray)this;
+
+                        Array obj = Array.CreateInstance(t.GetElementType(), array.Count);
+
+                        DynamicTypeArray.RestoreArray(array, obj, allProperties);
+
+                        return obj;
+                    }
+
+                    if (typeof(System.Collections.IList).IsAssignableFrom(t))
+                    {
+                        object obj = Activator.CreateInstance(t);
+
+                        System.Collections.IList list = (System.Collections.IList)obj;
+
+                        DynamicTypeArray array = (DynamicTypeArray)this;
+
+                        if(t.IsGenericType)
+                            DynamicTypeArray.RestoreList(array, list,t.GenericTypeArguments[0], allProperties);
+
+                        return obj;
+                    }
+
+
+                    // We can create it but not populate it
+
+                    return Activator.CreateInstance(t);
+                                        
+                }
+
+                if(t.IsValueType && !t.IsPrimitive)                 // struct
+                {
+                    object obj = Activator.CreateInstance(t);
+
+                    DynamicTypeContainer.RestorePropertiesAndFields(this, obj, allProperties);
+
+                    return obj;
+                }
+
+                if (t.IsClass && Is(DynamicType.Type.CONTAINER))
+                {
+                    DynamicTypeContainer container = this;
+
+                    object obj;
+
+                    string _type_ = container.GetAttribute(TYPE_REFLECT);
+
+                    if (_type_!=null)
+                    {
+                        if(TypeResolver!=null)
+                            obj = Activator.CreateInstance(System.Type.GetType(_type_, AssemblyResolver, TypeResolver));
+                        else
+                            obj = Activator.CreateInstance(System.Type.GetType(_type_));
+
+                        if (obj==null)
+                            obj = Activator.CreateInstance(t);
+                    }
+                    else
+                        obj = Activator.CreateInstance(t);
+
+                    DynamicTypeContainer.RestorePropertiesAndFields(container, obj, allProperties);
+
+                    return obj;
+                }
+    
+                // Default to integer number 
+
+                return Convert.ChangeType(GetNumber(), t);
+            }
+
+            public bool IsVoid()
+            {
+                return Is("void");
+            }
+
+
             public string GetDynamicType()
             {
                 if (!IsValid())
@@ -154,6 +440,7 @@ namespace GizmoSDK
                 if (!IsValid())
                     throw (new Exception("DynamicType is not VALID"));
 
+
                 return DynamicType_getVec2(GetNativeReference());
             }
 
@@ -169,6 +456,9 @@ namespace GizmoSDK
             {
                 if (!IsValid())
                     throw (new Exception("DynamicType is not VALID"));
+
+                if (IsVoid())
+                    return null;
 
                 return new Reference(DynamicType_getReference(GetNativeReference()));
             }
@@ -192,7 +482,10 @@ namespace GizmoSDK
             public string GetString()
             {
                 if (!IsValid())
-                    return "Invalid";
+                    return null;
+
+                if (IsVoid())
+                    return null;
 
                 return Marshal.PtrToStringUni(DynamicType_getString(GetNativeReference()));
             }
@@ -200,7 +493,7 @@ namespace GizmoSDK
             public string AsString(bool stripXML = true, bool skipDynTag = true, string tagName="data")
             {
                 if (!IsValid())
-                    return "Invalid";
+                    return null;
 
                 return Marshal.PtrToStringUni(DynamicType_asString(GetNativeReference(),stripXML,skipDynTag,tagName));
             }

@@ -63,7 +63,15 @@ namespace GizmoSDK
             {
                 IntPtr nativeReference = DistManager_getManager(create, DEFAULT_MANAGER);
 
+                if (nativeReference == IntPtr.Zero)
+                    return null;
+
                 return new DistManager(nativeReference);
+            }
+
+            public T GetObject<T>(string objectName) where T : DistObject
+            {
+                return GetObject(objectName, typeof(T).Name) as T;
             }
 
             public void RegisterObject<T>() where T : DistObject
@@ -110,6 +118,11 @@ namespace GizmoSDK
                 var prototype = (Reference)Activator.CreateInstance(objectType, flags, null, new object[] { nativeRef }, null);
 
                 AddFactory(prototype);
+            }
+
+            public T GetEvent<T>() where T : DistEvent
+            {
+                return GetEvent(typeof(T).Name) as T;
             }
 
             public void RegisterEvent<T>() where T : DistEvent
@@ -197,24 +210,24 @@ namespace GizmoSDK
                 return DistSessionInstanceManager.GetSession(DistManager_getSession(GetNativeReference(), sessionName, create,global ,prio));
             }
 
-            public DistEvent GetEvent(string className="gzDistEvent")
+            public DistEvent GetEvent(string typeName="gzDistEvent")
             {
-                return Reference.CreateObject(DistManager_getEvent(GetNativeReference(),className)) as DistEvent;
+                return Reference.CreateObject(DistManager_getEvent(GetNativeReference(),typeName)) as DistEvent;
             }
 
-            public DistObject GetObject(string objectName,string className = "gzDistObject")
+            public DistObject GetObject(string objectName,string typeName = "gzDistObject")
             {
-                return DistObjectInstanceManager.GetObject(DistManager_getObject(GetNativeReference(), objectName,className));
+                return DistObjectInstanceManager.GetObject(DistManager_getObject(GetNativeReference(), objectName,typeName));
             }
 
-            public bool RegisterEventHierarchy(string className, string parentClassName = "gzDistEvent", DistEvent factoryEvent=null)
+            public bool RegisterEventHierarchy(string typeName, string parentTypeName = "gzDistEvent", DistEvent factoryEvent=null)
             {
-                return DistManager_registerEventHierarchy(GetNativeReference(), className, parentClassName,factoryEvent?.GetNativeReference() ?? IntPtr.Zero);
+                return DistManager_registerEventHierarchy(GetNativeReference(), typeName, parentTypeName,factoryEvent?.GetNativeReference() ?? IntPtr.Zero);
             }
 
-            public bool RegisterObjecttHierarchy(string className, string parentClassName = "gzDistObject", DistObject factoryObject = null)
+            public bool RegisterObjecttHierarchy(string typeName, string parentTypeName = "gzDistObject", DistObject factoryObject = null)
             {
-                return DistManager_registerObjectHierarchy(GetNativeReference(), className, parentClassName, factoryObject?.GetNativeReference() ?? IntPtr.Zero);
+                return DistManager_registerObjectHierarchy(GetNativeReference(), typeName, parentTypeName, factoryObject?.GetNativeReference() ?? IntPtr.Zero);
             }
 
             public bool ProcessCustomThreadClients(bool waitForTrigger=false)

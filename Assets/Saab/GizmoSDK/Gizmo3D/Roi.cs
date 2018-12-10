@@ -42,7 +42,7 @@ namespace GizmoSDK
                 AddFactory(new Roi());
             }
 
-            public static new void UnInitializeFactory()
+            public static new void UninitializeFactory()
             {
                 RemoveFactory("gzRoi");
             }

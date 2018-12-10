@@ -69,9 +69,28 @@ namespace GizmoSDK
                      
         public class DistEvent : Reference, IEnumerable<DistAttribute>
         {
-            public DistEvent(IntPtr nativeReference) : base(nativeReference){}
+            protected DistEvent(IntPtr nativeReference) : base(nativeReference){}
 
             public DistEvent():base(DistEvent_createDefaultEvent()){}
+
+            public bool SetAttributeValues(object source,bool allProperties=false)
+            {
+                return StorePropertiesAndFields(this, source, allProperties);
+            }
+
+            public object GetAttributeValues(Type objectType,bool allProperties=false)
+            {
+                object obj = Activator.CreateInstance(objectType);
+
+                RestorePropertiesAndFields(this, obj, allProperties);
+
+                return obj;
+            }
+
+            public T GetAttributeValues<T>(bool allProperties) where T : class
+            {
+                return GetAttributeValues(typeof(T), allProperties) as T;
+            }
 
             public bool SetAttributeValue(string name, DynamicType value)
             {
@@ -133,6 +152,54 @@ namespace GizmoSDK
             public bool RestoreFromJSON(string json)
             {
                 return DistEvent_fromJSON(GetNativeReference(), json);
+            }
+
+            // --- Reflection mechanisms --------------------------------
+
+            public bool StorePropertiesAndFields(bool allProperties=false)
+            {
+                return StorePropertiesAndFields(this, this, allProperties);
+            }
+
+            public void RestorePropertiesAndFields(bool allProperties = false)
+            {
+                RestorePropertiesAndFields(this, this, allProperties);
+            }
+
+            // --- Reflection mechanisms --------------------------------
+
+            static public bool StorePropertiesAndFields(DistEvent e,object obj,bool allProperties = false)
+            {
+                foreach (System.Reflection.PropertyInfo prop in obj.GetType().GetProperties())
+                {
+                    if (allProperties || Attribute.IsDefined(prop, typeof(DistProperty)))
+                        if (!e.SetAttributeValue(prop.Name, DynamicType.CreateDynamicType(prop.GetValue(obj), allProperties)))
+                            return false;
+                }
+
+                foreach (System.Reflection.FieldInfo field in obj.GetType().GetFields())
+                {
+                    if (allProperties || Attribute.IsDefined(field, typeof(DistProperty)))
+                        if (!e.SetAttributeValue(field.Name, DynamicType.CreateDynamicType(field.GetValue(obj), allProperties)))
+                            return false;
+                }
+
+                return true;
+            }
+
+            static public void RestorePropertiesAndFields(DistEvent e, object obj, bool allProperties = false)
+            {
+                foreach (System.Reflection.PropertyInfo prop in obj.GetType().GetProperties())
+                {
+                    if (allProperties || Attribute.IsDefined(prop, typeof(DistProperty)))
+                        prop.SetValue(obj, e.GetAttributeValue(prop.Name).GetObject(prop.PropertyType, allProperties));
+                }
+
+                foreach (System.Reflection.FieldInfo field in obj.GetType().GetFields())
+                {
+                    if (allProperties || Attribute.IsDefined(field, typeof(DistProperty)))
+                        field.SetValue(obj, e.GetAttributeValue(field.Name).GetObject(field.FieldType, allProperties));
+                }
             }
 
             #region --------------------------- private ----------------------------------------------

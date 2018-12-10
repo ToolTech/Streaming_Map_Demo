@@ -49,24 +49,24 @@ namespace GizmoSDK
                 ExtRef.InitializeFactory();
             }
 
-            static public void UnInitializeFactories()
+            static public void UninitializeFactories()
             {
-                Node.UnInitializeFactory();
-                Group.UnInitializeFactory();
-                Transform.UnInitializeFactory();
-                Lod.UnInitializeFactory();
-                State.UnInitializeFactory();
-                Geometry.UnInitializeFactory();
-                Scene.UnInitializeFactory();
-                PerspCamera.UnInitializeFactory();
-                DynamicLoader.UnInitializeFactory();
-                CullTraverseAction.UnInitializeFactory();
-                NodeAction.UnInitializeFactory();
-                Context.UnInitializeFactory();
-                Texture.UnInitializeFactory();
-                Roi.UnInitializeFactory();
-                RoiNode.UnInitializeFactory();
-                ExtRef.UnInitializeFactory();
+                Node.UninitializeFactory();
+                Group.UninitializeFactory();
+                Transform.UninitializeFactory();
+                Lod.UninitializeFactory();
+                State.UninitializeFactory();
+                Geometry.UninitializeFactory();
+                Scene.UninitializeFactory();
+                PerspCamera.UninitializeFactory();
+                DynamicLoader.UninitializeFactory();
+                CullTraverseAction.UninitializeFactory();
+                NodeAction.UninitializeFactory();
+                Context.UninitializeFactory();
+                Texture.UninitializeFactory();
+                Roi.UninitializeFactory();
+                RoiNode.UninitializeFactory();
+                ExtRef.UninitializeFactory();
             }
 
             public static bool Initialize()
@@ -84,13 +84,13 @@ namespace GizmoSDK
                 return result;
             }
 
-            public static bool UnInitialize(bool forceShutdown=false, bool shutdownBase=false)
+            public static bool Uninitialize(bool forceShutdown=false, bool shutdownBase=false)
             {
                 NodeLock.WaitLockEdit();
 
-                DynamicLoader.UnInitialize();
+                DynamicLoader.Uninitialize();
 
-                UnInitializeFactories();
+                UninitializeFactories();
 
                 NodeLock.UnLock();
 

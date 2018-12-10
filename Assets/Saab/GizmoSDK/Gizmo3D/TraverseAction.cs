@@ -78,7 +78,7 @@ namespace GizmoSDK
                 AddFactory(new CullTraverseAction());
             }
 
-            public static void UnInitializeFactory()
+            public static void UninitializeFactory()
             {
                 RemoveFactory("gzCullTraverseAction");
             }

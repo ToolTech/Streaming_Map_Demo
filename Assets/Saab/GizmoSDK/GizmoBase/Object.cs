@@ -34,7 +34,7 @@ namespace GizmoSDK
 
         public class Object : UserData
         {
-            public Object(IntPtr nativeReference) : base(nativeReference)
+            protected Object(IntPtr nativeReference) : base(nativeReference)
             {
 
             }

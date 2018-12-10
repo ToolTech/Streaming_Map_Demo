@@ -1,5 +1,5 @@
 ﻿//******************************************************************************
-// File			: Attribute.cs
+// File			: DistAttribute.cs
 // Module		: GizmoDistribution C#
 // Description	: C# Bridge to gzDistAttribute class
 // Author		: Anders Modén		
