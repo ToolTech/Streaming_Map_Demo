@@ -28,7 +28,7 @@ namespace GizmoSDK
     {
         public class Module : Reference , DynamicEventInterface
         {
-            public Module(IntPtr nativeReference) : base(nativeReference)
+            protected Module(IntPtr nativeReference) : base(nativeReference)
             {
                 
             }

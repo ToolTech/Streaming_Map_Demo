@@ -42,7 +42,7 @@ namespace GizmoSDK
                 AddFactory(new ExtRef());
             }
 
-            public static new void UnInitializeFactory()
+            public static new void UninitializeFactory()
             {
                 RemoveFactory("gzExtRef");
             }

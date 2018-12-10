@@ -26,7 +26,7 @@ namespace GizmoSDK
 {
     namespace GizmoBase
     {
-        public static class Time
+        public class Time : Reference
         {
             public static double SystemSeconds
             {
@@ -44,19 +44,26 @@ namespace GizmoSDK
                 get { return Time_now(); }
             }
 
+            public Time() : base(Time_create()) { }
+            public Time(double seconds) : base(Time_create_seconds(seconds)) { }
+
             #region -------------- Native calls ------------------
 
-            [DllImport(Platform.BRIDGE, CallingConvention = CallingConvention.Cdecl)]
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern double Time_systemSeconds();
 
-            [DllImport(Platform.BRIDGE, CallingConvention = CallingConvention.Cdecl)]
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern double Time_now();
 
-            [DllImport(Platform.BRIDGE, CallingConvention = CallingConvention.Cdecl)]
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern double Time_getSystemTimeOffset();
 
-            [DllImport(Platform.BRIDGE, CallingConvention = CallingConvention.Cdecl)]
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void Time_setSystemTimeOffset(double offset);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr Time_create();
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr Time_create_seconds(double seconds);
 
             #endregion
         }

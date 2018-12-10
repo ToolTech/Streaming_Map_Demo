@@ -95,7 +95,7 @@ namespace GizmoSDK
                 AddFactory(new Group());
             }
 
-            public new static void UnInitializeFactory()
+            public new static void UninitializeFactory()
             {
                 RemoveFactory("gzGroup");
             }

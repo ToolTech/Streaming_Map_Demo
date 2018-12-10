@@ -42,7 +42,7 @@ namespace GizmoSDK
                 AddFactory(new Scene());
             }
 
-            public new static void UnInitializeFactory()
+            public new static void UninitializeFactory()
             {
                 RemoveFactory("gzScene");
             }

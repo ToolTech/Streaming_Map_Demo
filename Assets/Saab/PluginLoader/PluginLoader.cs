@@ -41,6 +41,8 @@ namespace Saab.Unity.PluginLoader
 
         ~UnityPluginInitializer()
         {
+            Message.OnMessage -= On_Gizmo_Message;
+
             UnityPlugin_UnInitialize();
         }
 

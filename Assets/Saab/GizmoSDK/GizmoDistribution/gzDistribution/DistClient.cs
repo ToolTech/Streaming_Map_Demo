@@ -146,6 +146,11 @@ namespace GizmoSDK
                 return DistClient_unsubscribeSessions(GetNativeReference(), timeOut);
             }
 
+            public bool SubscribeEvents<T>(DistSession session, Int32 timeOut = 0) where T : DistEvent
+            {
+                return SubscribeEvents(session, typeof(T).Name, timeOut);
+            }
+
             public bool SubscribeEvents(DistSession session,string typeName=null,Int32 timeOut=0)
             {
                 return DistClient_subscribeEvents(GetNativeReference(),session.GetNativeReference(), typeName, timeOut);
@@ -158,7 +163,45 @@ namespace GizmoSDK
 
             public bool SendEvent(DistEvent e,DistSession session)
             {
+                if (e.GetType().IsDefined(typeof(DistPropertyAutoStore),true))
+                    e.StorePropertiesAndFields();
+
                 return DistClient_sendEvent(GetNativeReference(), e.GetNativeReference(), session.GetNativeReference());
+            }
+
+            public T SendEventAndAwaitResponse<T>(DistEvent e,DistSession session,UInt32 timeout=100) where T : DistEvent
+            {
+                return SendEventAndAwaitResponse(e, session, manager.GetEvent<T>(), timeout) as T;
+            }
+
+            public DistEvent SendEventAndAwaitResponse(DistEvent e, DistSession session, DistEvent responseEventType, UInt32 timeout=100)
+            {
+                if (e.GetType().IsDefined(typeof(DistPropertyAutoStore), true))
+                    e.StorePropertiesAndFields();
+
+                DistEvent response = Reference.CreateObject(DistClient_sendEventAndAwaitResponse(GetNativeReference(), e.GetNativeReference(), session.GetNativeReference(), responseEventType.GetNativeReference(), timeout)) as DistEvent;
+
+                if(response?.IsValid() ?? false)
+                    if (response.GetType().IsDefined(typeof(DistPropertyAutoRestore), true))
+                        response.RestorePropertiesAndFields();
+
+                return response;
+            }
+
+            public T AwaitResponse<T>(UInt32 timeout = 100) where T : DistEvent
+            {
+                return AwaitResponse(manager.GetEvent<T>(), timeout) as T;
+            }
+
+            public DistEvent AwaitResponse(DistEvent responseEventType, UInt32 timeout = 100)
+            {
+                DistEvent response = Reference.CreateObject(DistClient_awaitResponse(GetNativeReference(), responseEventType.GetNativeReference(), timeout)) as DistEvent;
+
+                if (response?.IsValid() ?? false)
+                    if (response.GetType().IsDefined(typeof(DistPropertyAutoRestore), true))
+                        response.RestorePropertiesAndFields();
+
+                return response;
             }
 
             public bool AddObject(DistObject o, DistSession session, Int32 timeOut = 0)
@@ -256,7 +299,16 @@ namespace GizmoSDK
                 return new DistClientID(DistClient_getClientID(GetNativeReference()));
             }
 
- 
+            static public bool HasDistThreadError()
+            {
+                return DistClient_hasDistThreadError();
+            }
+
+            static public string GetDistThreadError(bool clearError=true)
+            {
+                return Marshal.PtrToStringUni(DistClient_getDistThreadError(clearError));
+            }
+
             #region ------------------------ Private Callbacks ---------------------------------------------
 
             [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
@@ -294,7 +346,15 @@ namespace GizmoSDK
             private DistEventHandler_OnEvent_Callback m_dispatcher_OnEvent;
             private void OnEvent_callback(IntPtr e)
             {
-                OnEvent?.Invoke(this, Reference.CreateObject(e) as DistEvent);
+                DistEvent @event = Reference.CreateObject(e) as DistEvent;
+
+                if (@event != null)
+                {
+                    if (@event.GetType().IsDefined(typeof(DistPropertyAutoRestore), true))
+                        @event.RestorePropertiesAndFields();
+
+                    OnEvent?.Invoke(this, @event);
+                }
             }
 
             [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
@@ -355,6 +415,12 @@ namespace GizmoSDK
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern UInt32 DistClient_getPendingData(IntPtr client, bool outQueue);
 
+
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool DistClient_hasDistThreadError();
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr DistClient_getDistThreadError(bool clearError);
+
             #region ------------------ SetCallback ------------------------------------------------------------------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void DistClient_SetCallback_OnTick(IntPtr client, DistEventHandler_OnTick_Callback fn);
@@ -399,6 +465,10 @@ namespace GizmoSDK
             #region ------------------- DistEvents ----------------------------------------------------------------------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool DistClient_sendEvent(IntPtr client_ref, IntPtr event_ref, IntPtr session_ref);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr DistClient_sendEventAndAwaitResponse(IntPtr client_ref, IntPtr event_ref, IntPtr session_ref,IntPtr response_ref,UInt32 timeout);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr DistClient_awaitResponse(IntPtr client_ref, IntPtr response_ref, UInt32 timeout);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool DistClient_subscribeEvents(IntPtr client_ref, IntPtr session_ref,string typeName,Int32 timeOut);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]

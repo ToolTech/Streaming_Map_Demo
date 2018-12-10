@@ -59,7 +59,7 @@ namespace GizmoSDK
                 AddFactory(new DynamicLoader());
             }
 
-            public static new void UnInitializeFactory()
+            public static new void UninitializeFactory()
             {
                 RemoveFactory("gzDynamicLoader");
             }
@@ -78,7 +78,7 @@ namespace GizmoSDK
                     s_class_init = new Initializer();
             }
 
-            static public void UnInitialize()
+            static public void Uninitialize()
             {
                 if (s_class_init != null)
                     s_class_init = null;

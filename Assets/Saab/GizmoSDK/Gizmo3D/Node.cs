@@ -42,7 +42,7 @@ namespace GizmoSDK
                 AddFactory(new Node());
             }
 
-            public static void UnInitializeFactory()
+            public static void UninitializeFactory()
             {
                 RemoveFactory("gzNode");
             }

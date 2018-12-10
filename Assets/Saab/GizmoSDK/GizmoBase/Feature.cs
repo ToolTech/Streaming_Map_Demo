@@ -49,6 +49,16 @@ namespace GizmoSDK
                 return Feature_getFeatureExpirationDays(featureName);
             }
 
+            static public string GetFeatureSetIdentification()
+            {
+                return Marshal.PtrToStringUni(Feature_getFeatureSetIdentification());
+            }
+
+            static public bool ReadFeatures(string url , string elementName)
+            {
+                return Feature_readFeatures(url, elementName);
+            }
+
             #region // --------------------- Native calls -----------------------
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void Feature_setApplicationMask(UInt32 mask);
@@ -58,6 +68,10 @@ namespace GizmoSDK
             private static extern bool Feature_hasAllowedFeature(string featureName);
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern Int32 Feature_getFeatureExpirationDays(string featureName);
+            [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr Feature_getFeatureSetIdentification();
+            [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool Feature_readFeatures(string url, string elementName);
             #endregion
         }
 

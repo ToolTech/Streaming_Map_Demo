@@ -65,7 +65,7 @@ namespace GizmoSDK
                 AddFactory(new State());
             }
 
-            public static void UnInitializeFactory()
+            public static void UninitializeFactory()
             {
                 RemoveFactory("gzState");
             }

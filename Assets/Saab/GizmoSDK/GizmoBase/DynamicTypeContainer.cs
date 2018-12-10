@@ -76,6 +76,9 @@ namespace GizmoSDK
                 if (cont == null)
                     return null;
 
+                if (cont.GetType().IsDefined(typeof(DynamicTypePropertyAutoStore), true))
+                    cont.StorePropertiesAndFields();
+
                 return new DynamicType(DynamicTypeContainer_pack_cont(cont.GetNativeReference()));
             }
 
@@ -95,7 +98,23 @@ namespace GizmoSDK
 
                 if (GetNativeReference()==IntPtr.Zero)
                     throw (new Exception("DynamicType is not a CONTAINER"));
+                
             }
+
+            public void Set(DynamicType t)
+            {
+                if (t == null)
+                    return;
+
+                if (!t.Is(DynamicType.Type.CONTAINER))
+                    return;
+
+                Reset(DynamicTypeContainer_unpack_cont(t.GetNativeReference()));
+
+                if (GetType().IsDefined(typeof(DynamicTypePropertyAutoRestore), true))
+                    RestorePropertiesAndFields();
+            }
+
 
             public void SetAttribute(string name, DynamicType value)
             {
@@ -127,6 +146,60 @@ namespace GizmoSDK
             public override string ToString()
             {
                 return ((DynamicType)(this)).AsString();
+            }
+
+            // --- Reflection mechanisms --------------------------------
+
+            public void StorePropertiesAndFields(bool allProperties = false)
+            {
+                StorePropertiesAndFields(this, this, allProperties);
+            }
+
+            public void RestorePropertiesAndFields(bool allProperties = false)
+            {
+                RestorePropertiesAndFields(this, this, allProperties);
+            }
+
+            static public void StorePropertiesAndFields(DynamicTypeContainer container,object obj,bool allProperties = false)
+            {
+                var bindingFlags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public;
+
+                foreach (System.Reflection.PropertyInfo prop in obj.GetType().GetProperties(bindingFlags))
+                {
+                    if (allProperties || Attribute.IsDefined(prop, typeof(DynamicTypeProperty)))
+                    {
+                        var value = prop.GetValue(obj);
+                        bool reflectType = value == null ? false : prop.PropertyType != value.GetType();
+                        container.SetAttribute(prop.Name, DynamicType.CreateDynamicType(value, allProperties,reflectType));
+                    }
+                }
+
+                foreach (System.Reflection.FieldInfo field in obj.GetType().GetFields(bindingFlags))
+                {
+                    if (allProperties || Attribute.IsDefined(field, typeof(DynamicTypeProperty)))
+                    {
+                        var value = field.GetValue(obj);
+                        bool reflectType = value == null ? false : field.FieldType != value.GetType();
+                        container.SetAttribute(field.Name, DynamicType.CreateDynamicType(value, allProperties,reflectType));
+                    }
+                }
+            }
+
+            static public void RestorePropertiesAndFields(DynamicTypeContainer container, object obj,bool allProperties = false)
+            {
+                var bindingFlags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public;
+
+                foreach (System.Reflection.PropertyInfo prop in obj.GetType().GetProperties(bindingFlags))
+                {
+                    if (allProperties || Attribute.IsDefined(prop, typeof(DynamicTypeProperty)))
+                        prop.SetValue(obj, container.GetAttribute(prop.Name).GetObject(prop.PropertyType,allProperties));
+                }
+
+                foreach (System.Reflection.FieldInfo field in obj.GetType().GetFields(bindingFlags))
+                {
+                    if (allProperties || Attribute.IsDefined(field, typeof(DynamicTypeProperty)))
+                        field.SetValue(obj, container.GetAttribute(field.Name).GetObject(field.FieldType,allProperties));
+                }
             }
 
             #region ---------------------- private -------------------------------------

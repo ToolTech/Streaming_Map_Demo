@@ -70,7 +70,7 @@ namespace GizmoSDK
                 AddFactory(new NodeAction());
             }
 
-            public static void UnInitializeFactory()
+            public static void UninitializeFactory()
             {
                 RemoveFactory("gzNodeAction");
             }

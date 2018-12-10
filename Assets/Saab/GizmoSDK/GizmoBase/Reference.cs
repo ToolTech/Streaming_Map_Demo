@@ -22,6 +22,7 @@
 using System.Runtime.InteropServices;
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 
 namespace GizmoSDK
 {
@@ -43,17 +44,30 @@ namespace GizmoSDK
         {
             public Reference(IntPtr nativeReference)
             {
-                m_reference = new HandleRef(this,nativeReference);
-
                 Reference_ref(nativeReference);
+
+                m_reference = new HandleRef(this,nativeReference);
             }
 
             public Reference(Reference copy)
             {
-                m_reference = new HandleRef(this, copy.GetNativeReference());
-
-                if(copy.GetNativeReference()!=IntPtr.Zero)
+                if (copy.GetNativeReference() != IntPtr.Zero)
                     Reference_ref(copy.GetNativeReference());
+
+                m_reference = new HandleRef(this, copy.GetNativeReference());
+            }
+
+            public void Reset(IntPtr nativeReference)
+            {
+                if(nativeReference!= IntPtr.Zero)
+                    Reference_ref(nativeReference);
+
+                IntPtr oldRef = m_reference.Handle;
+
+                m_reference = new HandleRef(this, nativeReference);
+
+                if (oldRef != IntPtr.Zero)
+                    Reference_unref(oldRef);
             }
 
             ~Reference()
@@ -111,21 +125,25 @@ namespace GizmoSDK
 
             virtual public void ReleaseNoDelete()
             {
-                if (m_reference.Handle != IntPtr.Zero)
-                    Reference_unrefNoDelete(m_reference.Handle);
+                IntPtr oldRef = m_reference.Handle;
 
                 // Don't permit the handle to be used again.
                 m_reference = new HandleRef(this, IntPtr.Zero);
+
+                if (oldRef != IntPtr.Zero)
+                    Reference_unrefNoDelete(oldRef);
             }
 
             
             virtual public void Release()
             {
-                if(m_reference.Handle != IntPtr.Zero)
-                    Reference_unref(m_reference.Handle);
+                IntPtr oldRef = m_reference.Handle;
 
                 // Don't permit the handle to be used again.
                 m_reference = new HandleRef(this, IntPtr.Zero);
+
+                if (oldRef != IntPtr.Zero)
+                    Reference_unref(oldRef);
             }
 
             #region ----------------- privates --------------------
@@ -163,28 +181,19 @@ namespace GizmoSDK
 
                 string typeName = iface.GetNativeTypeName();
 
-                lock (s_factory)
-                {
-                    if (s_factory.ContainsKey(typeName))
-                        return false;
-
-                    s_factory.Add(typeName, iface);
-
-                    return true;
-                }
+                return s_factory.TryAdd(typeName, iface);
             }
 
+            static public bool RemoveFactory<T>() where T : Reference
+            {
+                return RemoveFactory(typeof(T).Name);
+            }
             static public bool RemoveFactory(string typeName)
             {
-                lock (s_factory)
-                {
-                    if (!s_factory.ContainsKey(typeName))
-                        return false;
+                IReferenceFactory factory;
 
-                    s_factory.Remove(typeName);
+                return s_factory.TryRemove(typeName,out factory);
 
-                    return true;
-                }
             }
 
             static public Reference CreateObject(IntPtr nativeReference)
@@ -192,28 +201,26 @@ namespace GizmoSDK
                 if (nativeReference==IntPtr.Zero)
                     return null;
 
-                lock (s_factory)
+                IntPtr type = Reference_getType(nativeReference);
+
+                IReferenceFactory factory;
+
+                while (type != IntPtr.Zero)
                 {
-                    IntPtr type = Reference_getType(nativeReference);
+                    string typeName = Marshal.PtrToStringUni(Reference_getTypeName(type));
 
-                    IReferenceFactory factory;
+                    if (s_factory.TryGetValue(typeName, out factory))
+                       return factory.Create(nativeReference);
 
-                    while (type != IntPtr.Zero)
-                    {
-                        string typeName = Marshal.PtrToStringUni(Reference_getTypeName(type));
-
-                        if (s_factory.TryGetValue(typeName, out factory))
-                            return factory.Create(nativeReference);
-
-                        type = Reference_getParentType(type);
-                    }
-                    return new Reference(nativeReference);
+                    type = Reference_getParentType(type);
                 }
+
+                return new Reference(nativeReference);
             }
 
             private HandleRef m_reference;
 
-            private static Dictionary<string, IReferenceFactory> s_factory = new Dictionary<string, IReferenceFactory>();
+            private static ConcurrentDictionary<string, IReferenceFactory> s_factory = new ConcurrentDictionary<string, IReferenceFactory>();
 
             #endregion
         }

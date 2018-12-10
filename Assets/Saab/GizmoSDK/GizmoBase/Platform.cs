@@ -71,7 +71,7 @@ namespace GizmoSDK
                 Image.InitializeFactory();
             }
 
-            static public void UnInitializeFactories()
+            static public void UninitializeFactories()
             {
                 Module.UninitializeFactory();
                 Image.UninitializeFactory();
@@ -89,11 +89,11 @@ namespace GizmoSDK
                 return result;
             }
 
-            public static bool UnInitialize(bool forceShutdown = false)
+            public static bool Uninitialize(bool forceShutdown = false)
             {
-                Message.UnInitialize();
+                Message.Uninitialize();
 
-                UnInitializeFactories();
+                UninitializeFactories();
                 return Platform_uninitialize(forceShutdown);
             }
 

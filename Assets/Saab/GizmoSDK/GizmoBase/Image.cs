@@ -103,7 +103,7 @@ namespace GizmoSDK
 
         public class Image : Object , INameInterface
         {
-            public Image(IntPtr nativeReference) : base(nativeReference) { }
+            protected Image(IntPtr nativeReference) : base(nativeReference) { }
 
             public Image(string name) : base(Image_create(name)) { }
 
