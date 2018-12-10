@@ -1,7 +1,7 @@
 ﻿//******************************************************************************
-// File			: DynamicLoader.cs
+// File			: DynamicLoaderManager.cs
 // Module		: Gizmo3D C#
-// Description	: C# Bridge to gzDynamicLoader class
+// Description	: C# Bridge to gzDynamicLoaderManager class
 // Author		: Anders Modén		
 // Product		: Gizmo3D 2.10.1
 //		
@@ -16,7 +16,7 @@
 //									
 // Who	Date	Description						
 //									
-// AMO	180301	Created file 	
+// AMO	181210	Created file 	
 //
 //******************************************************************************
 
