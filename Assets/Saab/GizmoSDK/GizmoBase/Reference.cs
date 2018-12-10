@@ -22,6 +22,7 @@
 using System.Runtime.InteropServices;
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 
 namespace GizmoSDK
 {
@@ -180,15 +181,7 @@ namespace GizmoSDK
 
                 string typeName = iface.GetNativeTypeName();
 
-                lock (s_factory)
-                {
-                    if (s_factory.ContainsKey(typeName))
-                        return false;
-
-                    s_factory.Add(typeName, iface);
-
-                    return true;
-                }
+                return s_factory.TryAdd(typeName, iface);
             }
 
             static public bool RemoveFactory<T>() where T : Reference
@@ -197,15 +190,10 @@ namespace GizmoSDK
             }
             static public bool RemoveFactory(string typeName)
             {
-                lock (s_factory)
-                {
-                    if (!s_factory.ContainsKey(typeName))
-                        return false;
+                IReferenceFactory factory;
 
-                    s_factory.Remove(typeName);
+                return s_factory.TryRemove(typeName,out factory);
 
-                    return true;
-                }
             }
 
             static public Reference CreateObject(IntPtr nativeReference)
@@ -213,28 +201,26 @@ namespace GizmoSDK
                 if (nativeReference==IntPtr.Zero)
                     return null;
 
-                lock (s_factory)
+                IntPtr type = Reference_getType(nativeReference);
+
+                IReferenceFactory factory;
+
+                while (type != IntPtr.Zero)
                 {
-                    IntPtr type = Reference_getType(nativeReference);
+                    string typeName = Marshal.PtrToStringUni(Reference_getTypeName(type));
 
-                    IReferenceFactory factory;
+                    if (s_factory.TryGetValue(typeName, out factory))
+                       return factory.Create(nativeReference);
 
-                    while (type != IntPtr.Zero)
-                    {
-                        string typeName = Marshal.PtrToStringUni(Reference_getTypeName(type));
-
-                        if (s_factory.TryGetValue(typeName, out factory))
-                            return factory.Create(nativeReference);
-
-                        type = Reference_getParentType(type);
-                    }
-                    return new Reference(nativeReference);
+                    type = Reference_getParentType(type);
                 }
+
+                return new Reference(nativeReference);
             }
 
             private HandleRef m_reference;
 
-            private static Dictionary<string, IReferenceFactory> s_factory = new Dictionary<string, IReferenceFactory>();
+            private static ConcurrentDictionary<string, IReferenceFactory> s_factory = new ConcurrentDictionary<string, IReferenceFactory>();
 
             #endregion
         }

@@ -20,8 +20,7 @@
 //******************************************************************************
 
 using System;
-using System.Collections;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using GizmoSDK.GizmoBase;
 
@@ -34,7 +33,7 @@ namespace GizmoSDK
         {
             public DistSessionInstanceManager()
             {
-                instanses = new Dictionary<IntPtr, DistSession>();
+                _instanses = new ConcurrentDictionary<IntPtr, DistSession>();
             }
             public DistSession GetSession(IntPtr nativeReference)
             {
@@ -43,49 +42,41 @@ namespace GizmoSDK
                 if (nativeReference == IntPtr.Zero)
                     return null;
 
-                lock (instanses)
+                DistSession sess;
+
+                if (!_instanses.TryGetValue(nativeReference, out sess))
                 {
-                    DistSession sess;
+                    sess = new DistSession(nativeReference);
 
-                    if (!instanses.TryGetValue(nativeReference, out sess))
-                    {
-                        sess = new DistSession(nativeReference);
-
-                        instanses.Add(nativeReference, sess);
-                    }
-
-                    if (sess==null || !sess.IsValid())
-                    {
-                        instanses[nativeReference] = sess = new DistSession(nativeReference);
-                    }
-
-                    return sess;
+                    _instanses.TryAdd(nativeReference, sess);
                 }
+
+                if (sess==null || !sess.IsValid())
+                {
+                    _instanses[nativeReference] = sess = new DistSession(nativeReference);
+                }
+
+                return sess;
             }
 
             public void Clear()
             {
-                lock (instanses)
+                foreach(var key in _instanses )
                 {
-                    foreach(var key in instanses )
-                    {
-                        key.Value.Dispose();
-                    }
-
-                    instanses.Clear();
+                    key.Value.Dispose();
                 }
+
+                _instanses.Clear();
             }
 
             public bool DropSession(IntPtr nativeReference)
             {
-                lock (instanses)
-                {
-                    return instanses.Remove(nativeReference);
-                }
+                DistSession obj;
+                return _instanses.TryRemove(nativeReference,out obj);
             }
 
 
-            Dictionary<IntPtr, DistSession> instanses;
+            ConcurrentDictionary<IntPtr, DistSession> _instanses;
         }
 
         public class DistSession : Reference 

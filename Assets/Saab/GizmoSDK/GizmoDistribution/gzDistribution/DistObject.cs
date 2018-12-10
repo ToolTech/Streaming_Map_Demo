@@ -20,10 +20,9 @@
 //******************************************************************************
 
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using GizmoSDK.GizmoBase;
+using System.Collections.Concurrent;
 
 
 namespace GizmoSDK
@@ -35,7 +34,7 @@ namespace GizmoSDK
         {
             public DistObjectInstanceManager()
             {
-                instanses = new Dictionary<IntPtr, DistObject>();
+                _instanses = new ConcurrentDictionary<IntPtr, DistObject>();
             }
 
             public DistObject GetObject(IntPtr nativeReference)
@@ -45,51 +44,44 @@ namespace GizmoSDK
                 if (nativeReference == IntPtr.Zero)
                     return null;
 
-                lock (instanses)
+                DistObject obj;
+
+                if (!_instanses.TryGetValue(nativeReference, out obj))
                 {
-                    DistObject obj;
+                    obj = Reference.CreateObject(nativeReference) as DistObject;
 
-                    if (!instanses.TryGetValue(nativeReference, out obj))
-                    {
-                        obj = Reference.CreateObject(nativeReference) as DistObject;
+                    // At least we will always get a DistObject
 
-                        // At least we will always get a DistObject
-
-                        instanses.Add(nativeReference, obj);
-                    }
-
-                    if( obj==null || !obj.IsValid() )
-                    {
-                        instanses[nativeReference]= obj = Reference.CreateObject(nativeReference) as DistObject;
-                    }
-
-                    return obj;
+                    _instanses.TryAdd(nativeReference, obj);
                 }
+
+                if( obj==null || !obj.IsValid() )
+                {
+                    // In case we lost the factory native ref
+                    _instanses[nativeReference]=obj=Reference.CreateObject(nativeReference) as DistObject;
+                }
+
+                return obj;
             }
 
             public void Clear()
             {
-                lock (instanses)
+                foreach (var key in _instanses)
                 {
-                    foreach (var key in instanses)
-                    {
-                        key.Value.Dispose();
-                    }
-
-                    instanses.Clear();
+                    key.Value.Dispose();
                 }
+
+                _instanses.Clear();
             }
 
             public bool DropObject(IntPtr nativeReference)
             {
-                lock (instanses)
-                {
-                    return instanses.Remove(nativeReference);
-                }
+                DistObject obj;
+                return _instanses.TryRemove(nativeReference,out obj);
             }
 
 
-            Dictionary<IntPtr, DistObject>         instanses;
+            ConcurrentDictionary<IntPtr, DistObject>         _instanses;
         }
 
         public class DistObject : Reference
