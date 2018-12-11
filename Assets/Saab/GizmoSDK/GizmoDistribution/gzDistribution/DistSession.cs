@@ -16,6 +16,7 @@
 // Who	Date	Description						
 //									
 // AMO	180301	Created file 	
+// AMO  181210  Added Concurrent reading of dictionary
 //
 //******************************************************************************
 

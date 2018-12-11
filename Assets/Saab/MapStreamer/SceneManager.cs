@@ -943,6 +943,8 @@ namespace Saab.Unity.MapStreamer
 
         private void ProcessPendingUpdates()
         {
+            #region Add/Remove nodes in dynamic loading ------------------------------------
+
             foreach (NodeLoadInfo nodeLoadInfo in pendingLoaders)
             {
                 if (nodeLoadInfo.state == DynamicLoadingState.LOADED)
@@ -975,6 +977,10 @@ namespace Saab.Unity.MapStreamer
 
             pendingLoaders.Clear();
 
+            #endregion
+
+            #region Activate/Deactivate in native scenegraph -------------------------------
+
             foreach (ActivationInfo activationInfo in pendingActivations)
             {
                 List<GameObject> gameObjectList;
@@ -997,6 +1003,9 @@ namespace Saab.Unity.MapStreamer
 
             pendingActivations.Clear();
 
+            #endregion
+
+            #region Build GameObjects ------------------------------------------------------
 
             foreach (GameObjectInfo go_info in pendingObjects)
             {
@@ -1028,12 +1037,12 @@ namespace Saab.Unity.MapStreamer
 
             pendingObjects.Clear();
 
+            #endregion
+
             //Message.Send("SceneManager", MessageLevel.ALWAYS, $"currentObjects Size {currentObjects.Count}");
-
             //Message.Send("SceneManager", MessageLevel.ALWAYS, String.Format("currentObjects Size {0}", currentObjects.Count));
-
-
-            // Right now we use this as a dirty fix to handle unused shared materials
+            
+            // Right now we use this as a dirty fix to handle unused shared materials ---------------------------------------
 
             _unusedCounter = (_unusedCounter + 1) % FrameCleanupInterval;
             if(_unusedCounter==0)
@@ -1044,7 +1053,7 @@ namespace Saab.Unity.MapStreamer
         // Update is called once per frame
         private void Update()
         {
-            if (!NodeLock.TryLockEdit(100))
+            if (!NodeLock.TryLockEdit(30))      // 30 msek allow latency of other pending editor
                 return;
 
             ProcessPendingUpdates();
@@ -1074,7 +1083,7 @@ namespace Saab.Unity.MapStreamer
 
             NodeLock.UnLock();
 
-            if (!NodeLock.TryLockRender(100))
+            if (!NodeLock.TryLockRender(30))    // 30 millisek latency allowed
                 return;
 
             _native_camera.Render(_native_context, 1000, 1000, 1000, _native_traverse_action);

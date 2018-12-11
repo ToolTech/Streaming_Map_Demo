@@ -16,6 +16,7 @@
 // Who	Date	Description						
 //									
 // AMO	180301	Created file 	
+// AMO  281211  Added UseAutoProperty to enable automatic store/restore of properties
 //
 //******************************************************************************
 
@@ -163,7 +164,7 @@ namespace GizmoSDK
 
             public bool SendEvent(DistEvent e,DistSession session)
             {
-                if (e.GetType().IsDefined(typeof(DistPropertyAutoStore),true))
+                if (UseAutoProperty && e.GetType().IsDefined(typeof(DistPropertyAutoStore),true))
                     e.StorePropertiesAndFields();
 
                 return DistClient_sendEvent(GetNativeReference(), e.GetNativeReference(), session.GetNativeReference());
@@ -176,13 +177,13 @@ namespace GizmoSDK
 
             public DistEvent SendEventAndAwaitResponse(DistEvent e, DistSession session, DistEvent responseEventType, UInt32 timeout=100)
             {
-                if (e.GetType().IsDefined(typeof(DistPropertyAutoStore), true))
+                if (UseAutoProperty && e.GetType().IsDefined(typeof(DistPropertyAutoStore), true))
                     e.StorePropertiesAndFields();
 
                 DistEvent response = Reference.CreateObject(DistClient_sendEventAndAwaitResponse(GetNativeReference(), e.GetNativeReference(), session.GetNativeReference(), responseEventType.GetNativeReference(), timeout)) as DistEvent;
 
                 if(response?.IsValid() ?? false)
-                    if (response.GetType().IsDefined(typeof(DistPropertyAutoRestore), true))
+                    if (UseAutoProperty && response.GetType().IsDefined(typeof(DistPropertyAutoRestore), true))
                         response.RestorePropertiesAndFields();
 
                 return response;
@@ -198,7 +199,7 @@ namespace GizmoSDK
                 DistEvent response = Reference.CreateObject(DistClient_awaitResponse(GetNativeReference(), responseEventType.GetNativeReference(), timeout)) as DistEvent;
 
                 if (response?.IsValid() ?? false)
-                    if (response.GetType().IsDefined(typeof(DistPropertyAutoRestore), true))
+                    if (UseAutoProperty && response.GetType().IsDefined(typeof(DistPropertyAutoRestore), true))
                         response.RestorePropertiesAndFields();
 
                 return response;
@@ -309,6 +310,8 @@ namespace GizmoSDK
                 return Marshal.PtrToStringUni(DistClient_getDistThreadError(clearError));
             }
 
+            public bool UseAutoProperty = true;
+
             #region ------------------------ Private Callbacks ---------------------------------------------
 
             [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
@@ -350,7 +353,7 @@ namespace GizmoSDK
 
                 if (@event != null)
                 {
-                    if (@event.GetType().IsDefined(typeof(DistPropertyAutoRestore), true))
+                    if (UseAutoProperty && @event.GetType().IsDefined(typeof(DistPropertyAutoRestore), true))
                         @event.RestorePropertiesAndFields();
 
                     OnEvent?.Invoke(this, @event);
