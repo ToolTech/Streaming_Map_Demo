@@ -66,16 +66,21 @@ namespace Saab.Unity.MapStreamer
         }
     }
 
+    
+
     // The SceneManager behaviour takes a unity camera and follows that to populate the current scene with GameObjects in a scenegraph hierarchy
     public class SceneManager : MonoBehaviour
     {
-
         public UnityEngine.Camera   UnityCamera;
-        public UnityEngine.Shader   Shader;
+        public UnityEngine.Shader   DefaultShader;
+        public UnityEngine.Shader   CrossboardShader;
 
         public string               MapUrl;
         public int                  FrameCleanupInterval = 1000;
+        public double               MaxBuildTime = 0.01;   // 100hz
 
+        public delegate void SceneManager_OnUpdate(SceneManager sender);
+        public event SceneManager_OnUpdate OnUpdateScene;
 
         #region ------------- Privates ----------------
 
@@ -161,13 +166,23 @@ namespace Saab.Unity.MapStreamer
         // A queue for pending new objects
         List<GameObjectInfo> pendingObjects = new List<GameObjectInfo>(100);
 
+        // A queue for post build work
+        Queue<NodeHandle> pendingBuilds = new Queue<NodeHandle>(500);
+
         // A queue for AssetLoading
         Stack<AssetLoadInfo> pendingAssetLoads = new Stack<AssetLoadInfo>(100);
 
         // The lookup dictinary to find a game object with s specfic native handle
         Dictionary<IntPtr, List<GameObject>> currentObjects = new Dictionary<IntPtr, List<GameObject>>();
 
+        // The current active asset bundles
         Dictionary<string, AssetBundle> currentAssetBundles = new Dictionary<string, AssetBundle>();
+
+        // Lookup for used materials
+        Dictionary<IntPtr,Material>   textureMaterialStorage= new Dictionary<IntPtr, Material>();
+
+        // Linked List for nodes that needs updates on update
+        LinkedList<GameObject> updateNodeObjects = new LinkedList<GameObject>();
 
         //Add GameObjects to dictionary
 
@@ -213,7 +228,7 @@ namespace Saab.Unity.MapStreamer
             var nodeHandle = gameObject.AddComponent<NodeHandle>();
 
             nodeHandle.node = n;
-            nodeHandle.inObjectDict = false;
+            nodeHandle.currentMaterial = currentMaterial;
 
             // ---------------------------- Check material state ----------------------------------
 
@@ -225,56 +240,98 @@ namespace Saab.Unity.MapStreamer
                 {
                     gzTexture texture = state.GetTexture(0);
 
-                    if (texture.HasImage())
+                    if (!textureMaterialStorage.TryGetValue(texture.GetNativeReference(), out currentMaterial))
                     {
-                        gzImage image = texture.GetImage();
-
-                        int depth = (int)image.GetDepth();
-                        int width = (int)image.GetWidth();
-                        int height = (int)image.GetHeight();
-
-                        if (depth == 1)
+                        if (texture.HasImage())
                         {
-                            if (currentMaterial == null)
-                                currentMaterial = new Material(Shader);
+                            gzImage image = texture.GetImage();
 
+                            int depth = (int)image.GetDepth();
+                            int width = (int)image.GetWidth();
+                            int height = (int)image.GetHeight();
 
-                            TextureFormat format = TextureFormat.ARGB32;
-
-                            ImageType image_type = image.GetImageType();
-
-                            switch (image_type)
+                            if (depth == 1)
                             {
-                                case ImageType.RGB_8_DXT1:
-                                    format = TextureFormat.DXT1;
-                                    break;
+
+                                if (n is Crossboard)
+                                    currentMaterial = new Material(CrossboardShader);
+                                else
+                                    currentMaterial = new Material(DefaultShader);
+
+                                TextureFormat format = TextureFormat.ARGB32;
+
+                                ImageType image_type = image.GetImageType();
+
+                                switch (image_type)
+                                {
+                                    case ImageType.RGB_8_DXT1:
+                                        format = TextureFormat.DXT1;
+                                        break;
+
+                                    case ImageType.RGBA_8:
+                                        format = TextureFormat.RGBA32;
+                                        break;
+
+                                    case ImageType.RGB_8:
+                                        format = TextureFormat.RGB24;
+                                        break;
+
+                                    default:
+                                        // Issue your own error here because we can not use this texture yet
+                                        return null;
+                                }
+
+                                Texture2D tex = new Texture2D(width, height, format, false);
+
+                                byte[] image_data;
+
+                                image.GetImageArray(out image_data);
+
+                                tex.LoadRawTextureData(image_data);
+
+                                switch (texture.MinFilter)
+                                {
+                                    default:
+                                        tex.filterMode = FilterMode.Point;
+                                        break;
+
+                                    case gzTexture.TextureMinFilter.LINEAR:
+                                    case gzTexture.TextureMinFilter.LINEAR_MIPMAP_NEAREST:
+                                        tex.filterMode = FilterMode.Bilinear;
+                                        break;
+
+                                    case gzTexture.TextureMinFilter.LINEAR_MIPMAP_LINEAR:
+                                        tex.filterMode = FilterMode.Trilinear;
+                                        break;
+                                }
+
+                                //if(texture.UseMipMaps)
+                                //    tex.SetPixels(tex.GetPixels(0, 0, tex.width, tex.height));
+
+
+                                tex.Apply(texture.UseMipMaps, true);
+
+                                currentMaterial.mainTexture = tex;
+
                             }
 
-                            Texture2D tex = new Texture2D(width, height, format, false);
 
-                            byte[] image_data;
 
-                            image.GetImageArray(out image_data);
-
-                            tex.LoadRawTextureData(image_data);
-
-                            tex.filterMode = FilterMode.Trilinear;
-
-                            tex.Apply();
-
-                            currentMaterial.mainTexture = tex;
-
+                            image.Dispose();
                         }
 
+                        // Add some kind of check for textures shared by many
+                        // Right now only for crossboards
 
+                        if (n is Crossboard)
+                            textureMaterialStorage.Add(texture.GetNativeReference(), currentMaterial);
 
-                        image.Dispose();
                     }
 
+                    nodeHandle.currentMaterial = currentMaterial;
                     texture.Dispose();
                 }
-
-
+                
                 state.Dispose();
             }
 
@@ -345,6 +402,8 @@ namespace Saab.Unity.MapStreamer
             if (roi != null)
             {
                 nodeHandle.updateTransform = true;
+                nodeHandle.inNodeUpdateList = true;
+                updateNodeObjects.AddLast(gameObject);
 
                 foreach (Node child in roi)
                 {
@@ -378,6 +437,8 @@ namespace Saab.Unity.MapStreamer
             if (roinode != null)
             {
                 nodeHandle.updateTransform = true;
+                nodeHandle.inNodeUpdateList = true;
+                updateNodeObjects.AddLast(gameObject);
             }
 
             // ---------------------------- Group check -------------------------------------
@@ -408,157 +469,27 @@ namespace Saab.Unity.MapStreamer
                 pendingAssetLoads.Push(info);
             }
 
+            // ---------------------------- Crossboard check -----------------------------------
+
+            Crossboard cb = n as Crossboard;
+
+            if (cb != null)
+            {
+                // Scheduled for later build
+                pendingBuilds.Enqueue(nodeHandle);
+            }
+
             // ---------------------------- Geometry check -------------------------------------
 
             Geometry geom = n as Geometry;
 
             if (geom != null)
             {
-                float[] float_data;
-                int[] indices;
+                nodeHandle.BuildGameObject();
 
-                if (geom.GetVertexData(out float_data, out indices))
-                {
-                    MeshFilter filter = gameObject.AddComponent<MeshFilter>();
-                    MeshRenderer renderer = gameObject.AddComponent<MeshRenderer>();
-
-                    Mesh mesh = new Mesh();
-
-                    Vector3[] vertices = new Vector3[float_data.Length / 3];
-
-                    int float_index = 0;
-
-                    for (int i = 0; i < vertices.Length; i++)
-                    {
-                        vertices[i] = new Vector3(float_data[float_index], float_data[float_index + 1], float_data[float_index + 2]);
-
-                        float_index += 3;
-                    }
-
-                    mesh.vertices = vertices;
-                    mesh.triangles = indices;
-
-
-                    if (geom.GetColorData(out float_data))
-                    {
-                        if (float_data.Length / 4 == vertices.Length)
-                        {
-                            float_index = 0;
-
-                            Color[] cols = new Color[vertices.Length];
-
-                            for (int i = 0; i < vertices.Length; i++)
-                            {
-                                cols[i] = new Color(float_data[float_index], float_data[float_index + 1], float_data[float_index + 2], float_data[float_index + 3]);
-                                float_index += 4;
-                            }
-
-                            mesh.colors = cols;
-                        }
-                    }
-
-                    if (geom.GetNormalData(out float_data))
-                    {
-                        if (float_data.Length / 3 == vertices.Length)
-                        {
-                            float_index = 0;
-
-                            Vector3[] normals = new Vector3[vertices.Length];
-
-                            for (int i = 0; i < vertices.Length; i++)
-                            {
-                                normals[i] = new Vector3(float_data[float_index], float_data[float_index + 1], float_data[float_index + 2]);
-                                float_index += 3;
-                            }
-
-                            mesh.normals = normals;
-                        }
-                    }
-                    //else
-                    //    mesh.RecalculateNormals();
-
-                    uint texture_units = geom.GetTextureUnits();
-
-                    if (texture_units > 0)
-                    {
-                        if (geom.GetTexCoordData(out float_data, 0))
-                        {
-                            if (float_data.Length / 2 == vertices.Length)
-                            {
-                                float_index = 0;
-
-                                Vector2[] tex_coords = new Vector2[vertices.Length];
-
-                                for (int i = 0; i < vertices.Length; i++)
-                                {
-                                    tex_coords[i] = new Vector2(float_data[float_index], float_data[float_index + 1]);
-                                    float_index += 2;
-                                }
-
-                                mesh.uv = tex_coords;
-                            }
-                        }
-
-                        if ((texture_units > 1) && geom.GetTexCoordData(out float_data, 1))
-                        {
-                            if (float_data.Length / 2 == vertices.Length)
-                            {
-                                float_index = 0;
-
-                                Vector2[] tex_coords = new Vector2[vertices.Length];
-
-                                for (int i = 0; i < vertices.Length; i++)
-                                {
-                                    tex_coords[i] = new Vector2(float_data[float_index], float_data[float_index + 1]);
-                                    float_index += 2;
-                                }
-
-                                mesh.uv2 = tex_coords;
-                            }
-                        }
-
-                        if ((texture_units > 2) && geom.GetTexCoordData(out float_data, 2))
-                        {
-                            if (float_data.Length / 2 == vertices.Length)
-                            {
-                                float_index = 0;
-
-                                Vector2[] tex_coords = new Vector2[vertices.Length];
-
-                                for (int i = 0; i < vertices.Length; i++)
-                                {
-                                    tex_coords[i] = new Vector2(float_data[float_index], float_data[float_index + 1]);
-                                    float_index += 2;
-                                }
-
-                                mesh.uv3 = tex_coords;
-                            }
-                        }
-
-                        if ((texture_units > 3) && geom.GetTexCoordData(out float_data, 3))
-                        {
-                            if (float_data.Length / 2 == vertices.Length)
-                            {
-                                float_index = 0;
-
-                                Vector2[] tex_coords = new Vector2[vertices.Length];
-
-                                for (int i = 0; i < vertices.Length; i++)
-                                {
-                                    tex_coords[i] = new Vector2(float_data[float_index], float_data[float_index + 1]);
-                                    float_index += 2;
-                                }
-
-                                mesh.uv4 = tex_coords;
-                            }
-                        }
-                    }
-
-                    filter.sharedMesh = mesh;
-
-                    renderer.sharedMaterial = currentMaterial;
-
-                }
+                // Latron we will identify types of geoemtry that will be scheduled later if they are extensive and not ground
+                //// Scheduled for later build
+                //pendingBuilds.Enqueue(nodeHandle);
             }
 
             return gameObject;
@@ -859,6 +790,12 @@ namespace Saab.Unity.MapStreamer
                     h.inObjectDict = false;
                 }
 
+                if(h.inNodeUpdateList)
+                {
+                    updateNodeObjects.Remove(obj);
+                    h.inNodeUpdateList = false;
+                }
+
                 h.node?.Dispose();
                 h.node = null;
             }
@@ -943,6 +880,10 @@ namespace Saab.Unity.MapStreamer
 
         private void ProcessPendingUpdates()
         {
+
+            Timer timer = new Timer();      // Measure time precise in update
+
+
             #region Add/Remove nodes in dynamic loading ------------------------------------
 
             foreach (NodeLoadInfo nodeLoadInfo in pendingLoaders)
@@ -1005,7 +946,7 @@ namespace Saab.Unity.MapStreamer
 
             #endregion
 
-            #region Build GameObjects ------------------------------------------------------
+            #region Build GameObjects Hierarchy --------------------------------------------
 
             foreach (GameObjectInfo go_info in pendingObjects)
             {
@@ -1041,56 +982,95 @@ namespace Saab.Unity.MapStreamer
 
             //Message.Send("SceneManager", MessageLevel.ALWAYS, $"currentObjects Size {currentObjects.Count}");
             //Message.Send("SceneManager", MessageLevel.ALWAYS, String.Format("currentObjects Size {0}", currentObjects.Count));
-            
+
+            #region Update slow loading assets ---------------------------------------------
+
+            while (pendingBuilds.Count > 0 && timer.GetTime() < MaxBuildTime)
+            {
+                NodeHandle handle = pendingBuilds.Dequeue();
+                handle.BuildGameObject();
+            }
+
+            #endregion
+
             // Right now we use this as a dirty fix to handle unused shared materials ---------------------------------------
+                       
 
             _unusedCounter = (_unusedCounter + 1) % FrameCleanupInterval;
             if(_unusedCounter==0)
                 Resources.UnloadUnusedAssets();
         }
 
+        private void UpdateNodeInternals()
+        {
+            foreach(GameObject go in updateNodeObjects)
+            {
+                NodeHandle h = go.GetComponent<NodeHandle>();
+
+                h.UpdateNodeInternals();
+            }
+
+            OnUpdateScene?.Invoke(this);
+        }
       
         // Update is called once per frame
         private void Update()
         {
-            if (!NodeLock.TryLockEdit(30))      // 30 msek allow latency of other pending editor
-                return;
-
-            ProcessPendingUpdates();
-
-            // Transfer camera parameters
-
-            PerspCamera perspCamera = _native_camera as PerspCamera;
-
-            if (perspCamera != null)
+            try
             {
-                perspCamera.VerticalFOV = UnityCamera.fieldOfView;
-                perspCamera.HorizontalFOV = 2 * Mathf.Atan(Mathf.Tan(UnityCamera.fieldOfView * Mathf.Deg2Rad / 2) * UnityCamera.aspect) * Mathf.Rad2Deg; ;
-                perspCamera.NearClipPlane = UnityCamera.nearClipPlane;
-                perspCamera.FarClipPlane = UnityCamera.farClipPlane;
+                if (!NodeLock.TryLockEdit(30))      // 30 msek allow latency of other pending editor
+                    return;
+
+                ProcessPendingUpdates();
+                               
+
+            }
+            finally
+            {
+                NodeLock.UnLock();
             }
 
-            Matrix4x4 unity_camera_transform = UnityCamera.transform.worldToLocalMatrix;
+            UpdateNodeInternals();
 
-            Matrix4x4 gz_transform = _zflipMatrix * unity_camera_transform * _zflipMatrix;
-
-            _native_camera.Transform = gz_transform.ToMatrix4();
-
-            IWorldCoord ctrl = UnityCamera.GetComponent<IWorldCoord>();
-
-            if (ctrl != null)
-                _native_camera.Position = ctrl.Position;
-
-            NodeLock.UnLock();
-
-            if (!NodeLock.TryLockRender(30))    // 30 millisek latency allowed
+            if (UnityCamera == null)
                 return;
 
-            _native_camera.Render(_native_context, 1000, 1000, 1000, _native_traverse_action);
-            //native_camera.DebugRefresh();
-            NodeLock.UnLock();
-        }
+            try
+            {
+                if (!NodeLock.TryLockRender(30))    // 30 millisek latency allowed
+                    return;
 
+                // Transfer camera parameters
+
+                PerspCamera perspCamera = _native_camera as PerspCamera;
+
+                if (perspCamera != null)
+                {
+                    perspCamera.VerticalFOV = UnityCamera.fieldOfView;
+                    perspCamera.HorizontalFOV = 2 * Mathf.Atan(Mathf.Tan(UnityCamera.fieldOfView * Mathf.Deg2Rad / 2) * UnityCamera.aspect) * Mathf.Rad2Deg; ;
+                    perspCamera.NearClipPlane = UnityCamera.nearClipPlane;
+                    perspCamera.FarClipPlane = UnityCamera.farClipPlane;
+                }
+
+                Matrix4x4 unity_camera_transform = UnityCamera.transform.worldToLocalMatrix;
+
+                Matrix4x4 gz_transform = _zflipMatrix * unity_camera_transform * _zflipMatrix;
+
+                _native_camera.Transform = gz_transform.ToMatrix4();
+
+                IWorldCoord ctrl = UnityCamera.GetComponent<IWorldCoord>();
+
+                if (ctrl != null)
+                    _native_camera.Position = ctrl.Position;
+
+                _native_camera.Render(_native_context, 1000, 1000, 1000, _native_traverse_action);
+                //native_camera.DebugRefresh();
+            }
+            finally
+            {
+                NodeLock.UnLock();
+            }
+        }
     }
 
 }

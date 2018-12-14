@@ -21,6 +21,12 @@ rem ------------- End of GizmoSDK dependencies -------------------------------
 rmdir /S / Q Assets\Saab\Saab.Map
 mklink /J Assets\Saab\Saab.Map ..\BTA\source\foundation\Saab.Map
 
+rem ---------------- Shaders -------------------------------------------------
+
+rmdir /S / Q Assets\Shaders
+mklink /J Assets\Shaders ..\BTA\resources\shaders
+
+
 rem ------------- runtime dlls -----------------------------------------------
 
 rmdir /S / Q Assets\Plugins

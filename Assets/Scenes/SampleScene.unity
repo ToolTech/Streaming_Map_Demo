@@ -301,9 +301,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   UnityCamera: {fileID: 534669904}
-  Shader: {fileID: 7, guid: 0000000000000000f000000000000000, type: 0}
+  DefaultShader: {fileID: 7, guid: 0000000000000000f000000000000000, type: 0}
+  CrossboardShader: {fileID: 4800000, guid: 2bc47092a21d2174eb528b5f51aee8d5, type: 3}
   MapUrl: Maps/jkg_small/roi.gzl
   FrameCleanupInterval: 1000
+  MaxBuildTime: 0.01
 --- !u!4 &1784744576
 Transform:
   m_ObjectHideFlags: 0

@@ -31,7 +31,8 @@ namespace GizmoSDK
 {
     namespace Gizmo3D
     {
-        public class Node : NodeActionProvider, INameInterface, IDebugInterface
+        
+        public class Node : NodeActionProvider, INameInterface, IDebugInterface , ICullMask
         {
             public Node(IntPtr nativeReference) : base(nativeReference) { }
 
@@ -119,6 +120,26 @@ namespace GizmoSDK
                 return Node_saveDirtyData(GetNativeReference(), url);
             }
 
+            public void SetCullMask(CullMaskValue mask)
+            {
+                Node_setCullMask(GetNativeReference(), mask);
+            }
+
+            public CullMaskValue GetCullMask()
+            {
+                return Node_getCullMask(GetNativeReference());
+            }
+
+            public bool IsCulled(CullMaskValue mask)
+            {
+                return Node_isCulled(GetNativeReference(), mask);
+            }
+
+            public bool IsCulled(ICullMask mask_iface)
+            {
+                return IsCulled(mask_iface.GetCullMask());
+            }
+
             #region Native dll interface ----------------------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr Node_create(string name);
@@ -144,7 +165,12 @@ namespace GizmoSDK
             private static extern float Node_getBoundaryRadius(IntPtr node_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void Node_getBoundaryCenter(IntPtr node_reference, out Vec3 center);
-
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Node_setCullMask(IntPtr node_reference, CullMaskValue mask);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern CullMaskValue Node_getCullMask(IntPtr node_reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool Node_isCulled(IntPtr node_reference,CullMaskValue mask);
             #endregion
         }
     }

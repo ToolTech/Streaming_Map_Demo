@@ -47,6 +47,7 @@ namespace GizmoSDK
                 Roi.InitializeFactory();
                 RoiNode.InitializeFactory();
                 ExtRef.InitializeFactory();
+                Crossboard.InitializeFactory();
             }
 
             static public void UninitializeFactories()
@@ -67,6 +68,7 @@ namespace GizmoSDK
                 Roi.UninitializeFactory();
                 RoiNode.UninitializeFactory();
                 ExtRef.UninitializeFactory();
+                Crossboard.UninitializeFactory();
             }
 
             public static bool Initialize()
