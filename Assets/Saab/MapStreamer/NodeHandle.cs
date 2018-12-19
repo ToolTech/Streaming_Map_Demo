@@ -147,7 +147,18 @@ namespace Saab.Unity.MapStreamer
 
                     filter.sharedMesh = mesh;
 
+                    currentMaterial.SetFloat("_LodNear", cb.Near);
+                    currentMaterial.SetFloat("_LodNearFade", cb.NearFade);
+                    currentMaterial.SetFloat("_LodFar", cb.Far);
+                    currentMaterial.SetFloat("_LodFarFade", cb.FarFade);
+
+
+
+
+
                     renderer.sharedMaterial = currentMaterial;
+
+
 
                 }
 

@@ -250,6 +250,8 @@ namespace Saab.Unity.MapStreamer
                             int width = (int)image.GetWidth();
                             int height = (int)image.GetHeight();
 
+                            bool can_create_mipmaps = false;
+
                             if (depth == 1)
                             {
 
@@ -270,10 +272,12 @@ namespace Saab.Unity.MapStreamer
 
                                     case ImageType.RGBA_8:
                                         format = TextureFormat.RGBA32;
+                                        can_create_mipmaps = true;
                                         break;
 
                                     case ImageType.RGB_8:
                                         format = TextureFormat.RGB24;
+                                        can_create_mipmaps = true;
                                         break;
 
                                     default:
@@ -288,6 +292,15 @@ namespace Saab.Unity.MapStreamer
                                 image.GetImageArray(out image_data);
 
                                 tex.LoadRawTextureData(image_data);
+
+                                if (texture.UseMipMaps && can_create_mipmaps)
+                                {
+                                    Texture2D tex2 = new Texture2D(width, height, format, true);
+                                    tex2.SetPixels(tex.GetPixels(0, 0, tex.width, tex.height));
+
+                                    tex = tex2;
+                                }
+
 
                                 switch (texture.MinFilter)
                                 {
@@ -304,10 +317,6 @@ namespace Saab.Unity.MapStreamer
                                         tex.filterMode = FilterMode.Trilinear;
                                         break;
                                 }
-
-                                //if(texture.UseMipMaps)
-                                //    tex.SetPixels(tex.GetPixels(0, 0, tex.width, tex.height));
-
 
                                 tex.Apply(texture.UseMipMaps, true);
 
@@ -1030,8 +1039,6 @@ namespace Saab.Unity.MapStreamer
                 NodeLock.UnLock();
             }
 
-            UpdateNodeInternals();
-
             if (UnityCamera == null)
                 return;
 
@@ -1070,6 +1077,8 @@ namespace Saab.Unity.MapStreamer
             {
                 NodeLock.UnLock();
             }
+
+            UpdateNodeInternals();
         }
     }
 

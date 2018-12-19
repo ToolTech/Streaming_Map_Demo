@@ -17,6 +17,7 @@ half _LodFarFade;
 half _LodFar;
 half _LodNearFade;
 half _LodNear;
+half _TreeAmplitude;
 half _WindStength;
 half _WindSpeed;
 
@@ -24,12 +25,11 @@ half _WindSpeed;
 	{
 		float4 pos : SV_POSITION;
 		float3 norm : NORMAL;
-		float2 uv : TEXCOORD0;
+		float2 uv : TEXCOORD0;	//Size, Heading will be overiden later
+		float2 uv1 : TEXCOORD1;	//Pitch, Roll
+		float2 uv2 : TEXCOORD2; 
 
-		float2 uv1 : TEXCOORD1; //Size, Heading
-		float2 uv2 : TEXCOORD2; //Pitch, Roll
-
-		float4 color: TEXCOORD3;
+		float4 color: TEXCOORD5;
 	};
 
 	struct g2f
@@ -97,37 +97,41 @@ half _WindSpeed;
 		float3 forwarddir = UNITY_MATRIX_IT_MV[2].xyz;
 		float3 camPos = _WorldSpaceCameraPos.xyz;
 
-		//float3 norm = IN[0].norm;
+		float size = IN[0].uv.x;
+		float heading = IN[0].uv.y;
 
-		float size = IN[0].uv1.x;
-		float heading = IN[0].uv1.y;
-
-		float pitch = IN[0].uv2.x;
-		float roll = IN[0].uv2.x;
+		float pitch = IN[0].uv1.x;
+		float roll = IN[0].uv1.y;
 
 		float4 color = IN[0].color;
 
 		// ---------------- UV1 size/heading ----------------
-		half height = _Height * (1 + (_RandomHeight * size));
-		half width = _Width * (1 + (_RandomWidth * size));
+		/*half height = _Height * (1 + (_RandomHeight * size));
+		half width = _Width * (1 + (_RandomWidth * size));*/
+
+		half height = size;
+		half width = height;
 		// heading 
 		half angle = heading;
 
 		// ---------------- UV2 pitch/roll ----------------
 		float3 norm = float3(pitch, 1, roll);
 
-		//half height = _Height * (1 + (_RandomHeight * color.g));
-		//half width = _Width * (1 + (_RandomWidth * color.g));
 
-		//half angle = color.b;
-
+		// --------------------------------------------
 		float3 rot = .5 * (angle * PI);
 
 		float3 perpendicularAngle = rotate(rot, float3(0, 0, 1));
 		_Offset.y *= height;
+
+		// ---------------- orgion base ----------------
 		float3 base = IN[0].pos.xyz - _Offset;
 		float3 top = base + norm * height;
 		float3 mid = base + norm * (height / 2);
+		// ---------------- orgion mid ----------------
+		mid = IN[0].pos.xyz - _Offset;
+		base = mid + norm * (-height / 2);
+		top = mid + norm * (height / 2);
 
 		// ----------------------------------------------------------
 		forwarddir = normalize(ObjSpaceViewDir(IN[0].pos));
@@ -136,26 +140,35 @@ half _WindSpeed;
 		float dist = length(ObjSpaceViewDir(IN[0].pos));
 		float fade = color.a;
 
-		float LodFar = _LodFar * (height / _Height);
-		float LodFarFade = _LodFarFade * (height / _Height);
+		//float LodFar = _LodFar * (height / _Height);
+		//float LodFarFade = _LodFarFade * (height / _Height);
 
-		if ((dist < LodFar && dist > _LodNear) || !_UseLod)
+		//float LodNear = _LodNear * (height / _Height);
+		//float LodNearFade = _LodNearFade * (height / _Height);
+
+		float LodFar = _LodFar * (height);
+		float LodFarFade = _LodFarFade * (height);
+
+		float LodNear = _LodNear * (height);
+		float LodNearFade = _LodNearFade * (height);
+
+		if ((dist < LodFar && dist > LodNear) || !_UseLod)
 		{
 			if (dist > LodFarFade && _UseLod)
 			{
 				fade = (LodFar - dist) / (LodFar - LodFarFade);
 			}
 
-			if (dist < _LodNearFade && _UseLod)
+			if (dist < LodNearFade && _UseLod)
 			{
-				fade = (_LodNear - dist) / (_LodNear - _LodNearFade);
+				fade = (LodNear - dist) / (LodNear - LodNearFade);
 			}
 
 			color.a = fade;
 			// ---------------- basic wind ----------------
-			float3 wind = float3(sin(_Time.x * _WindSpeed + base.x) + sin(_Time.x * _WindSpeed + base.z * 2) + sin(_Time.x * _WindSpeed * 0.1 + base.x), 0,
+			/*float3 wind = float3(sin(_Time.x * _WindSpeed + base.x) + sin(_Time.x * _WindSpeed + base.z * 2) + sin(_Time.x * _WindSpeed * 0.1 + base.x), 0,
 				cos(_Time.x * _WindSpeed + base.x * 2) + cos(_Time.x * _WindSpeed + base.z));
-			top += wind * _WindStength;
+			top += wind * _WindStength;*/
 
 			float3 rot90 = rotate(PI / 2, perpendicularAngle);
 
@@ -223,9 +236,12 @@ half _WindSpeed;
 		// ---------------- leaf texture ----------------
 		fixed4 leaf = tex2D(_MainTex, IN.uv) + tex2D(_Mask, IN.uv) * _LeafColor * (_LeafColorModify * (IN.diffuseColor.r * _RandomColor));
 
+		float2 cord = IN.uv;
+		cord.x += cord.y * sin(cord.y * _WindStength + _Time.x * _WindSpeed) * _TreeAmplitude;
+
 		// ---------------- trunk texture ----------------
-		fixed4 trunk = tex2D(_MainTex, IN.uv) * _TrunkColor;
-		trunk = trunk + (trunk * _TrunkColorModify * (IN.diffuseColor.r * _RandomColor));
+		fixed4 trunk = tex2D(_MainTex, cord) * _TrunkColor;
+		trunk = trunk + (trunk * _TrunkColorModify * (IN.diffuseColor * _RandomColor));
 
 		clip(trunk.a - _Cutoff);
 

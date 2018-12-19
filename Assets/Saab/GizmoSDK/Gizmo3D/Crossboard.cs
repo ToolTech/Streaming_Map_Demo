@@ -140,6 +140,30 @@ namespace GizmoSDK
                 set { Crossboard_setUseColors(GetNativeReference(), value); }
             }
 
+            public float Near
+            {
+                get { return Crossboard_getNear(GetNativeReference()); }
+                set { Crossboard_setNear(GetNativeReference(), value); }
+            }
+
+            public float NearFade
+            {
+                get { return Crossboard_getNearFade(GetNativeReference()); }
+                set { Crossboard_setNearFade(GetNativeReference(), value); }
+            }
+
+            public float Far
+            {
+                get { return Crossboard_getFar(GetNativeReference()); }
+                set { Crossboard_setFar(GetNativeReference(), value); }
+            }
+
+            public float FarFade
+            {
+                get { return Crossboard_getFarFade(GetNativeReference()); }
+                set { Crossboard_setFarFade(GetNativeReference(), value); }
+            }
+
             #region Native dll interface ----------------------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr Crossboard_create(string name);
@@ -153,6 +177,23 @@ namespace GizmoSDK
             private static extern bool Crossboard_getUseColors(IntPtr crossboard_ref);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void Crossboard_setUseColors(IntPtr crossboard_ref,bool on);
+
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern float Crossboard_getNear(IntPtr crossboard_ref);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Crossboard_setNear(IntPtr crossboard_ref, float distance);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern float Crossboard_getNearFade(IntPtr crossboard_ref);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Crossboard_setNearFade(IntPtr crossboard_ref, float distance);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern float Crossboard_getFar(IntPtr crossboard_ref);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Crossboard_setFar(IntPtr crossboard_ref, float distance);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern float Crossboard_getFarFade(IntPtr crossboard_ref);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Crossboard_setFarFade(IntPtr crossboard_ref, float distance);
 
             #endregion
         }
