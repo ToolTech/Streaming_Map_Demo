@@ -30,13 +30,36 @@ using GizmoSDK.Gizmo3D;
 
 // Fix some conflicts between unity and Gizmo namespaces
 using gzTransform = GizmoSDK.Gizmo3D.Transform;
+using System.Collections.Generic;
+using System.Linq;
+using Assets.Crossboard;
+
+public struct CrossboardDataset
+{
+    public Vector3[] POSITION;
+    public Vector2[] UV0;
+    public Vector2[] UV1;
+
+    // Opaque shader
+    public List<Vector2> UV0List;
+    public List<Vector3> UV1List;
+    public List<Vector3> UV2List;
+    public List<Vector3> UV3List;
+
+    // ************* Opaque shader compute *************
+    public List<Vector4> UV0ListComp;
+    public List<Vector4> UV1ListComp;
+
+    public Color[] COLOR;
+}
 
 namespace Saab.Unity.MapStreamer
 {
+
     // The NodeHandle component of a game object stores a Node reference to the corresponding Gizmo item on the native side
     public class NodeHandle : MonoBehaviour
     {
-
+        //public CrossboardRenderer Renderer { private get; set; }
         // Handle to native gizmo node
         internal Node node;
 
@@ -51,6 +74,9 @@ namespace Saab.Unity.MapStreamer
 
         // Set to our material if we shall activate it on out geometry
         internal Material currentMaterial;
+
+        // ComputeShader for culling + furstum
+        internal ComputeShader ComputeShader;
 
         // We need to release all existing objects in a locked mode
         void OnDestroy()
@@ -80,50 +106,45 @@ namespace Saab.Unity.MapStreamer
 
             Crossboard cb = node as Crossboard;
 
+
             if (cb != null)
             {
                 float[] position_data;
                 float[] object_data;
 
-                if (cb.GetObjectPositions(out position_data) && cb.GetObjectData(out object_data) )
+                if (cb.GetObjectPositions(out position_data) && cb.GetObjectData(out object_data))
                 {
                     int objects = position_data.Length / 3; // Number of objects
 
-                    MeshFilter filter = gameObject.AddComponent<MeshFilter>();
-                    MeshRenderer renderer = gameObject.AddComponent<MeshRenderer>();
+                    CrossboardDataset dataset = new CrossboardDataset();
+                    dataset.POSITION = new Vector3[objects];
+                    dataset.UV0ListComp = new List<Vector4>(objects);
+                    dataset.UV1ListComp = new List<Vector4>(objects);
+                    dataset.COLOR = new Color[objects];
 
-                    Mesh mesh = new Mesh();
+                    CrossboardRenderer_ComputeShader Renderer = gameObject.AddComponent<CrossboardRenderer_ComputeShader>();
+                    Renderer.OpaqueCrossboardCompute = true;
 
+                    Renderer._computeShader = Instantiate(ComputeShader);
 
-                    Vector3[] vertices = new Vector3[objects];
-                
-                    int[] subIndices = new int[objects];
-
-                    Vector2[] uv = new Vector2[objects];
-                    Vector2[] uv2 = new Vector2[objects];
 
                     int float3_index = 0;
                     int float4_index = 0;
 
                     for (int i = 0; i < objects; i++)
                     {
-                        vertices[i] = new Vector3(position_data[float3_index], position_data[float3_index + 1], position_data[float3_index + 2]);
+                        dataset.POSITION[i] = new Vector3(position_data[float3_index], position_data[float3_index + 1], position_data[float3_index + 2]);
 
-                        subIndices[i] = i;
-
-                        uv[i] = new Vector2(object_data[float4_index], object_data[float4_index + 1]);
-                        uv2[i] = new Vector2(object_data[float4_index+2], object_data[float4_index + 3]);
+                        // size, heading, pitch, roll 
+                        dataset.UV0ListComp.Add(new Vector4(object_data[float4_index], object_data[float4_index + 1], object_data[float4_index + 2], object_data[float4_index + 3]));
+                        // postion offset (x - its up normal), planes offset ( xyz - in there normal direction)
+                        dataset.UV1ListComp.Add(new Vector4(0.35f, 0, 0, 0));
 
                         float3_index += 3;
                         float4_index += 4;
                     }
 
-
-                    mesh.vertices = vertices;
-                    mesh.uv = uv;
-                    mesh.uv2 = uv2;
-
-                    if(cb.UseColors)
+                    if (cb.UseColors)
                     {
                         float[] color_data;
 
@@ -139,27 +160,12 @@ namespace Saab.Unity.MapStreamer
                                 float4_index += 4;
                             }
 
-                            mesh.colors = colors;
+                            dataset.COLOR = colors;
                         }
                     }
-                   
-                    mesh.SetIndices(subIndices, MeshTopology.Points, 0);
 
-                    filter.sharedMesh = mesh;
-
-                    currentMaterial.SetFloat("_LodNear", cb.Near);
-                    currentMaterial.SetFloat("_LodNearFade", cb.NearFade);
-                    currentMaterial.SetFloat("_LodFar", cb.Far);
-                    currentMaterial.SetFloat("_LodFarFade", cb.FarFade);
-
-
-
-
-
-                    renderer.sharedMaterial = currentMaterial;
-
-
-
+                    Renderer.Material = currentMaterial;
+                    Renderer.SetCrossboardDataset(dataset);
                 }
 
                 return true;

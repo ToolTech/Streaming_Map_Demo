@@ -71,13 +71,15 @@ namespace Saab.Unity.MapStreamer
     // The SceneManager behaviour takes a unity camera and follows that to populate the current scene with GameObjects in a scenegraph hierarchy
     public class SceneManager : MonoBehaviour
     {
-        public UnityEngine.Camera   UnityCamera;
-        public UnityEngine.Shader   DefaultShader;
-        public UnityEngine.Shader   CrossboardShader;
-
-        public string               MapUrl;
-        public int                  FrameCleanupInterval = 1000;
-        public double               MaxBuildTime = 0.01;   // 100hz
+        public UnityEngine.Camera UnityCamera;
+        public UnityEngine.Shader DefaultShader;
+        [Header("CrossBoards")]
+        public UnityEngine.Shader CrossboardShader;
+        public UnityEngine.ComputeShader ComputeShader;
+        [Space(height: 20)]
+        public string MapUrl;
+        public int FrameCleanupInterval = 1000;
+        public double MaxBuildTime = 0.01;   // 100hz
 
         public delegate void SceneManager_OnUpdate(SceneManager sender);
         public event SceneManager_OnUpdate OnUpdateScene;
@@ -227,8 +229,11 @@ namespace Saab.Unity.MapStreamer
 
             var nodeHandle = gameObject.AddComponent<NodeHandle>();
 
+            //nodeHandle.Renderer = Renderer;
             nodeHandle.node = n;
+            nodeHandle.inObjectDict = false;
             nodeHandle.currentMaterial = currentMaterial;
+            nodeHandle.ComputeShader = ComputeShader;
 
             // ---------------------------- Check material state ----------------------------------
 
@@ -340,7 +345,7 @@ namespace Saab.Unity.MapStreamer
                     nodeHandle.currentMaterial = currentMaterial;
                     texture.Dispose();
                 }
-                
+
                 state.Dispose();
             }
 
