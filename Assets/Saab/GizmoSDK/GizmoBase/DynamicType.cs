@@ -410,6 +410,11 @@ namespace GizmoSDK
                 return Is("void");
             }
 
+            public bool IsError()
+            {
+                return Is("error");
+            }
+
 
             public string GetDynamicType()
             {

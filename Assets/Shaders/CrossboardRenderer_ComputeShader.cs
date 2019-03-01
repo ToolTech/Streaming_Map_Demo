@@ -96,6 +96,7 @@ namespace Assets.Crossboard
             if (_cullingKernel == -1) return;
 
             var camera = Camera.main;
+            if(camera == null) { return; }  
             GeometryUtility.CalculateFrustumPlanes(camera, _planes);
             //CalculateFrustumPlanes(camera.projectionMatrix * camera.worldToCameraMatrix, ref _planes);
 

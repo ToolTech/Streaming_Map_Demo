@@ -804,7 +804,7 @@ namespace Saab.Unity.MapStreamer
                     h.inObjectDict = false;
                 }
 
-                if(h.inNodeUpdateList)
+                if (h.inNodeUpdateList)
                 {
                     updateNodeObjects.Remove(obj);
                     h.inNodeUpdateList = false;

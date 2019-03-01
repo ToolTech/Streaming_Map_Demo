@@ -25,7 +25,7 @@
 			"RenderType" = "TransparentCutout" 
 			"LightMode" = "ForwardBase" 
 			//"LightMode" = "Deferred"
-			"IgnoreProjector" = "True" 
+			//"IgnoreProjector" = "True" 
 			//"DisableBatching" = "True"
 		}
 		Pass

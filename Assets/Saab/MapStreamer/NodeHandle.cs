@@ -31,7 +31,6 @@ using GizmoSDK.Gizmo3D;
 // Fix some conflicts between unity and Gizmo namespaces
 using gzTransform = GizmoSDK.Gizmo3D.Transform;
 using System.Collections.Generic;
-using System.Linq;
 using Assets.Crossboard;
 
 public struct CrossboardDataset
@@ -127,6 +126,7 @@ namespace Saab.Unity.MapStreamer
 
                     Renderer._computeShader = Instantiate(ComputeShader);
 
+                    //Message.Send("NodeHandle", MessageLevel.DEBUG, "Instantiate ComputeShader");
 
                     int float3_index = 0;
                     int float4_index = 0;
@@ -164,7 +164,9 @@ namespace Saab.Unity.MapStreamer
                         }
                     }
 
-                    Renderer.Material = currentMaterial;
+                    //Debug.Log("Instantiate mat");
+
+                    Renderer.Material = Instantiate(currentMaterial);
                     Renderer.SetCrossboardDataset(dataset);
                 }
 
