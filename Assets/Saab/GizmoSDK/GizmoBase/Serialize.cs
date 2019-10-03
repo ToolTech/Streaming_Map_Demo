@@ -3,7 +3,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge to gzSerialize.cpp
 // Author		: Anders Modén		
-// Product		: GizmoBase 2.10.1
+// Product		: GizmoBase 2.10.4
 //		
 // Copyright © 2003- Saab Training Systems AB, Sweden
 //			
@@ -104,7 +104,7 @@ namespace GizmoSDK
                 SerializeAdapter_read(GetNativeReference(), ref data);
             }
 
-            public void Read(ref byte[] data)
+            public uint Read(ref byte[] data)
             {
                 IntPtr p = Marshal.AllocHGlobal(data.Length);
 
@@ -113,6 +113,8 @@ namespace GizmoSDK
                 Marshal.Copy(p, data, 0, (int)count); // Transfer to managed memory
 
                 Marshal.FreeHGlobal(p);
+
+                return count;
             }
 
             public void PushBack(ISerializeData data)

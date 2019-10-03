@@ -14,15 +14,9 @@
 //
 //******************************************************************************
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using GizmoSDK.Gizmo3D;
 using GizmoSDK.GizmoBase;
-using GizmoSDK.Coordinate;
 
 namespace Saab.Map.CoordUtil
 {

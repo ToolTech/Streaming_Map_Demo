@@ -3,7 +3,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge to gzDynamicType class
 // Author		: Anders Modén		
-// Product		: GizmoBase 2.10.1
+// Product		: GizmoBase 2.10.4
 //		
 // Copyright © 2003- Saab Training Systems AB, Sweden
 //			
@@ -68,47 +68,47 @@ namespace GizmoSDK
             {
                 return new DynamicType(value);
             }
-
+            
             public static implicit operator string(DynamicType type)
             {
                 return type.GetString();
             }
-
+            
             public static implicit operator DynamicType(Vec2 value)
             {
                 return new DynamicType(value);
             }
-
+            
             public static implicit operator Vec2(DynamicType type)
             {
                 return type.GetVec2();
             }
-
+            
             public static implicit operator DynamicType(Vec3 value)
             {
                 return new DynamicType(value);
             }
-
+            
             public static implicit operator Vec3(DynamicType type)
             {
                 return type.GetVec3();
             }
-
+            
             public static implicit operator DynamicType(Vec4 value)
             {
                 return new DynamicType(value);
             }
-
+            
             public static implicit operator Vec4(DynamicType type)
             {
                 return type.GetVec4();
             }
-
+            
             public static implicit operator DynamicType(Guid value)
             {
                 return new DynamicType(value);
             }
-
+            
             public static implicit operator Guid(DynamicType type)
             {
                 return type.GetGuid();
@@ -124,7 +124,7 @@ namespace GizmoSDK
             public DynamicType(Vec3 value) : base(DynamicType_create_vec3(value)) { }
             public DynamicType(Vec4 value) : base(DynamicType_create_vec4(value)) { }
 
-            public DynamicType(Guid value) : base(DynamicType_create_guid(value.ToString())) { }
+            public DynamicType(Guid value) : base(DynamicType_create_guid(value)) { }
 
             public DynamicType(IntPtr nativeReference) : base(nativeReference) { }
 
@@ -191,6 +191,25 @@ namespace GizmoSDK
                         cont.SetAttribute(TYPE_REFLECT, t.AssemblyQualifiedName);
 
                     return cont;
+                }
+
+                if (obj is System.Collections.IDictionary)
+                {
+                    var dic = obj as System.Collections.IDictionary;
+                    if (t.GenericTypeArguments[0] == typeof(string))
+                    {
+                        DynamicTypeContainer cont = new DynamicTypeContainer();
+
+                        var keys = dic.Keys;
+                        var vals = dic.Values;
+
+                        foreach (string key in keys)
+                        {
+                            cont.SetAttribute(key, CreateDynamicType(dic[key], allProperties, addReflectedType));
+                        }
+
+                        return cont;
+                    }
                 }
 
                 if (obj is System.Collections.IEnumerable) 
@@ -263,7 +282,7 @@ namespace GizmoSDK
                 // ------- Converts to builtins --------------------
 
                 if (t==typeof(string))
-                    return (string)this;
+                    return GetString();
 
                 if (t == typeof(UInt64))
                     return (UInt64)(DynamicTypeInt64)this;
@@ -272,52 +291,52 @@ namespace GizmoSDK
                     return (Int64)(DynamicTypeInt64)this;
 
                 if (t == typeof(Vec2))
-                    return (Vec2)this;
+                    return GetVec2();
 
                 if (t == typeof(Vec3))
-                    return (Vec3)this;
+                    return GetVec3();
 
                 if (t == typeof(Vec4))
-                    return (Vec4)this;
+                    return GetVec4();
 
                 if (t == typeof(Guid))
-                    return (Guid)this;
+                    return GetGuid();
 
                 if(t==typeof(System.Type))
                 {
                     if (TypeResolver != null)
-                        return System.Type.GetType((string)this, AssemblyResolver, TypeResolver);
+                        return System.Type.GetType(GetString(), AssemblyResolver, TypeResolver);
                     else
-                        return System.Type.GetType((string)this);
+                        return System.Type.GetType(GetString());
                 }
 
                 if (t == typeof(Reference) && Is(DynamicType.Type.REFERENCE))
-                    return (Reference)this;
+                    return this;
                 
                 if (t.IsSubclassOf(typeof(Reference)) && Is(DynamicType.Type.REFERENCE))
-                    return (Reference)this;
+                    return this;
 
                 if (t == typeof(object) && !Is(Type.CONTAINER))
                 {
                     // ------- Converts to builtins --------------------
 
                     if (Is(Type.STRING))
-                        return (string)this;
+                        return GetString();
 
                     if (Is(Type.INT64))
                         return (Int64)this;
 
                     if (Is(Type.VEC2))
-                        return (Vec2)this;
+                        return GetVec2();
 
                     if (Is(Type.VEC3))
-                        return (Vec3)this;
+                        return GetVec3();
 
                     if (Is(Type.VEC4))
-                        return (Vec4)this;
+                        return GetVec3();
 
                     if (Is(Type.GUID))
-                        return (Guid)this;
+                        return GetGuid();
 
                     if(Is(Type.REFERENCE))
                         return (Reference)this;
@@ -374,6 +393,24 @@ namespace GizmoSDK
                     return obj;
                 }
 
+                if (typeof(System.Collections.IDictionary).IsAssignableFrom(t) && Is(DynamicType.Type.CONTAINER))
+                {
+                    if (t.GenericTypeArguments[0] != typeof(string))
+                        throw new NotSupportedException("only dictionaries with string key types are supported");
+
+                    var valueType = t.GenericTypeArguments[1];
+
+                    DynamicTypeContainer container = this;
+
+                    var obj = Activator.CreateInstance(t) as System.Collections.IDictionary;
+                    foreach (var kvp in container)
+                    {
+                        obj.Add(kvp.Key, kvp.Value.GetObject(valueType, allProperties));
+                    }
+
+                    return obj;
+                }
+
                 if (t.IsClass && Is(DynamicType.Type.CONTAINER))
                 {
                     DynamicTypeContainer container = this;
@@ -399,6 +436,9 @@ namespace GizmoSDK
 
                     return obj;
                 }
+
+                if (!IsValid())
+                    return null;
     
                 // Default to integer number 
 
@@ -407,14 +447,16 @@ namespace GizmoSDK
 
             public bool IsVoid()
             {
-                return Is("void");
+                return Is(DynamicType.Type.VOID);
             }
 
             public bool IsError()
             {
-                return Is("error");
-            }
+                if (!Is(DynamicType.Type.ERROR))
+                    return false;
 
+                return ((DynamicTypeError)this).IsError();
+            }
 
             public string GetDynamicType()
             {
@@ -435,7 +477,7 @@ namespace GizmoSDK
             public double GetNumber()
             {
                 if(!IsValid())
-                    throw (new Exception("DynamicType is not VALID"));
+                    throw new InvalidOperationException("DynamicType is not VALID");
 
                 return DynamicType_getNumber(GetNativeReference());
             }
@@ -443,7 +485,7 @@ namespace GizmoSDK
             public Vec2 GetVec2()
             {
                 if (!IsValid())
-                    throw (new Exception("DynamicType is not VALID"));
+                    throw new InvalidOperationException("DynamicType is not VALID");
 
 
                 return DynamicType_getVec2(GetNativeReference());
@@ -452,15 +494,30 @@ namespace GizmoSDK
             public Vec3 GetVec3()
             {
                 if (!IsValid())
-                    throw (new Exception("DynamicType is not VALID"));
+                    throw new InvalidOperationException("DynamicType is not VALID");
 
                 return DynamicType_getVec3(GetNativeReference());
+            }
+
+            public byte[] GetByteArray()
+            {
+                if (!Is("gzUByteArray"))
+                    throw new InvalidOperationException("DynamicType is not gzUByteArray");
+
+                int size;
+                DynamicType_getUByteArray(GetNativeReference(), null, 0, out size);
+
+                var res = new byte[size];
+                if (!DynamicType_getUByteArray(GetNativeReference(), res, res.Length, out size))
+                    return null;
+
+                return res;
             }
 
             public Reference GetReference()
             {
                 if (!IsValid())
-                    throw (new Exception("DynamicType is not VALID"));
+                    throw (new InvalidOperationException("DynamicType is not VALID"));
 
                 if (IsVoid())
                     return null;
@@ -471,7 +528,7 @@ namespace GizmoSDK
             public Vec4 GetVec4()
             {
                 if (!IsValid())
-                    throw (new Exception("DynamicType is not VALID"));
+                    throw (new InvalidOperationException("DynamicType is not VALID"));
 
                 return DynamicType_getVec4(GetNativeReference());
             }
@@ -479,9 +536,9 @@ namespace GizmoSDK
             public Guid GetGuid()
             {
                 if (!IsValid())
-                    throw (new Exception("DynamicType is not VALID"));
+                    throw (new InvalidOperationException("DynamicType is not VALID"));
 
-                return Guid.Parse(Marshal.PtrToStringUni(DynamicType_getGuid(GetNativeReference())));
+                return DynamicType_getGuid(GetNativeReference());
             }
 
             public string GetString()
@@ -565,7 +622,7 @@ namespace GizmoSDK
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DynamicType_create_num(double value);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr DynamicType_create_guid(string value);
+            private static extern IntPtr DynamicType_create_guid(Guid value);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DynamicType_create_vec2(Vec2 value);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
@@ -587,13 +644,15 @@ namespace GizmoSDK
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern Vec4 DynamicType_getVec4(IntPtr reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool DynamicType_getUByteArray(IntPtr reference, [Out] byte[] res, int size, [Out] out int arraySize);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DynamicType_getReference(IntPtr reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern double DynamicType_getNumber(IntPtr reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DynamicType_getString(IntPtr reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr DynamicType_getGuid(IntPtr reference);
+            private static extern Guid DynamicType_getGuid(IntPtr reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void DynamicType_read(IntPtr dynamic_reference,IntPtr adapter_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]

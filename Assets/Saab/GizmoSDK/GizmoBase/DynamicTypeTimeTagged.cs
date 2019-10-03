@@ -3,7 +3,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge to gzDynamicTypeTimeTagged class
 // Author		: Anders Modén		
-// Product		: GizmoBase 2.10.1
+// Product		: GizmoBase 2.10.4
 //		
 // Copyright © 2003- Saab Training Systems AB, Sweden
 //			
@@ -52,10 +52,10 @@ namespace GizmoSDK
             public DynamicTypeTimeTagged(DynamicType data) : base(data?.GetNativeReference() ?? IntPtr.Zero)
             {
                 if (data == null)
-                    throw (new Exception("DynamicType is null"));
+                    throw new ArgumentNullException(nameof(data), "DynamicType is null");
 
                 if (!data.Is(DynamicType.Type.TIME_TAGGED))
-                    throw (new Exception("DynamicType is not a TIME_TAGGED"));
+                    throw new ArgumentException("DynamicType is not a TIME_TAGGED", nameof(data));
             }
 
             public double GetTimeTag()

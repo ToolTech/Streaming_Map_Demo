@@ -3,7 +3,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge Platform
 // Author		: Anders Modén		
-// Product		: Gizmo3D 2.10.1
+// Product		: Gizmo3D 2.10.4
 //		
 // Copyright © 2003- Saab Training Systems AB, Sweden
 //			

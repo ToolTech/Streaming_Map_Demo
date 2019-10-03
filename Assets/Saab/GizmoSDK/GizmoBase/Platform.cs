@@ -3,7 +3,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge to gzReference.cpp
 // Author		: Anders Modén		
-// Product		: GizmoBase 2.10.1
+// Product		: GizmoBase 2.10.4
 //		
 // Copyright © 2003- Saab Training Systems AB, Sweden
 //			
@@ -27,36 +27,41 @@ namespace GizmoSDK
     public class Platform
     {
 
+
 #if WIN32  // ---------------- WinNT , 2000, XP  ---------------
+
 #if NATIVE_DEBUG
-        public const string GZ_LIB_EXT="_d.dll";
+        public const string GZ_LIB_EXT = "_d";
 #else
-        public const string GZ_LIB_EXT=".dll";
+        public const string GZ_LIB_EXT = "";
 #endif
 
 #elif WIN64  // ---------------- WinNT , 2000, XP  ---------------
+
 #if NATIVE_DEBUG
-        public const string GZ_LIB_EXT = "64_d.dll";
+        public const string GZ_LIB_EXT = "64_d";
 #else
-        public const string GZ_LIB_EXT="64.dll";
+        public const string GZ_LIB_EXT = "64";
 #endif
 
 
 #elif UNIX  // ---------------- Unix systems  ---------------
+
 #if NATIVE_DEBUG
-        public const string GZ_LIB_EXT = "-g.so";
+        public const string GZ_LIB_EXT = "-g";
 #else
-        public const string GZ_LIB_EXT=".so";
+        public const string GZ_LIB_EXT = "";
 #endif
 
 #elif UNIX64  // ---------------- Unix 64 bits systems  ---------------
+
 #if NATIVE_DEBUG
-        public const string GZ_LIB_EXT = "64-g.so";
+        public const string GZ_LIB_EXT = "64-g";
 #else
-        public const string GZ_LIB_EXT="64.so";
+        public const string GZ_LIB_EXT = "64";
 #endif
 #else
-#error "No platform Definition Win64,WIN32,UNIX64 etc.."
+    #error "No platform Definition Win64,WIN32,UNIX64 etc.."
 #endif
 
     }
@@ -103,13 +108,14 @@ namespace GizmoSDK
             public const string BRIDGE = "gzBaseBridge" + GizmoSDK.Platform.GZ_LIB_EXT;
 #endif
 
-            #region Native dll interface ----------------------------------
+#region Native dll interface ----------------------------------
+
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool Platform_initialize();
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool Platform_uninitialize(bool forceShutdown);
-
 #endregion
+
         }
     }
     

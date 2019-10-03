@@ -27,18 +27,20 @@ namespace GizmoSDK
 {
     namespace Coordinate
     {
+        [StructLayout(LayoutKind.Sequential)]
         public struct LatPos
         {
-            public LatPos(double _latitude=0,double _longitude=0,double _altitude=0)
-            {
-                latitude = _latitude;
-                longitude = _longitude;
-                altitude = _altitude;
-            }
+            // NOTE: Important, order of fields must match the order of fields in gzLatPos
+            public double Latitude;
+            public double Longitude;
+            public double Altitude;
 
-            public double latitude;
-            public double longitude;
-            public double altitude;
+            public LatPos(double latitude,double longitude,double altitude)
+            {
+                Latitude = latitude;
+                Longitude = longitude;
+                Altitude = altitude;
+            }
 
             public override string ToString()
             {
@@ -52,12 +54,11 @@ namespace GizmoSDK
 
             public static implicit operator LatPos(DynamicType data)
             {
-                LatPos pos = new LatPos();
+                LatPos pos;
+                if(!LatPos_create_pos(data.GetNativeReference(), out pos))
+                    throw (new ArgumentException("DynamicType is not a LatPos", nameof(data)));
 
-                if(LatPos_create_pos(data.GetNativeReference(),ref pos))
-                    return pos;
-                else
-                    throw (new Exception("DynamicType is not a LatPos"));
+                return pos;
             }
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
@@ -65,21 +66,25 @@ namespace GizmoSDK
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr LatPos_create_dynamic(LatPos pos);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern bool LatPos_create_pos(IntPtr native_reference,ref LatPos pos);
+            private static extern bool LatPos_create_pos(IntPtr native_reference,[Out] out LatPos pos);
         }
 
+        [StructLayout(LayoutKind.Sequential)]
         public struct CartPos
         {
-            public CartPos(double _x = 0, double _y = 0, double _z = 0)
+            // NOTE: Important, order of fields must match the order of fields in gzCartPos
+            public double X;
+            public double Y;
+            public double Z;
+
+            public CartPos(double x, double y, double z)
             {
-                x = _x;
-                y = _y;
-                z = _z;
+                X = x;
+                Y = y;
+                Z = z;
             }
 
-            public double x;
-            public double y;
-            public double z;
+            
 
             public override string ToString()
             {
@@ -93,12 +98,11 @@ namespace GizmoSDK
 
             public static implicit operator CartPos(DynamicType data)
             {
-                CartPos pos = new CartPos();
+                CartPos pos;
+                if (!CartPos_create_pos(data.GetNativeReference(), out pos))
+                    throw new ArgumentException("DynamicType is not a CartPos", nameof(data));
 
-                if (CartPos_create_pos(data.GetNativeReference(), ref pos))
-                    return pos;
-                else
-                    throw (new Exception("DynamicType is not a CartPos"));
+                return pos;
             }
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
@@ -106,21 +110,23 @@ namespace GizmoSDK
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr CartPos_create_dynamic(CartPos pos);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern bool CartPos_create_pos(IntPtr native_reference, ref CartPos pos);
+            private static extern bool CartPos_create_pos(IntPtr native_reference, [Out] out CartPos pos);
         }
 
+        [StructLayout(LayoutKind.Sequential)]
         public struct ProjPos
         {
-            public ProjPos(double _x = 0, double _y = 0, double _h = 0)
-            {
-                x = _x;
-                y = _y;
-                h = _h;
-            }
+            // NOTE: Important, order of fields must match the order of fields in gzProjPos
+            public double X;
+            public double Y;
+            public double H;
 
-            public double x;
-            public double y;
-            public double h;
+            public ProjPos(double x, double y, double h)
+            {
+                X = x;
+                Y = y;
+                H = h;
+            }
 
             public override string ToString()
             {
@@ -134,12 +140,11 @@ namespace GizmoSDK
 
             public static implicit operator ProjPos(DynamicType data)
             {
-                ProjPos pos = new ProjPos();
+                ProjPos pos;
+                if (!ProjPos_create_pos(data.GetNativeReference(), out pos))
+                    throw new ArgumentException("DynamicType is not a ProjPos", nameof(data));
 
-                if (ProjPos_create_pos(data.GetNativeReference(), ref pos))
-                    return pos;
-                else
-                    throw (new Exception("DynamicType is not a ProjPos"));
+                return pos;
             }
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
@@ -147,28 +152,33 @@ namespace GizmoSDK
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr ProjPos_create_dynamic(ProjPos pos);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern bool ProjPos_create_pos(IntPtr native_reference, ref ProjPos pos);
+            private static extern bool ProjPos_create_pos(IntPtr native_reference, [Out] out ProjPos pos);
 
         }
 
+        [StructLayout(LayoutKind.Sequential)]
         public struct UTMPos
         {
-            public UTMPos(int _zone=0, bool _north=true,double _northing = 0, double _easting = 0, double _h = 0)
+            // NOTE: Important, order of fields must match the order of fields in gzUTMPos
+            public int Zone;
+
+
+            [MarshalAs(UnmanagedType.U1)] // gzUTMPos uses gzBool, gzBool is defined as unsigned char
+            public bool North;
+
+            public double Northing;
+            public double Easting;
+            public double H;
+
+            public UTMPos(int zone, bool north, double northing, double easting, double h)
             {
-                zone = _zone;
-                north = _north;
+                Zone = zone;
+                North = north;
 
-                northing = _northing;
-                easting = _easting;
-                h = _h;
+                Northing = northing;
+                Easting = easting;
+                H = h;
             }
-
-            public int zone;
-            public bool north;
-
-            public double northing;
-            public double easting;
-            public double h;
 
             public override string ToString()
             {
@@ -182,12 +192,11 @@ namespace GizmoSDK
 
             public static implicit operator UTMPos(DynamicType data)
             {
-                UTMPos pos = new UTMPos();
+                UTMPos pos;
+                if (!UTMPos_create_pos(data.GetNativeReference(), out pos))
+                    throw new ArgumentException("DynamicType is not a UTMPos", nameof(data));
 
-                if (UTMPos_create_pos(data.GetNativeReference(), ref pos))
-                    return pos;
-                else
-                    throw (new Exception("DynamicType is not a UTMPos"));
+                return pos;
             }
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
@@ -195,7 +204,7 @@ namespace GizmoSDK
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr UTMPos_create_dynamic(UTMPos pos);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern bool UTMPos_create_pos(IntPtr native_reference, ref UTMPos pos);
+            private static extern bool UTMPos_create_pos(IntPtr native_reference, [Out] out UTMPos pos);
 
         }
 

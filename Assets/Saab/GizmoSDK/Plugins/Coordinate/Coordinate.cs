@@ -46,6 +46,12 @@ namespace GizmoSDK
             public Coordinate() : base(Coordinate_create()) { }
             public Coordinate(IntPtr nativeReference) : base(nativeReference) { }
 
+            public static Coordinate CreateFromString(Vec3D coordinate, string name)
+            {
+                var reference = Coordinate_parse(ref coordinate, name);
+                return reference == IntPtr.Zero ? null : new Coordinate(reference);
+            }
+
             public void SetLatPos(LatPos pos, Datum datum = Datum.WGS84)
             {
                 Coordinate_setLatPos(GetNativeReference(), pos, datum);
@@ -149,6 +155,8 @@ namespace GizmoSDK
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr Coordinate_create();
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr Coordinate_parse(ref Vec3D coordinate, string name);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void Coordinate_setLatPos(IntPtr nativeReference,LatPos pos, Datum datum);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]

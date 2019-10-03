@@ -19,12 +19,12 @@ mklink /J Assets\Saab\GizmoSDK\Plugins\Coordinate %GIZMOSDK%\plugins\gzCoordinat
 rem ------------- End of GizmoSDK dependencies -------------------------------
 
 rmdir /S / Q Assets\Saab\Saab.Map
-mklink /J Assets\Saab\Saab.Map ..\BTA\source\foundation\Saab.Map
+mklink /J Assets\Saab\Saab.Map ..\BTA_Dev\BTA\source\foundation\Saab.Map
 
 rem ---------------- Shaders -------------------------------------------------
 
 rmdir /S / Q Assets\Shaders
-mklink /J Assets\Shaders ..\BTA\resources\shaders
+mklink /J Assets\Shaders ..\BTA_Dev\BTA\resources\shaders
 
 
 rem ------------- runtime dlls -----------------------------------------------
@@ -32,6 +32,6 @@ rem ------------- runtime dlls -----------------------------------------------
 rmdir /S / Q Assets\Plugins
 mkdir Assets\Plugins
 
-mklink /J Assets\Plugins\x64 ..\BTA\ws\vs15\BTA\x64\Release
+mklink /J Assets\Plugins\x64 ..\BTA_Dev\BTA\ws\vs15\BTA\x64\Release
 
-copy /Y ..\BTA\resources\mono_settings\mcs_WIN64_RELEASE.rsp Assets\mcs.rsp
+copy /Y ..\BTA_Dev\BTA\resources\mono_settings\mcs_WIN64_RELEASE.rsp Assets\mcs.rsp

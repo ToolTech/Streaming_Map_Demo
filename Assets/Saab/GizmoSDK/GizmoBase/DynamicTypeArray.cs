@@ -3,7 +3,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge to gzDynamicTypeArray class
 // Author		: Anders Modén		
-// Product		: GizmoBase 2.10.1
+// Product		: GizmoBase 2.10.4
 //		
 // Copyright © 2003- Saab Training Systems AB, Sweden
 //			
@@ -99,10 +99,10 @@ namespace GizmoSDK
             public DynamicTypeArray(DynamicType data) : base(DynamicTypeArray_unpack_array(data?.GetNativeReference() ?? IntPtr.Zero))
             {
                 if (data == null)
-                    throw (new Exception("DynamicType is null"));
+                    throw new ArgumentNullException(nameof(data), "DynamicType is null");
 
                 if (GetNativeReference() == IntPtr.Zero)
-                    throw (new Exception("DynamicType is not an ARRAY"));
+                    throw new InvalidOperationException("DynamicType is not an ARRAY");
             }
 
             public void Set(DynamicType t)
@@ -125,7 +125,7 @@ namespace GizmoSDK
             public void Insert(int index, DynamicType item)
             {
                 if (item == null)
-                    throw (new Exception("Insert DynamicType is null"));
+                    throw new ArgumentNullException(nameof(item), "Insert DynamicType is null");
 
                 DynamicTypeArray_insert_at(GetNativeReference(),(UInt32)index,item.GetNativeReference());
             }
@@ -139,7 +139,7 @@ namespace GizmoSDK
             public void Add(DynamicType item)
             {
                 if (item == null)
-                    throw (new Exception("Add DynamicType is null"));
+                    throw new ArgumentNullException(nameof(item), "Add DynamicType is null");
 
                 DynamicTypeArray_add(GetNativeReference(), item.GetNativeReference());
             }
@@ -159,13 +159,13 @@ namespace GizmoSDK
 
             public void CopyTo(DynamicType[] array, int arrayIndex)
             {
-                throw new NotImplementedException();
+                throw new NotImplementedException("CopyTo");
             }
 
             public bool Remove(DynamicType item)
             {
                 if (item == null)
-                    throw (new Exception("Remove DynamicType is null"));
+                    throw new ArgumentNullException(nameof(item), "Remove DynamicType is null");
 
                 int index = IndexOf(item);
 

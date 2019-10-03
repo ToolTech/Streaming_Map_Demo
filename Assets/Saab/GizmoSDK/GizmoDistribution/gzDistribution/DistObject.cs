@@ -3,7 +3,7 @@
 // Module		: GizmoDistribution C#
 // Description	: C# Bridge to gzDistObject class
 // Author		: Anders Modén		
-// Product		: GizmoDistribution 2.10.1
+// Product		: GizmoDistribution 2.10.4
 //		
 // Copyright © 2003- Saab Training Systems AB, Sweden
 //			
@@ -41,7 +41,6 @@ namespace GizmoSDK
             public DistObject GetObject(IntPtr nativeReference)
             {
                 // We must allow GetObject for null reference
-
                 if (nativeReference == IntPtr.Zero)
                     return null;
 
@@ -49,11 +48,18 @@ namespace GizmoSDK
 
                 if (!_instanses.TryGetValue(nativeReference, out obj))
                 {
+                    // At least we will always get a DistObject
                     obj = Reference.CreateObject(nativeReference) as DistObject;
 
-                    // At least we will always get a DistObject
+                    // we must protect against race conditions, we must never allow 2 different managed objects to be returned
+                    // for same native reference!
+                    if (!_instanses.TryAdd(nativeReference, obj))
+                    {
+                        var r = _instanses.TryGetValue(nativeReference, out obj);
+                        System.Diagnostics.Debug.Assert(r);
 
-                    _instanses.TryAdd(nativeReference, obj);
+                        return obj;
+                    }
                 }
 
                 if( obj==null || !obj.IsValid() )
@@ -99,6 +105,11 @@ namespace GizmoSDK
             public bool SetAttributeValue(string name, DynamicType value)
             {
                 return DistObject_setAttributeValue(GetNativeReference(), name, value.GetNativeReference());
+            }
+
+            public bool SetAttributeValues(DistTransaction transaction)
+            {
+                return DistObject_setAttributeValues(GetNativeReference(), transaction.GetNativeReference());
             }
 
             public bool RemoveAttribute(string name)
@@ -152,6 +163,42 @@ namespace GizmoSDK
                 return DistObject_fromJSON(GetNativeReference(), json);
             }
 
+            // --- Reflection mechanisms --------------------------------
+
+            static public bool StorePropertiesAndFields(DistObject distobj, object obj, bool allProperties = false)
+            {
+                foreach (System.Reflection.PropertyInfo prop in obj.GetType().GetProperties())
+                {
+                    if (allProperties || Attribute.IsDefined(prop, typeof(DistProperty)))
+                        if (!distobj.SetAttributeValue(prop.Name, DynamicType.CreateDynamicType(prop.GetValue(obj), allProperties)))
+                            return false;
+                }
+
+                foreach (System.Reflection.FieldInfo field in obj.GetType().GetFields())
+                {
+                    if (allProperties || Attribute.IsDefined(field, typeof(DistProperty)))
+                        if (!distobj.SetAttributeValue(field.Name, DynamicType.CreateDynamicType(field.GetValue(obj), allProperties)))
+                            return false;
+                }
+
+                return true;
+            }
+
+            static public void RestorePropertiesAndFields(DistObject distobj, object obj, bool allProperties = false)
+            {
+                foreach (System.Reflection.PropertyInfo prop in obj.GetType().GetProperties())
+                {
+                    if (allProperties || Attribute.IsDefined(prop, typeof(DistProperty)))
+                        prop.SetValue(obj, distobj.GetAttributeValue(prop.Name).GetObject(prop.PropertyType, allProperties));
+                }
+
+                foreach (System.Reflection.FieldInfo field in obj.GetType().GetFields())
+                {
+                    if (allProperties || Attribute.IsDefined(field, typeof(DistProperty)))
+                        field.SetValue(obj, distobj.GetAttributeValue(field.Name).GetObject(field.FieldType, allProperties));
+                }
+            }
+
             #region --------------------------- private ----------------------------------------------
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
@@ -162,6 +209,8 @@ namespace GizmoSDK
             private static extern IntPtr DistObject_createDefaultObject(string name);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool DistObject_setAttributeValue(IntPtr event_reference,string name,IntPtr dynamic_reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool DistObject_setAttributeValues(IntPtr object_reference, IntPtr transaction_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool DistObject_removeAttribute(IntPtr event_reference, string name);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]

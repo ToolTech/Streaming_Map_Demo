@@ -3,7 +3,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge to gzReference class
 // Author		: Anders Modén		
-// Product		: GizmoBase 2.10.1
+// Product		: GizmoBase 2.10.4
 //		
 // Copyright © 2003- Saab Training Systems AB, Sweden
 //			
@@ -86,9 +86,10 @@ namespace GizmoSDK
 
             public string GetNativeTypeName()
             {
-                if (m_reference.Handle != IntPtr.Zero)
-                    return Marshal.PtrToStringUni(Reference_getReferenceTypeName(m_reference.Handle));
-                else return "---";
+                if (GetNativeReference() == IntPtr.Zero)
+                    throw new InvalidOperationException();
+                
+                return Marshal.PtrToStringUni(Reference_getReferenceTypeName(m_reference.Handle));
             }
 
             public IntPtr GetNativeReference()
@@ -171,17 +172,26 @@ namespace GizmoSDK
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr Reference_getTypeName(IntPtr ptr);
 
-            static public bool AddFactory(Reference iface)
+            static public bool AddFactory(Reference nativeRef)
             {
-                if (iface == null)
-                    return false;
+                if (nativeRef == null)
+                    throw new ArgumentNullException(nameof(nativeRef));
 
-                if (!iface.IsValid())
-                    return false;
+                if (!nativeRef.IsValid())
+                    throw new ArgumentException("native reference was not valid", nameof(nativeRef));
 
-                string typeName = iface.GetNativeTypeName();
+                return s_factory.TryAdd(nativeRef.GetNativeTypeName(), nativeRef);
+            }
 
-                return s_factory.TryAdd(typeName, iface);
+            static public bool AddFactory(Reference nativeRef, string nativeTypename)
+            {
+                if (nativeRef == null)
+                    throw new ArgumentNullException(nameof(nativeRef));
+
+                if (!nativeRef.IsValid())
+                    throw new ArgumentException("native reference was not valid", nameof(nativeRef));
+
+                return s_factory.TryAdd(nativeTypename, nativeRef);
             }
 
             static public bool RemoveFactory<T>() where T : Reference

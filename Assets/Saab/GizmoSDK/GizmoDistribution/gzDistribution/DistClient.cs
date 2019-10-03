@@ -3,7 +3,7 @@
 // Module		: GizmoDistribution C#
 // Description	: C# Bridge to gzDistClientInterface class
 // Author		: Anders Modén		
-// Product		: GizmoDistribution 2.10.1
+// Product		: GizmoDistribution 2.10.4
 //		
 // Copyright © 2003- Saab Training Systems AB, Sweden
 //			
@@ -376,7 +376,8 @@ namespace GizmoSDK
             private void OnRemoveObject_callback(IntPtr o, IntPtr session)
             {
                 OnRemoveObject?.Invoke(this, manager.DistObjectInstanceManager.GetObject(o), manager.DistSessionInstanceManager.GetSession(session));
-                manager.DistObjectInstanceManager.DropObject(o);
+                var r = manager.DistObjectInstanceManager.DropObject(o);
+                System.Diagnostics.Debug.Assert(r);
             }
 
             [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]

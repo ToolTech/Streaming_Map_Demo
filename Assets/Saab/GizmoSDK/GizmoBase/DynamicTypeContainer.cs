@@ -3,7 +3,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge to gzDynamicType class
 // Author		: Anders Modén		
-// Product		: GizmoBase 2.10.1
+// Product		: GizmoBase 2.10.4
 //		
 // Copyright © 2003- Saab Training Systems AB, Sweden
 //			
@@ -119,10 +119,7 @@ namespace GizmoSDK
             public void SetAttribute(string name, DynamicType value)
             {
                 if (name == null)
-                    throw (new Exception("SetAttribute name is null"));
-
-                if (value == null)
-                    throw (new Exception("SetAttribute DynamicType is null"));
+                    throw new ArgumentNullException(nameof(name));
 
                 DynamicTypeContainer_setAttribute(GetNativeReference(), name, value.GetNativeReference());
             }
@@ -130,7 +127,7 @@ namespace GizmoSDK
             public DynamicType GetAttribute(string name)
             {
                 if (name == null)
-                    throw (new Exception("GetAttribute name is null"));
+                    throw new ArgumentNullException(nameof(name));
 
                 return new DynamicType(DynamicTypeContainer_getAttribute(GetNativeReference(), name));
             }
@@ -138,7 +135,7 @@ namespace GizmoSDK
             public bool HasAttribute(string name)
             {
                 if (name == null)
-                    throw (new Exception("HasAttribute name is null"));
+                    throw new ArgumentNullException(nameof(name));
 
                 return DynamicTypeContainer_hasAttribute(GetNativeReference(), name);
             }

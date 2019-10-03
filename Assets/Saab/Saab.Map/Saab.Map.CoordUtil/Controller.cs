@@ -15,10 +15,6 @@
 //******************************************************************************
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using GizmoSDK.Gizmo3D;
 using GizmoSDK.GizmoBase;
@@ -190,7 +186,7 @@ namespace Saab.Map.CoordUtil
             if (!GetPosition(mapPos, out updatedPos))
                 return 0;
 
-            return updatedPos.altitude;
+            return updatedPos.Altitude;
         }
 
         public bool UpdatePosition(ref MapPos result, GroundClampType groundClamp = GroundClampType.NONE, ClampFlags flags = ClampFlags.DEFAULT)
@@ -364,7 +360,7 @@ namespace Saab.Map.CoordUtil
                         return false;
                     }
 
-                    result.position = new Vec3D(utmpos.easting, utmpos.h, -utmpos.northing) - _origin;
+                    result.position = new Vec3D(utmpos.Easting, utmpos.H, -utmpos.Northing) - _origin;
 
                     
                     // Possibly compensate for zone and north as well XXX
@@ -383,7 +379,7 @@ namespace Saab.Map.CoordUtil
 
                     result.local_orientation = converter.GetOrientationMatrix(cartpos);
 
-                    result.position = new Vec3D(cartpos.x, cartpos.y, cartpos.z) - _origin;
+                    result.position = new Vec3D(cartpos.X, cartpos.Y, cartpos.Z) - _origin;
                                        
                     break;
             }
@@ -457,9 +453,9 @@ namespace Saab.Map.CoordUtil
                     {
                         _mapType = MapType.UTM;
                         UTMPos utmOrigin = _currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_ORIGIN);
-                        _origin = new Vec3D(utmOrigin.easting, utmOrigin.h, -utmOrigin.northing);
-                        _north = utmOrigin.north;
-                        _utmZone = utmOrigin.zone;
+                        _origin = new Vec3D(utmOrigin.Easting, utmOrigin.H, -utmOrigin.Northing);
+                        _north = utmOrigin.North;
+                        _utmZone = utmOrigin.Zone;
                     }
                     else if (projection == DBI_PROJECTION_FLAT_EARTH)
                     {
@@ -470,7 +466,7 @@ namespace Saab.Map.CoordUtil
                     {
                         _mapType = MapType.GEOCENTRIC;
                         CartPos cartOrigin = _currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_ORIGIN);
-                        _origin = new Vec3D(cartOrigin.x, cartOrigin.y, cartOrigin.z);
+                        _origin = new Vec3D(cartOrigin.X, cartOrigin.Y, cartOrigin.Z);
                     }
                     else
                         _mapType = MapType.UNKNOWN;

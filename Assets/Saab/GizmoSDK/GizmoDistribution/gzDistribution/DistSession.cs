@@ -3,7 +3,7 @@
 // Module		: GizmoDistribution C#
 // Description	: C# Bridge to gzDistSession class
 // Author		: Anders Modén		
-// Product		: GizmoDistribution 2.10.1
+// Product		: GizmoDistribution 2.10.4
 //		
 // Copyright © 2003- Saab Training Systems AB, Sweden
 //			
