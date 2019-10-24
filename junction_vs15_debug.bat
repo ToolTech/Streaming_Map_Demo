@@ -1,6 +1,10 @@
 rem ---- DONT RUN THIS as a GIT USER, No need --------------------------------
 rem ---- Set up all paths in the project as relative paths - Saab Dev Only ---
 
+rmdir /S /Q Assets\Saab
+rmdir /S /Q Assets\Resources
+
+mkdir Assets\Saab
 
 rem ------------- GizmoSDK dependencies --------------------------------------
 
@@ -8,18 +12,33 @@ if not defined GIZMOSDK (
   set GIZMOSDK=..\GizmoSDK
 )
 
-rmdir /S / Q Assets\Saab\GizmoSDK
-mkdir Assets\Saab\GizmoSDK
-mkdir Assets\Saab\GizmoSDK\Plugins
-mklink /J Assets\Saab\GizmoSDK\GizmoBase %GIZMOSDK%\GizmoBase\source\C#
-mklink /J Assets\Saab\GizmoSDK\GizmoDistribution %GIZMOSDK%\GizmoDistribution\source\C#
-mklink /J Assets\Saab\GizmoSDK\Gizmo3D %GIZMOSDK%\Gizmo3D\source\C#
-mklink /J Assets\Saab\GizmoSDK\Plugins\Coordinate %GIZMOSDK%\plugins\gzCoordinate\source\C#
+mkdir Assets\Saab\Foundation
+mkdir Assets\Saab\Platform
 
-rem ------------- End of GizmoSDK dependencies -------------------------------
+mkdir Assets\Saab\Logic\Battlefield
 
-rmdir /S / Q Assets\Saab\Saab.Map
-mklink /J Assets\Saab\Saab.Map ..\BTA_Dev\BTA\source\foundation\Saab.Map
+mkdir Assets\Saab\Platform\GizmoSDK
+mkdir Assets\Saab\Platform\GizmoSDK\Plugins
+
+
+rem ---- Added a specific folder in Unity projects to reflect our architecture ---
+
+mkdir Assets\Saab\Unity\Foundation
+
+rem ----- Link in Gizmo as Utility -------------------------------------------------
+
+mklink /J Assets\Saab\Platform\GizmoSDK\GizmoBase %GIZMOSDK%\GizmoBase\source\C#
+mklink /J Assets\Saab\Platform\GizmoSDK\GizmoDistribution %GIZMOSDK%\GizmoDistribution\source\C#
+mklink /J Assets\Saab\Platform\GizmoSDK\Gizmo3D %GIZMOSDK%\Gizmo3D\source\C#
+mklink /J Assets\Saab\Platform\GizmoSDK\Plugins\Coordinate %GIZMOSDK%\plugins\gzCoordinate\source\C#
+
+rem ------------- End of GizmoSDK dependencies -------------------
+
+mklink /J Assets\Saab\Foundation\Saab.Foundation.Map ..\BTA_Dev\BTA\source\foundation\Saab.Foundation.Map
+
+rem ---------------- Link in Unity projects -----------------------------
+
+mklink /J Assets\Saab\Unity\Foundation\Saab.Foundation.Unity.Mapstreamer ..\BTA_Dev\BTA\source\foundation\Unity\Saab.Foundation.Unity.Mapstreamer
 
 rem ---------------- Shaders -------------------------------------------------
 

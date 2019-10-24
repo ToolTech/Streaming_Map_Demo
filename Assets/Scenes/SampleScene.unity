@@ -250,7 +250,7 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 534669902}
-  m_LocalRotation: {x: 0.26933843, y: 0.30423796, z: -0.09011938, w: 0.9092715}
+  m_LocalRotation: {x: 0.13020095, y: 0.22838521, z: -0.030835768, w: 0.96433246}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
@@ -265,14 +265,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 534669902}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bd1be68d865e7ae44840245c89e57ab6, type: 3}
+  m_Script: {fileID: 11500000, guid: 0283285cec50a434eac1ca6d49af4bb6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  speed: 200
+  speed: 2000
   rotspeed: 20
-  X: 9448.78629615547
-  Y: 463.833475117553
-  Z: 29687.5883648717
+  X: 9652.854124786272
+  Y: 207.34442496857125
+  Z: 29533.950211620933
 --- !u!1 &1784744574
 GameObject:
   m_ObjectHideFlags: 0
@@ -304,7 +304,7 @@ MonoBehaviour:
   DefaultShader: {fileID: 7, guid: 0000000000000000f000000000000000, type: 0}
   CrossboardShader: {fileID: 4800000, guid: 6cc22e1327a6086419049fb82f479ecb, type: 3}
   ComputeShader: {fileID: 7200000, guid: 75616827e64e7bd478340a97f80a1da0, type: 3}
-  MapUrl: $(Maps)/jkg_large/roi.gzl
+  MapUrl: $(Maps)/jkg_small/roi.gzl
   FrameCleanupInterval: 1000
   MaxBuildTime: 0.01
 --- !u!4 &1784744576
