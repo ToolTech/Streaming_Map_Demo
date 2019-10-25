@@ -52,12 +52,14 @@ using gzImage = GizmoSDK.GizmoBase.Image;
 // Map utility
 using Saab.Foundation.Map;
 using Saab.Unity.Extensions;
+using Saab.Utility.Unity.NodeUtils;
 
 // Fix unity conflicts
 using unTransform = UnityEngine.Transform;
 
 // System
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System;
 using System.Collections;
@@ -65,7 +67,7 @@ using UnityEngine.Networking;
 using Saab.Unity.Core;
 using Saab.Core;
 
-namespace Saab.Unity.MapStreamer
+namespace Saab.Foundation.Unity.MapStreamer
 {
     // The SceneManager behaviour takes a unity camera and follows that to populate the current scene with GameObjects in a scenegraph hierarchy
 
@@ -97,9 +99,8 @@ namespace Saab.Unity.MapStreamer
         private Matrix4x4 _zflipMatrix;
 
         private int _unusedCounter = 0;
-        private readonly MapControl _mapControl = new MapControl();
-
-        private readonly string ID = "Saab.Unity.MapStreamer.SceneManager";
+  
+        private readonly string ID = "Saab.Foundation.Unity.MapStreamer.SceneManager";
 
         //#pragma warning disable 414
         //private UnityPluginInitializer _plugin_initializer;
@@ -177,9 +178,6 @@ namespace Saab.Unity.MapStreamer
         // A queue for AssetLoading
         Stack<AssetLoadInfo> pendingAssetLoads = new Stack<AssetLoadInfo>(100);
 
-        // The lookup dictinary to find a game object with s specfic native handle
-        Dictionary<IntPtr, List<GameObject>> currentObjects = new Dictionary<IntPtr, List<GameObject>>();
-
         // The current active asset bundles
         Dictionary<string, AssetBundle> currentAssetBundles = new Dictionary<string, AssetBundle>();
 
@@ -190,32 +188,6 @@ namespace Saab.Unity.MapStreamer
         LinkedList<GameObject> updateNodeObjects = new LinkedList<GameObject>();
 
         //Add GameObjects to dictionary
-
-        void AddGameObjectReference(IntPtr nativeReference, GameObject gameObject)
-        {
-            List<GameObject> gameObjectList;
-
-            if (!currentObjects.TryGetValue(nativeReference, out gameObjectList))
-            {
-                gameObjectList = new List<GameObject>();
-                currentObjects.Add(nativeReference, gameObjectList);
-            }
-
-            gameObjectList.Add(gameObject);
-        }
-
-        void RemoveGameObjectReference(IntPtr nativeReference, GameObject gameObject)
-        {
-            List<GameObject> gameObjectList;
-
-            if (currentObjects.TryGetValue(nativeReference, out gameObjectList))
-            {
-                gameObjectList.Remove(gameObject);
-
-                if (gameObjectList.Count == 0)
-                    currentObjects.Remove(nativeReference);
-            }
-        }
 
         // Traverse function iterates the scene graph to build local branches on Unity
         GameObject Traverse(Node n, Material currentMaterial)
@@ -380,7 +352,7 @@ namespace Saab.Unity.MapStreamer
             {
                 if (!nodeHandle.inObjectDict)
                 {
-                    AddGameObjectReference(dl.GetNativeReference(), gameObject);
+                    NodeUtils.AddGameObjectReference(dl.GetNativeReference(), gameObject);
                     nodeHandle.inObjectDict = true;
                 }
                 else
@@ -406,7 +378,7 @@ namespace Saab.Unity.MapStreamer
                     {
                         if (!h.inObjectDict)
                         {
-                            AddGameObjectReference(h.node.GetNativeReference(), go_child);
+                            NodeUtils.AddGameObjectReference(h.node.GetNativeReference(), go_child);
                             h.node.AddActionInterface(_actionReceiver, NodeActionEvent.IS_TRAVERSABLE);
                             h.node.AddActionInterface(_actionReceiver, NodeActionEvent.IS_NOT_TRAVERSABLE);
                             h.inObjectDict = true;
@@ -444,7 +416,7 @@ namespace Saab.Unity.MapStreamer
                     {
                         if (!h.inObjectDict)
                         {
-                            AddGameObjectReference(h.node.GetNativeReference(), go_child);
+                            NodeUtils.AddGameObjectReference(h.node.GetNativeReference(), go_child);
                             h.node.AddActionInterface(_actionReceiver, NodeActionEvent.IS_TRAVERSABLE);
                             h.node.AddActionInterface(_actionReceiver, NodeActionEvent.IS_NOT_TRAVERSABLE);
                             h.inObjectDict = true;
@@ -592,16 +564,16 @@ namespace Saab.Unity.MapStreamer
 
                 MapUrl = mapURL;
 
-                _mapControl.NodeURL = mapURL;
-                _mapControl.CurrentMap = node;
+                MapControl.SystemMap.NodeURL = mapURL;
+                MapControl.SystemMap.CurrentMap = node;
 
-                _native_scene.AddNode(_mapControl.CurrentMap);
+                _native_scene.AddNode(MapControl.SystemMap.CurrentMap);
                 
                 _native_scene.Debug();
 
                 _root = new GameObject("root");
 
-                GameObject scene = Traverse(_mapControl.CurrentMap, null);
+                GameObject scene = Traverse(MapControl.SystemMap.CurrentMap, null);
 
                 if(scene!=null)
                     scene.transform.SetParent(_root.transform, false);
@@ -661,7 +633,7 @@ namespace Saab.Unity.MapStreamer
 
                 _root = null;
 
-                _mapControl.Reset();
+                MapControl.SystemMap.Reset();
             }
             finally
             {
@@ -689,7 +661,7 @@ namespace Saab.Unity.MapStreamer
 
                 _native_camera = new PerspCamera("Test");
                 _native_camera.RoiPosition = true;
-                _mapControl.Camera = _native_camera;
+                MapControl.SystemMap.Camera = _native_camera;
 
                 _native_scene = new Scene("TestScene");
 
@@ -852,7 +824,7 @@ namespace Saab.Unity.MapStreamer
             {
                 if (h.inObjectDict)
                 {
-                    RemoveGameObjectReference(h.node.GetNativeReference(), obj);
+                    NodeUtils.RemoveGameObjectReference(h.node.GetNativeReference(), obj);
                     h.inObjectDict = false;
                 }
 
@@ -868,88 +840,8 @@ namespace Saab.Unity.MapStreamer
 
         }
 
-        #region ---- Map and object position update utilities ---------------------------------------------------------------
+
         
-        public double GetAltitude(LatPos pos, ClampFlags flags=ClampFlags.DEFAULT)
-        {
-            return _mapControl.GetAltitude(pos, flags);
-        }
-
-        public bool GetScreenGroundPosition(int x, int y, uint size_x, uint size_y, out MapPos result, ClampFlags flags = ClampFlags.DEFAULT)
-        {
-            return _mapControl.GetScreenGroundPosition(x, y, size_x, size_y, out result, flags);
-        }
-
-        public bool GetLatPos(MapPos pos, out LatPos latpos)
-        {
-            return _mapControl.GetPosition(pos, out latpos);
-        }
-
-        public bool GetMapPosition(LatPos latpos, out MapPos pos, GroundClampType groundClamp, ClampFlags flags = ClampFlags.DEFAULT)
-        {
-            return _mapControl.GetPosition(latpos, out pos, groundClamp, flags);
-        }
-
-        public bool UpdateMapPosition(ref MapPos pos, GroundClampType groundClamp, ClampFlags flags = ClampFlags.DEFAULT)
-        {
-            // Right now this is trivial as we assume same coordinate system between unity and gizmo but we need a double precision conversion
-
-            return _mapControl.UpdatePosition(ref pos, groundClamp, flags);
-        }
-
-        public Vec3D LocalToWorld(MapPos mappos)
-        {
-            return _mapControl.LocalToWorld(mappos);
-        }
-
-        public MapPos WorldToLocal(Vec3D position)
-        {
-            return _mapControl.WorldToLocal(position);
-        }
-
-        #endregion -----------------------------------------------------------------------------------------------
-
-        #region --- Object lookup - Translation between GameObjects and Node ------------------------------------------------
-
-        public unTransform FindFirstGameObjectTransform(Node node)
-        {
-            List<GameObject> gameObjectList;
-
-            if (!FindGameObjects(node, out gameObjectList))
-                return null;
-
-            return gameObjectList[0].transform;
-        }
-
-        public bool FindGameObjects(Node node,out List<GameObject> gameObjectList)
-        {
-            gameObjectList = null;
-
-            if (node == null)
-                return false;
-
-            if (!node.IsValid())
-                return false;
-
-            bool result = false;
-
-            NodeLock.WaitLockEdit();
-
-            try // We are now locked in edit
-            {
-
-                result = currentObjects.TryGetValue(node.GetNativeReference(), out gameObjectList);
-            }
-            finally
-            {
-                NodeLock.UnLock();
-            }
-
-            return result;
-        }
-
-        #endregion ------------------------------------------------------------------------------------
-
         private void ProcessPendingUpdates()
         {
             Timer timer = new Timer();      // Measure time precise in update
@@ -958,26 +850,25 @@ namespace Saab.Unity.MapStreamer
 
             foreach (NodeLoadInfo nodeLoadInfo in pendingLoaders)
             {
-                List<GameObject> gameObjectList;
-
                 if (nodeLoadInfo.state == DynamicLoadingState.LOADED)
                 {
-                    if (currentObjects.TryGetValue(nodeLoadInfo.loader.GetNativeReference(), out gameObjectList))
-                    {
-                        if(gameObjectList[0].transform.childCount!=0)
-                            continue;
-                    }
+                    unTransform transform = NodeUtils.FindFirstGameObjectTransform(nodeLoadInfo.loader.GetNativeReference());
+
+                    if ((transform != null) && transform.childCount != 0)       // Already have a child
+                        continue;
 
                     GameObject go = Traverse(nodeLoadInfo.node, null);
                     pendingObjects.Add(new GameObjectInfo(nodeLoadInfo, go));
                 }
                 else if (nodeLoadInfo.state == DynamicLoadingState.UNLOADED)
                 {
-                    if (currentObjects.TryGetValue(nodeLoadInfo.loader.GetNativeReference(), out gameObjectList))
+                    ConcurrentBag<GameObject> bag;
+
+                    if(NodeUtils.FindGameObjects(nodeLoadInfo.loader.GetNativeReference(),out bag))
                     {
-                        foreach (GameObject go in gameObjectList)
+                        foreach (GameObject go in bag)
                         {
-                            foreach (unTransform child in go.transform)
+                            foreach (unTransform child in go.transform)         //We need to unload all limked go in hierarchy
                             {
                                 RemoveGameObjectHandles(child.gameObject);
                                 GameObject.Destroy(child.gameObject);
@@ -1001,11 +892,11 @@ namespace Saab.Unity.MapStreamer
 
             foreach (ActivationInfo activationInfo in pendingActivations)
             {
-                List<GameObject> gameObjectList;
+                ConcurrentBag<GameObject> bag;  // We need to activate the correct nodes
 
-                if (currentObjects.TryGetValue(activationInfo.node.GetNativeReference(), out gameObjectList))
+                if (NodeUtils.FindGameObjects(activationInfo.node.GetNativeReference(), out bag))
                 {
-                    foreach (GameObject obj in gameObjectList)
+                    foreach (GameObject obj in bag)
                     {
                         if (activationInfo.state == NodeActionEvent.IS_TRAVERSABLE)
                             obj.SetActive(true);
@@ -1027,13 +918,13 @@ namespace Saab.Unity.MapStreamer
 
             foreach (GameObjectInfo go_info in pendingObjects)
             {
-                List<GameObject> gameObjectList;
+                ConcurrentBag<GameObject> bag;  // We need to activate the correct nodes
 
-                if (currentObjects.TryGetValue(go_info.nodeInfo.loader.GetNativeReference(), out gameObjectList))
+                if (NodeUtils.FindGameObjects(go_info.nodeInfo.loader.GetNativeReference(), out bag))
                 {
                     bool shared = false;
 
-                    foreach (GameObject go in gameObjectList)
+                    foreach (GameObject go in bag)      // Possibly multiple gameobjects for shared instances
                     {
                         if (!shared)
                             go_info.go.transform.SetParent(go.transform, false);

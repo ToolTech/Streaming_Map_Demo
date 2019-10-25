@@ -66,7 +66,7 @@ public struct CrossboardDataset
     public Color[] COLOR;
 }
 
-namespace Saab.Unity.MapStreamer
+namespace Saab.Foundation.Unity.MapStreamer
 {
 
     // The NodeHandle component of a game object stores a Node reference to the corresponding Gizmo item on the native side
@@ -91,7 +91,7 @@ namespace Saab.Unity.MapStreamer
         // ComputeShader for culling + furstum
         internal ComputeShader ComputeShader;
 
-        private readonly string ID = "Saab.Unity.MapStreamer.NodeHandle";
+        private readonly string ID = "Saab.Foundation.Unity.MapStreamer.NodeHandle";
 
         // We need to release all existing objects in a locked mode
         void OnDestroy()

@@ -21,7 +21,7 @@
 
 		Tags
 		{
-			"Queue" = "Geometry" 
+			"Queue" = "AlphaTest" 
 			"RenderType" = "TransparentCutout" 
 			"LightMode" = "ForwardBase" 
 			//"LightMode" = "Deferred"
@@ -34,7 +34,8 @@
 
 			Cull Off
 			//ZWrite On
-			Blend Off
+			
+		//	Blend SrcAlpha OneMinusSrcAlpha
 
 			CGPROGRAM
 

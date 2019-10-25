@@ -59,6 +59,9 @@ namespace Saab.Unity.PluginLoader
 
             Message.OnMessage += On_Gizmo_Message;
 
+            // Activate local registry
+            KeyDatabase.SetLocalRegistry("config.xml");
+
         }
 
         private static void On_Gizmo_Message(string sender, MessageLevel level, string message)

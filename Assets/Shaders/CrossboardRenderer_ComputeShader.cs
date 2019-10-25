@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Assets.Crossboard
 {
@@ -10,8 +11,15 @@ namespace Assets.Crossboard
         public ComputeBuffer _outputBuffer;
         public ComputeBuffer _argBuffer;
 
+        private Plane[] _planes = new Plane[6];
+        private float[] _normalsFloat = new float[12];  // 4x3
+
+        CommandBuffer Cb = null;
+
         [SerializeField]
         private Material _material;
+
+        private int _cullingKernel = -1;
 
         [StructLayout(LayoutKind.Sequential)]
         struct instance_data
@@ -85,14 +93,39 @@ namespace Assets.Crossboard
             _material.SetBuffer("_buffer", _outputBuffer);
         }
 
-        private int _cullingKernel = -1;
+        private void StartRender(Camera cam)
+        {
+                if (Cb == null)
+                {
+                    Cb = new CommandBuffer();
+                }
+                else
+                {
+                    cam.RemoveCommandBuffer(CameraEvent.BeforeImageEffectsOpaque, Cb);
+                }
+
+                _material.SetMatrix("_LocalToWorld", transform.localToWorldMatrix);
+                var r = _material.SetPass(0);
+                Debug.Assert(r);
+
+                // set buffer
+
+                Cb.Clear();
+                Cb.DrawProceduralIndirect(Matrix4x4.identity, _material, -1, MeshTopology.Points, _argBuffer, 0);
+                //Cb.DrawProceduralIndirect(transform.localToWorldMatrix, _material, -1, MeshTopology.Points, _argBuffer, 0);
+                //Graphics.DrawProceduralIndirect(MeshTopology.Points, _argBuffer, 0);
+
+                cam.AddCommandBuffer(CameraEvent.BeforeImageEffectsOpaque, Cb);
+                //_cam.AddCommandBufferAsync(CameraEvent.BeforeImageEffectsOpaque, Cb, ComputeQueueType.Default);
+        }
 
         private void Update()
         {
             if (_cullingKernel == -1) return;
 
             var camera = Camera.main;
-            if(camera == null) { return; }  
+            if (camera == null) { return; }
+
             GeometryUtility.CalculateFrustumPlanes(camera, _planes);
             //CalculateFrustumPlanes(camera.projectionMatrix * camera.worldToCameraMatrix, ref _planes);
 
@@ -110,7 +143,7 @@ namespace Assets.Crossboard
             _outputBuffer.SetCounterValue(0);
 
             // assign shader buffers
-            
+
             _computeShader.SetFloats("_CameraPos", camPos.x, camPos.y, camPos.z);
             _computeShader.SetFloats("_CameraFrustumNormals", _normalsFloat);
             _computeShader.SetMatrix("_ToWorld", transform.localToWorldMatrix);
@@ -119,64 +152,10 @@ namespace Assets.Crossboard
             _computeShader.Dispatch(_cullingKernel, Mathf.CeilToInt(_inputBuffer.count / 64f), 1, 1);
             //_computeShader.Dispatch(_cullingKernel, _inputBuffer.count, 1, 1);
 
-            // get 
-
             // get append buffer counter value
             ComputeBuffer.CopyCount(_outputBuffer, _argBuffer, 0);
 
-            //_argBuffer.GetData(args);
-
-            //Debug.Log("vertex count " + args[0]);
-            ////
-            //Debug.Log("instance count " + args[1]);
-            //
-            //Debug.Log("start vertex " + args[2]);
-            //
-            //Debug.Log("start instance " + args[3]);
-
-            //int n = _outputBuffer.count;
-            //var res = new Vector3[n];
-
-            //_outputBuffer.GetData(res);
+            StartRender(camera);
         }
-
-        private void OnRenderObject()
-        {
-            // set first pass
-            if(_material == null)
-            {
-                return;
-            }
-            
-            _material.SetMatrix("_LocalToWorld", transform.localToWorldMatrix);
-            //_material.SetMatrix("_World2Object", transform.wo);
-
-            var r = _material.SetPass(0);
-            Debug.Assert(r);
-
-
-            //_material.SetMatrix("unity_MatrixVP", Camera.current.projectionMatrix * Camera.current.worldToCameraMatrix);
-            //_material.SetMatrix("unity_ObjectToWorld", Matrix4x4.identity);
-
-            //var m = _material.GetMatrix("unity_ObjectToWorld");
-            //Debug.Log(m);
-
-            // set buffer
-
-            
-
-
-
-            // ... this crash ...
-
-            Graphics.DrawProceduralIndirect(MeshTopology.Points, _argBuffer, 0);
-        }
-
-
-        private Plane[] _planes = new Plane[6];
-        private float[] _normalsFloat = new float[12];  // 4x3
-       
     }
-
-    
 }

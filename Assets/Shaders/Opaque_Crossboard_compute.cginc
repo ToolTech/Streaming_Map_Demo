@@ -183,18 +183,23 @@
 
 		// ---------------- alpha ----------------
 
-		//if (yawRight > 0 || yawRight < -0)
+		float alphaYawRight = 1;
+		float alphaYawLeft = 1;
+		float alphaYawTop = 1;
+
+		// ---------------- Render ----------------
+
+		//if (yawRight >= 0.5 || yawRight <= -0.5)
 		{
 			GenerateQuad(triStream, rightQuad, color, right_uv, norm);
 		}
-		//if (yawLeft > 0 || yawLeft < -0)
+		//if (yawLeft >= 0.5 || yawLeft <= -0.5)
 		{
 			GenerateQuad(triStream, leftQuad, color, forward_uv, norm);
 		}
 		if (newPitch >= 0.3 || newPitch <= -0.3)
 		{
 			GenerateQuad(triStream, topQuad, color, top_uv, norm);
-
 		}
 	}
 
@@ -214,8 +219,9 @@
 		clip(trunk.a - _Cutoff);
 		// ---------------- lighting color ----------------
 
-	/*	fixed3 lighting = IN.diff + IN.ambient;
-		trunk.rgb *= lighting;*/
+		//fixed3 lighting = IN.diff + IN.ambient;
+		//trunk.rgb *= lighting;
 		
-		return trunk.rgb * (IN.diff);// +_LightColor0.rgb);
+
+		return trunk.rgba * (IN.diff); //+_LightColor0.rgb);
 	}

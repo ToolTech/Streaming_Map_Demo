@@ -143,13 +143,13 @@ namespace Saab.Foundation.Map
 
             if (_topRoi != null)
             {
-
-                result.roiNode = _topRoi.GetClosestRoiNode(result.position);
+                RoiNode roi= _topRoi.GetClosestRoiNode(result.position); ;
+                result.node = roi;
 
                 // Remove roiNode position as offset - Go to local RoiNode based coordinate system
 
-                if (result.roiNode != null && result.roiNode.IsValid())
-                    result.position -= result.roiNode.Position;
+                if (roi != null && roi.IsValid())
+                    result.position -= roi.Position;
             }
 
             return true;
@@ -159,10 +159,12 @@ namespace Saab.Foundation.Map
         {
             Vec3D result = mappos.position;
 
-            if (mappos.roiNode != null && mappos.roiNode.IsValid())
-                result += mappos.roiNode.Position;
+            RoiNode roi = mappos.node as RoiNode;
 
-            //result += _origin;
+            if (roi != null && roi.IsValid())
+            {
+                result += roi.Position;
+            }
 
             return result;
         }
@@ -175,13 +177,13 @@ namespace Saab.Foundation.Map
 
             if (_topRoi != null)
             {
-
-                result.roiNode = _topRoi.GetClosestRoiNode(result.position);
+                RoiNode roi= _topRoi.GetClosestRoiNode(result.position);
+                result.node = roi;
 
                 // Remove roiNode position as offset - Go to local RoiNode based coordinate system
 
-                if (result.roiNode != null && result.roiNode.IsValid())
-                    result.position -= result.roiNode.Position;
+                if (roi != null && roi.IsValid())
+                    result.position -= roi.Position;
             }
 
             return result;
@@ -196,7 +198,7 @@ namespace Saab.Foundation.Map
 
             LatPos updatedPos;
 
-            if (!GetPosition(mapPos, out updatedPos))
+            if (!GetLatPos(mapPos, out updatedPos))
                 return 0;
 
             return updatedPos.Altitude;
@@ -215,8 +217,10 @@ namespace Saab.Foundation.Map
 
                 // Add ROINode position as offset   - Go to global 3D coordinate system as we need to clamp in global 3D
 
-                if (result.roiNode != null && result.roiNode.IsValid())
-                    result.position += result.roiNode.Position;
+                RoiNode roi = result.node as RoiNode;
+
+                if (roi != null && roi.IsValid())
+                    result.position += roi.Position;
 
                 Intersector isect = new Intersector();
 
@@ -272,8 +276,8 @@ namespace Saab.Foundation.Map
 
                 // Remove ROINode position as offset - Go to local coordinate system under ROI Node
 
-                if (result.roiNode != null && result.roiNode.IsValid())
-                    result.position -= result.roiNode.Position;
+                if (roi != null && roi.IsValid())
+                    result.position -= roi.Position;
             }
                        
 
@@ -311,7 +315,7 @@ namespace Saab.Foundation.Map
             }
         }
 
-        public bool GetPosition(MapPos pos,out LatPos result)
+        public bool GetLatPos(MapPos pos,out LatPos result)
         {
             Coordinate converter = new Coordinate();
 
@@ -321,8 +325,10 @@ namespace Saab.Foundation.Map
 
             // Check possibly local 3D under a roiNode
 
-            if (pos.roiNode != null && pos.roiNode.IsValid())
-                position += pos.roiNode.Position;
+            RoiNode roi = pos.node as RoiNode;
+
+            if (roi != null && roi.IsValid())
+                position += roi.Position;
 
             switch (_mapType)
             {
@@ -411,13 +417,13 @@ namespace Saab.Foundation.Map
 
             if (_topRoi != null)
             {
-           
-                result.roiNode = _topRoi.GetClosestRoiNode(result.position);
+                RoiNode roi= _topRoi.GetClosestRoiNode(result.position);
+                result.node = roi;
 
                 // Remove roiNode position as offset - Go to local RoiNode based coordinate system
 
-                if (result.roiNode != null && result.roiNode.IsValid())
-                    result.position -= result.roiNode.Position;
+                if (roi != null && roi.IsValid())
+                    result.position -= roi.Position;
             }
 
             return UpdatePosition(ref result, groundClamp,flags);
@@ -559,6 +565,8 @@ namespace Saab.Foundation.Map
                 _nodeURL = value;
             }
         }
+
+        public static MapControl SystemMap=new MapControl();
 
         #region ----- Private variables ----------------
 

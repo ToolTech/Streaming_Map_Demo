@@ -36,10 +36,10 @@ namespace Saab.Foundation.Map
 {
     public struct MapPos
     {
-        public RoiNode  roiNode;
-        public Vec3D    position;
-        public bool     clamped;
-        public Vec3     normal;
+        public Node     node;                   // Local Context
+        public Vec3D    position;               // Relative position to context
+        public bool     clamped;                // true if this position is clamped
+        public Vec3     normal;                 // Normal i local coordinate system
         public Matrix3  local_orientation;      // East North Up
     }
 }

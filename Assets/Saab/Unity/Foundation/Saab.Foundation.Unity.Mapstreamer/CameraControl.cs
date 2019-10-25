@@ -39,7 +39,7 @@ using Saab.Core;
 using GizmoSDK.GizmoBase;
 using UnityEngine;
 
-namespace Saab.Unity.MapStreamer
+namespace Saab.Foundation.Unity.MapStreamer
 {
     public class CameraControl : MonoBehaviour , IWorldCoord
     {
