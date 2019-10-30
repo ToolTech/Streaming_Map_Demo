@@ -51,15 +51,16 @@ namespace GizmoSDK
         public enum IntersectQuery
         {
             NULL =                  0,
-            NEAREST_POINT =         (1 << 0),        // Return only closest HIT
+            NEAREST_POINT =         (1 << 0),       // Return only closest HIT
             NORMAL =                (1 << 1),       // Add normal of HIT triangle
-            NODE =                  (1 << 2),     // Add node that was hit
-            HISTORY =               (1 << 3),      // Add traversal history
-            ABC_TRI =               (1 << 4),      // Returns triangle points
-            ALL_HITS =              (1 << 5),     // Return all HITS
-            ONE_HIT =               (1 << 6),      // Return first HIT
-            ACCELLERATE =           (1 << 7),      // Build and use nonatree
-            WAIT_FOR_DYNAMIC_DATA = (1 << 8),        // Wait for dynamic loaded data
+            NODE =                  (1 << 2),       // Add node that was hit
+            HISTORY =               (1 << 3),       // Add traversal history
+            ABC_TRI =               (1 << 4),       // Returns triangle points
+            ALL_HITS =              (1 << 5),       // Return all HITS
+            ONE_HIT =               (1 << 6),       // Return first HIT
+            ACCELLERATE =           (1 << 7),       // Build and use nonatree
+            WAIT_FOR_DYNAMIC_DATA = (1 << 8),       // Wait for dynamic loaded data
+            UPDATE_DYNAMIC_DATA =   (1 << 9),       // Wait for dynamic loaded data
         };
 
         public class Intersector : GizmoBase.Object , INameInterface

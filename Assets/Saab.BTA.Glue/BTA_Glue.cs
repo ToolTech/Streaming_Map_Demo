@@ -39,21 +39,7 @@ namespace Saab.Core
     {
         Vec3D Coordinate { get; }
     }
-
-    public class BtaApplication
-    {
-        public static string GetConfigValue(string key, string defaultValue)
-        {
-            return defaultValue;
-        }
-
-        public static int GetConfigValue(string key, int defaultValue)
-        {
-            return defaultValue;
-        }
-    }
 }
-
 
 
 namespace Saab.Unity.Core

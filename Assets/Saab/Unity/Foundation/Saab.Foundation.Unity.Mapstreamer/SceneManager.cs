@@ -34,6 +34,12 @@
 //
 //******************************************************************************
 
+// ************************** NOTE *********************************************
+//
+//      Stand alone from BTA !!! No BTA code in this !!!
+//
+// *****************************************************************************
+
 // Unity Managed classes
 using UnityEngine;
 
@@ -734,8 +740,8 @@ namespace Saab.Foundation.Unity.MapStreamer
         protected override IEnumerator InitComponent(Action<bool> success)
         {
             StartCoroutine(AssetLoader());
+            MapUrl = KeyDatabase.GetDefaultUserKey("SceneManager/MapUrl", MapUrl);
 
-            MapUrl = BtaApplication.GetConfigValue(@"SceneManager/MapUrl", MapUrl);
             InitMap();
 
             success(true);

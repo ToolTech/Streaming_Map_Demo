@@ -1,4 +1,41 @@
-﻿using System.Runtime.InteropServices;
+﻿//******************************************************************************
+//
+// Copyright (C) SAAB AB
+//
+// All rights, including the copyright, to the computer program(s) 
+// herein belong to Saab AB. The program(s) may be used and/or
+// copied only with the written permission of Saab AB, or in
+// accordance with the terms and conditions stipulated in the
+// agreement/contract under which the program(s) have been
+// supplied. 
+//
+//
+// Information Class:	COMPANY UNCLASSIFIED
+// Defence Secrecy:		NOT CLASSIFIED
+// Export Control:		NOT EXPORT CONTROLLED
+//
+//
+// File			: CrossboardRenderer_ComputeShader.cs
+// Module		:
+// Description	: Shader Code
+// Author		: ALBNI
+// Product		: BTA
+//
+//
+// Revision History...
+//
+// Who	Date	Description
+//
+//
+//******************************************************************************
+
+// ************************** NOTE *********************************************
+//
+//      Stand alone from BTA !!! No BTA code in this !!!
+//
+// *****************************************************************************
+
+using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -65,10 +102,6 @@ namespace Assets.Crossboard
 
                 instanceDataArray[i].Offset = dataset.UV1ListComp[i].x;
                 instanceDataArray[i].PlaneOffset = new Vector3(dataset.UV1ListComp[i].y, dataset.UV1ListComp[i].z, dataset.UV1ListComp[i].w);
-
-                //instanceDataArray[i].Size = dataset.UV0[i].x;
-                //instanceDataArray[i].Rotation = new Vector3(dataset.UV0[i].y, dataset.UV1[i].x, dataset.UV1[i].y);
-                //instanceDataArray[i].Color = new Vector3(dataset.COLOR[i].r, dataset.COLOR[i].g, dataset.COLOR[i].b);
             }
 
             // copy data to GPU buffer
@@ -95,28 +128,26 @@ namespace Assets.Crossboard
 
         private void StartRender(Camera cam)
         {
-                if (Cb == null)
-                {
-                    Cb = new CommandBuffer();
-                }
-                else
-                {
-                    cam.RemoveCommandBuffer(CameraEvent.BeforeImageEffectsOpaque, Cb);
-                }
+            if (Cb == null)
+            {
+                Cb = new CommandBuffer();
+                Cb.name = "ComputeShader Trees";
+            }
+            else
+            {
+                cam.RemoveCommandBuffer(CameraEvent.BeforeImageEffectsOpaque, Cb);
+            }
 
-                _material.SetMatrix("_LocalToWorld", transform.localToWorldMatrix);
-                var r = _material.SetPass(0);
-                Debug.Assert(r);
+            _material.SetMatrix("_LocalToWorld", transform.localToWorldMatrix);
+            var r = _material.SetPass(0);
+            Debug.Assert(r);
 
-                // set buffer
+            // set buffer
 
-                Cb.Clear();
-                Cb.DrawProceduralIndirect(Matrix4x4.identity, _material, -1, MeshTopology.Points, _argBuffer, 0);
-                //Cb.DrawProceduralIndirect(transform.localToWorldMatrix, _material, -1, MeshTopology.Points, _argBuffer, 0);
-                //Graphics.DrawProceduralIndirect(MeshTopology.Points, _argBuffer, 0);
+            Cb.Clear();
+            Cb.DrawProceduralIndirect(Matrix4x4.identity, _material, -1, MeshTopology.Points, _argBuffer, 0);
 
-                cam.AddCommandBuffer(CameraEvent.BeforeImageEffectsOpaque, Cb);
-                //_cam.AddCommandBufferAsync(CameraEvent.BeforeImageEffectsOpaque, Cb, ComputeQueueType.Default);
+            cam.AddCommandBuffer(CameraEvent.BeforeImageEffectsOpaque, Cb);
         }
 
         private void Update()

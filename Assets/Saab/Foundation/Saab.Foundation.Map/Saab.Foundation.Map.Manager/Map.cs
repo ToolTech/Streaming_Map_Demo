@@ -25,6 +25,7 @@
 // Who	Date	Description						
 //									
 // AMO	180301	Created file 	
+// AMO  191023  Fixed issue in double position in screenvectors
 //
 //******************************************************************************
 
@@ -33,6 +34,7 @@ using System;
 using GizmoSDK.Gizmo3D;
 using GizmoSDK.GizmoBase;
 using GizmoSDK.Coordinate;
+using Saab.Utility.Map;
 
 namespace Saab.Foundation.Map
 {
@@ -56,14 +58,16 @@ namespace Saab.Foundation.Map
     [Flags]
     public enum ClampFlags
     {
+        NONE                    = 0,
         WAIT_FOR_DATA           = 1<<0,
         ISECT_LOD_QUALITY       = 1<<1,
         FRUSTRUM_CULL           = 1<<2,
+        UPDATE_DATA               = 1<<3,
 
         DEFAULT = FRUSTRUM_CULL,
     }
 
-    public class MapControl
+    public class MapControl : IMapLocationProvider<MapPos, Node>
     {
         const string USER_DATA_DB_INFO              = "UserDataDbInfo";
         const string DBI_PROJECTION                 = "DbI-Projection";
@@ -106,44 +110,50 @@ namespace Saab.Foundation.Map
             Vec3D position;
             Vec3 direction;
 
+            
             if (!GetScreenVectors(x, y, size_x, size_y, out position, out direction))
                 return false;
 
+            // Coordinate is now in world Cartesian coordinates (Roi Position)
+
+            Vec3D origo = new Vec3D(0, 0, 0);       // Set used origo
+
             Intersector isect = new Intersector();
 
-            if ( (flags&ClampFlags.FRUSTRUM_CULL)!=0 && _camera != null && _camera.IsValid())
-            {
-                 isect.SetCamera(_camera);
+            // Check camera frustrum -----------------------------------------------------------
 
-                if (_camera.RoiPosition)
-                    position = position - _camera.Position;
+            if (_camera != null && _camera.IsValid())
+            {
+                origo = _camera.Position;
+
+                if ((flags & ClampFlags.FRUSTRUM_CULL) != 0)
+                    isect.SetCamera(_camera);
             }
+
+            // Adjust intersector to use origo as center
+            position = position - origo;
 
             isect.SetStartPosition((Vec3)(position));
             isect.SetDirection(direction);
 
-            if (isect.Intersect(_currentMap, IntersectQuery.NEAREST_POINT | IntersectQuery.NORMAL | ((flags & ClampFlags.WAIT_FOR_DATA) != 0 ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0), 1, true, _camera.Position))
+            if (isect.Intersect(_currentMap, IntersectQuery.NEAREST_POINT | IntersectQuery.NORMAL | ((flags & ClampFlags.WAIT_FOR_DATA) != 0 ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0), 1, true, origo))
             {
                 IntersectorResult res = isect.GetResult();
 
                 IntersectorData data = res.GetData(0);
 
-                result.position = data.position;
-
-                if (_camera.RoiPosition)
-                    result.position = result.position + _camera.Position;
+                result.position = data.position + origo;
 
                 result.normal = data.normal;
 
                 result.clamped = true;
-
             }
 
             isect.Dispose();   // Drop handle and ignore GC
 
             if (_topRoi != null)
             {
-                RoiNode roi= _topRoi.GetClosestRoiNode(result.position); ;
+                RoiNode roi= _topRoi.GetClosestRoiNode(result.position);
                 result.node = roi;
 
                 // Remove roiNode position as offset - Go to local RoiNode based coordinate system
@@ -212,9 +222,6 @@ namespace Saab.Foundation.Map
             if (groundClamp != GroundClampType.NONE)
             {
 
-                if( (flags & ClampFlags.WAIT_FOR_DATA)!=0)
-                    Message.Send("CLAMP", MessageLevel.DEBUG, "Wait");
-
                 // Add ROINode position as offset   - Go to global 3D coordinate system as we need to clamp in global 3D
 
                 RoiNode roi = result.node as RoiNode;
@@ -224,18 +231,20 @@ namespace Saab.Foundation.Map
 
                 Intersector isect = new Intersector();
 
-                Vec3D eyePos = new Vec3D(0,0,0);
+                Vec3D origo = new Vec3D(0,0,0);
+
+                // Check camera frustrum -----------------------------------------------------------
 
                 if (_camera != null && _camera.IsValid())
                 {
-                    eyePos = _camera.Position;
+                    origo = _camera.Position;
 
                     if ((flags & ClampFlags.FRUSTRUM_CULL) != 0)
                         isect.SetCamera(_camera);
                 }
 
                 if ((flags & ClampFlags.ISECT_LOD_QUALITY) != 0)                // Lets stand in the ray to get highest quality
-                    eyePos = result.position;
+                    origo = result.position;
 
                 Vec3 up = new Vec3(result.local_orientation.v13, result.local_orientation.v23, result.local_orientation.v33);
 
@@ -243,19 +252,20 @@ namespace Saab.Foundation.Map
                 if (up.x == 0 && up.y == 0 && up.z == 0)
                     up.y = 1;
 
-                isect.SetStartPosition((Vec3)(result.position - eyePos) + 10000.0f * up);
+                isect.SetStartPosition((Vec3)(result.position - origo) + 10000.0f * up);
                 isect.SetDirection(-up);
 
-                if (isect.Intersect(_currentMap, IntersectQuery.NEAREST_POINT|IntersectQuery.NORMAL | ( (flags & ClampFlags.WAIT_FOR_DATA)!=0 ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0), 1, true, eyePos))
+                if (isect.Intersect(_currentMap,    IntersectQuery.NEAREST_POINT|
+                                                    IntersectQuery.NORMAL | 
+                                                    ( (flags & ClampFlags.WAIT_FOR_DATA)!=0 ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0)|
+                                                    ((flags & ClampFlags.UPDATE_DATA) != 0 ? IntersectQuery.UPDATE_DYNAMIC_DATA : 0)
+                                                    , 1, true, origo))
                 {
                     IntersectorResult res = isect.GetResult();
 
                     IntersectorData data = res.GetData(0);
 
-                    result.position.x = data.position.x + eyePos.x;
-                    result.position.y = data.position.y + eyePos.y;
-                    result.position.z = data.position.z + eyePos.z;
-
+                    result.position = data.position + origo;
                     
                     result.normal = data.normal;
                     result.clamped = true;
@@ -456,7 +466,29 @@ namespace Saab.Foundation.Map
             return null;
         }
 
-       
+        public bool GetContext(double lat, double lon, double alt, LocationOptions options, out MapPos location)
+        {
+            var clampType = GroundClampType.NONE;
+            if (options.PositionOptions == PositionOptions.Surface)
+                clampType = GroundClampType.GROUND;
+
+            var clampFlags = ClampFlags.DEFAULT;
+            if (options.LoadOptions == LoadOptions.Load)
+                clampFlags = ClampFlags.WAIT_FOR_DATA;
+
+            if (options.QualityOptions == QualityOptions.Highest)
+                clampFlags |= ClampFlags.ISECT_LOD_QUALITY;
+
+            MapPos mp;
+            if (!GetPosition(new LatPos(lat, lon, alt), out mp, clampType, clampFlags))
+            {
+                location = default(MapPos);
+                return false;
+            }
+
+            location = mp;
+            return true;
+        }
 
         public Node CurrentMap
         {

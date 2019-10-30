@@ -31,16 +31,31 @@
 
 using GizmoSDK.Gizmo3D;
 using GizmoSDK.GizmoBase;
+using Saab.Utility.Map;
 
 namespace Saab.Foundation.Map
 {
-    public struct MapPos
+    public struct MapPos : ILocation<Node>
     {
         public Node     node;                   // Local Context
         public Vec3D    position;               // Relative position to context
         public bool     clamped;                // true if this position is clamped
         public Vec3     normal;                 // Normal i local coordinate system
         public Matrix3  local_orientation;      // East North Up
+
+        public Node Context { get { return node; } }
+        public Float3 Offset
+        {
+            get
+            {
+                return new Float3()
+                {
+                    X = (float)position.x,
+                    Y = (float)position.y,
+                    Z = (float)position.z,
+                };
+            }
+        }
     }
 }
 

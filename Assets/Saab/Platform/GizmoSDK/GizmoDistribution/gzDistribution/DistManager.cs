@@ -141,7 +141,10 @@ namespace GizmoSDK
                 var prototype = (Reference)Activator.CreateInstance(objectType, flags, null, new object[] { nativeRef }, null);
 
                 // register a factory
-                RegisterObjecttHierarchy(objectType.Name, nativeBaseTypename, factoryObj);
+                if (!RegisterObjecttHierarchy(objectType.Name, nativeBaseTypename, factoryObj))
+                    Message.Send(nameof(DistManager), MessageLevel.DEBUG, $"Using native factory    >>> {objectType.Name}");
+                else
+                    Message.Send(nameof(DistManager), MessageLevel.DEBUG, $"Using managed factory   >>> {objectType.Name}");
 
                 // use the overloaded AddFactory to register with correct typename
                 AddFactory(prototype, objectType.Name);
@@ -200,7 +203,10 @@ namespace GizmoSDK
                 var prototype = (Reference)Activator.CreateInstance(eventType, flags, null, new object[] { nativeRef }, null);
 
                 // register a factory
-                RegisterEventHierarchy(eventType.Name, nativeBaseTypename, factoryObj);
+                if (!RegisterEventHierarchy(eventType.Name, nativeBaseTypename, factoryObj))
+                    Message.Send(nameof(DistManager), MessageLevel.DEBUG, $"Using native factory    >>> {eventType.Name}");
+                else
+                    Message.Send(nameof(DistManager), MessageLevel.DEBUG, $"Using managed factory   >>> {eventType.Name}");
 
                 // use the overloaded AddFactory to register with correct typename
                 AddFactory(prototype, eventType.Name);

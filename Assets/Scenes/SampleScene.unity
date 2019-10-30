@@ -304,7 +304,7 @@ MonoBehaviour:
   DefaultShader: {fileID: 7, guid: 0000000000000000f000000000000000, type: 0}
   CrossboardShader: {fileID: 4800000, guid: 6cc22e1327a6086419049fb82f479ecb, type: 3}
   ComputeShader: {fileID: 7200000, guid: 75616827e64e7bd478340a97f80a1da0, type: 3}
-  MapUrl: $(Maps)/jkg_large/roi.gzl
+  MapUrl: Maps/jkg_small/roi.gzl
   FrameCleanupInterval: 1000
   MaxBuildTime: 0.01
 --- !u!4 &1784744576

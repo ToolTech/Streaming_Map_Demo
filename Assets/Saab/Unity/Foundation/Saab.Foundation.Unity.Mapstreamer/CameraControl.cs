@@ -34,9 +34,16 @@
 //
 //******************************************************************************
 
+// ************************** NOTE *********************************************
+//
+//      Stand alone from BTA !!! No BTA code in this !!!
+//
+// *****************************************************************************
 
 using Saab.Core;
 using GizmoSDK.GizmoBase;
+using Saab.Utility.Unity.NodeUtils;
+using System.Collections.Concurrent;
 using UnityEngine;
 
 namespace Saab.Foundation.Unity.MapStreamer
@@ -88,6 +95,31 @@ namespace Saab.Foundation.Unity.MapStreamer
         // Update is called once per frame
         void Update()
         {
+            // Check mouse click
+
+            if(Input.GetButtonDown("Fire1"))
+            {
+                Map.MapPos mapPos;
+
+                if(Map.MapControl.SystemMap.GetScreenGroundPosition((int)Input.mousePosition.x, (int)(Screen.height-Input.mousePosition.y), (uint)Screen.width, (uint)Screen.height, out mapPos, Map.ClampFlags.DEFAULT))
+                {
+                    ConcurrentBag<GameObject> bag;
+
+                    if(NodeUtils.FindGameObjects(mapPos.node.GetNativeReference(),out bag))
+                    {
+                        foreach(GameObject o in bag)
+                        {
+                            GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+
+                            sphere.transform.parent = o.transform;
+                            sphere.transform.transform.localPosition =  new Vector3((float)mapPos.position.x, (float)mapPos.position.y, (float)mapPos.position.z);
+                            sphere.transform.localScale = new Vector3(10,10,10);
+                        }
+                    }
+                }
+
+
+            }
 
             //transform.position;
 
