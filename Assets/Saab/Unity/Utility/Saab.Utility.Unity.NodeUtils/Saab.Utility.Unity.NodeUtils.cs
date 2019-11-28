@@ -45,97 +45,136 @@ using System.Runtime.InteropServices;
 using System;
 using System.Collections;
 
-
 namespace Saab.Utility.Unity.NodeUtils
 {
     public class NodeUtils
     {
+        public static bool HasGameObjects(IntPtr nativeReference)
+        {
+            GizmoSDK.Gizmo3D.NodeLock.WaitLockEdit();
+
+            try
+            {
+                List<GameObject> gameObjectList;
+
+                if (!FindGameObjects(nativeReference, out gameObjectList))
+                    return false;
+
+                if (gameObjectList.Count == 0)
+                    return false;
+
+                return true;
+            }
+            finally
+            {
+                GizmoSDK.Gizmo3D.NodeLock.UnLock();
+            }
+        }
         public static Transform FindFirstGameObjectTransform(IntPtr nativeReference)
         {
-            ConcurrentBag<GameObject> gameObjectList;
+            GizmoSDK.Gizmo3D.NodeLock.WaitLockEdit();
 
-            if (!FindGameObjects(nativeReference, out gameObjectList))
-                return null;
+            try
+            {
+                List<GameObject> gameObjectList;
 
-            GameObject go;
+                if (!FindGameObjects(nativeReference, out gameObjectList))
+                    return null;
 
-            if (!gameObjectList.TryPeek(out go))
-                return null;
+                if (gameObjectList.Count == 0)
+                    return null;
 
-            return go.transform;
+                GameObject go = gameObjectList[0];
+
+                return go.transform;
+            }
+            finally
+            {
+                GizmoSDK.Gizmo3D.NodeLock.UnLock();
+            }
         }
 
-        public static bool FindGameObjects(IntPtr nativeReference, out ConcurrentBag<GameObject> gameObjectList)
+        public static bool FindGameObjects(IntPtr nativeReference, out List<GameObject> gameObjectList)
         {
-            gameObjectList = null;
+            GizmoSDK.Gizmo3D.NodeLock.WaitLockEdit();
 
-            if (nativeReference == IntPtr.Zero)
-                return false;
+            try
+            {
+                gameObjectList = null;
 
-            return currentObjects.TryGetValue(nativeReference, out gameObjectList);
+                if (nativeReference == IntPtr.Zero)
+                    return false;
+
+                return currentObjects.TryGetValue(nativeReference, out gameObjectList);
+            }
+            finally
+            {
+                GizmoSDK.Gizmo3D.NodeLock.UnLock();
+            }
         }
 
         public static bool AddGameObjectReference(IntPtr nativeReference, GameObject gameObject)
         {
-            ConcurrentBag<GameObject> gameObjectList;
+            GizmoSDK.Gizmo3D.NodeLock.WaitLockEdit();
 
-            if (!currentObjects.TryGetValue(nativeReference, out gameObjectList))
+            try
             {
-                gameObjectList = new ConcurrentBag<GameObject>();
-                if (!currentObjects.TryAdd(nativeReference, gameObjectList))
-                    return false;
 
+                List<GameObject> gameObjectList;
+
+                if (!currentObjects.TryGetValue(nativeReference, out gameObjectList))
+                {
+                    gameObjectList = new List<GameObject>();
+
+                    currentObjects.Add(nativeReference, gameObjectList);
+                }
+
+                gameObjectList.Add(gameObject);
+
+                return true;
             }
-
-            gameObjectList.Add(gameObject);
-
-            return true;
+            finally
+            {
+                GizmoSDK.Gizmo3D.NodeLock.UnLock();
+            }
         }
 
         static public bool RemoveGameObjectReference(IntPtr nativeReference, GameObject gameObject)
         {
-            ConcurrentBag<GameObject> gameObjectList;
+            GizmoSDK.Gizmo3D.NodeLock.WaitLockEdit();
 
-            if (currentObjects.TryGetValue(nativeReference, out gameObjectList))
+            try
             {
-                if (gameObjectList.Count == 0)
-                {
-                    return false;   // No game objects in list
-                }
-                else if (gameObjectList.Count == 1)      // Only one
-                {
-                    if (!gameObjectList.TryTake(out gameObject))
-                        return false;
-                }
-                else    // Multiple GO in one list
-                {
-                    ConcurrentBag<GameObject> newBag = new ConcurrentBag<GameObject>();
 
-                    GameObject o;                   // Multiple items in bag, remove only gameobject
+                List<GameObject> gameObjectList;
 
-                    while(gameObjectList.Count!=0)
+                if (currentObjects.TryGetValue(nativeReference, out gameObjectList))
+                {
+                    bool removed=gameObjectList.Remove(gameObject);
+
+                    if(removed)
                     {
-                        if (!gameObjectList.TryTake(out o))
-                            return false;
-
-                        if (o != gameObject)
-                            newBag.Add(o);
+                        if(gameObjectList.Count==0) // We should remove list as no objects are registered
+                        {
+                            return currentObjects.Remove(nativeReference);
+                        }
                     }
 
-                    gameObjectList = newBag;
+                    return removed;
+                   
                 }
-
-                if (gameObjectList.Count == 0)
-                    currentObjects.TryRemove(nativeReference, out gameObjectList);
-
-                return true;
+                else
+                    return false;
             }
-            else
-                return false;
+            finally
+            {
+                GizmoSDK.Gizmo3D.NodeLock.UnLock();
+            }
+
         }
 
 
         // The lookup dictinary to find a game object with s specfic native handle
-        static private ConcurrentDictionary<IntPtr, ConcurrentBag<GameObject>> currentObjects = new ConcurrentDictionary<IntPtr, ConcurrentBag<GameObject>>();
+        static private Dictionary<IntPtr, List<GameObject>> currentObjects = new Dictionary<IntPtr, List<GameObject>>();
     }
 }

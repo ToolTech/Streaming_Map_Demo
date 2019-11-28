@@ -50,8 +50,9 @@ namespace Assets.Crossboard
 
         private Plane[] _planes = new Plane[6];
         private float[] _normalsFloat = new float[12];  // 4x3
-
-        CommandBuffer Cb = null;
+        private bool _rendering = false;
+        private CommandBuffer Cb = null;
+        private Camera _cam;
 
         [SerializeField]
         private Material _material;
@@ -126,6 +127,20 @@ namespace Assets.Crossboard
             _material.SetBuffer("_buffer", _outputBuffer);
         }
 
+        private void OnDisable()
+        {
+            _rendering = false;
+            if (Cb != null && _cam != null)
+            {
+                _cam.RemoveCommandBuffer(CameraEvent.BeforeImageEffectsOpaque, Cb);
+            }
+        }
+
+        private void OnEnable()
+        {
+            _rendering = true;
+        }
+
         private void StartRender(Camera cam)
         {
             if (Cb == null)
@@ -146,7 +161,6 @@ namespace Assets.Crossboard
 
             Cb.Clear();
             Cb.DrawProceduralIndirect(Matrix4x4.identity, _material, -1, MeshTopology.Points, _argBuffer, 0);
-
             cam.AddCommandBuffer(CameraEvent.BeforeImageEffectsOpaque, Cb);
         }
 
@@ -156,6 +170,8 @@ namespace Assets.Crossboard
 
             var camera = Camera.main;
             if (camera == null) { return; }
+
+            _cam = camera;
 
             GeometryUtility.CalculateFrustumPlanes(camera, _planes);
             //CalculateFrustumPlanes(camera.projectionMatrix * camera.worldToCameraMatrix, ref _planes);
@@ -186,7 +202,10 @@ namespace Assets.Crossboard
             // get append buffer counter value
             ComputeBuffer.CopyCount(_outputBuffer, _argBuffer, 0);
 
-            StartRender(camera);
+            if(_rendering)
+            {
+                StartRender(camera);
+            }
         }
     }
 }

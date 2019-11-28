@@ -19,12 +19,12 @@
 // Module		: Gizmo3D C#
 // Description	: C# Bridge to gzNodeAction class
 // Author		: Anders Modén		
-// Product		: Gizmo3D 2.10.4
+// Product		: Gizmo3D 2.10.5
 //		
 //
 //			
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
-//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and IRIX® for  
+//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and Android for  
 //			usage in Game or VisSim development.
 //
 //
@@ -52,24 +52,21 @@ namespace GizmoSDK
             public delegate void EventHandler_OnAction(NodeAction sender, NodeActionEvent action, Context context, NodeActionProvider trigger, TraverseAction traverser, IntPtr userdata);
             public event EventHandler_OnAction OnAction;
 
-            public NodeAction(IntPtr nativeReference) : base(nativeReference) { SetupCallbacks(); }
+            public NodeAction(IntPtr nativeReference) : base(nativeReference) { ReferenceDictionary<NodeAction>.AddObject(this); }
 
-            public NodeAction(string name="") : base(NodeAction_create(name)) { SetupCallbacks(); }
+            public NodeAction(string name="") : base(NodeAction_create(name)) { ReferenceDictionary<NodeAction>.AddObject(this); }
 
-            private void SetupCallbacks()
+            override public void Release()
             {
-                m_dispatcher_OnAction = new NodeAction_OnAction_Callback(OnAction_callback);
-                NodeAction_SetCallback_OnAction(GetNativeReference(), m_dispatcher_OnAction);
+               ReferenceDictionary<NodeAction>.RemoveObject(this);
+               base.Release();
             }
-
-            public override void Dispose()
+            
+            override public void ReleaseInRender()
             {
-                NodeAction_SetCallback_OnAction(GetNativeReference(), null);
-                m_dispatcher_OnAction = null;
-
-                base.Dispose();               
+                ReferenceDictionary<NodeAction>.RemoveObject(this);
+                base.ReleaseInRender();
             }
-
 
             public void Attach(Node node)
             {
@@ -106,22 +103,67 @@ namespace GizmoSDK
                 NodeAction_setName(GetNativeReference(), name);
             }
 
-            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-            public delegate void NodeAction_OnAction_Callback(NodeActionEvent action, IntPtr native_context_ref, IntPtr native_trigger_ref, IntPtr native_traverser_ref, IntPtr userdata);
-
-
-            private NodeAction_OnAction_Callback m_dispatcher_OnAction;
-            private void OnAction_callback(NodeActionEvent action, IntPtr native_context_ref, IntPtr native_trigger_ref, IntPtr native_traverser_ref, IntPtr userdata)
+            static public void Initialize()
             {
-                if(action!=NodeActionEvent.REMOVE)
-                    OnAction?.Invoke(this,action,CreateObject(native_context_ref) as Context, CreateObject(native_trigger_ref) as NodeActionProvider, CreateObject(native_traverser_ref) as TraverseAction,userdata);
-                else
-                    OnAction?.Invoke(this, action, CreateObject(native_context_ref) as Context, null, CreateObject(native_traverser_ref) as TraverseAction, native_trigger_ref);
+                if (s_class_init == null)
+                    s_class_init = new Initializer();
+            }
+
+            static public void Uninitialize()
+            {
+                if (s_class_init != null)
+                    s_class_init = null;
+            }
+
+            #region ---------------- Private functions ------------------------
+
+
+            private sealed class Initializer
+            {
+                public Initializer()
+                {
+                    if (s_dispatcher_OnAction == null)
+                    {
+                        s_dispatcher_OnAction = new NodeAction_OnAction_Callback(OnAction_callback);
+                        NodeAction_SetCallback_OnAction(s_dispatcher_OnAction);
+                    }
+                }
+
+                ~Initializer()
+                {
+                    if (s_dispatcher_OnAction != null)
+                    {
+                        NodeAction_SetCallback_OnAction(null);
+                        s_dispatcher_OnAction = null;
+                    }
+                }
+            }
+
+            static private Initializer s_class_init = new Initializer();
+
+            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+            public delegate void NodeAction_OnAction_Callback(IntPtr instance, NodeActionEvent action, IntPtr native_context_ref, IntPtr native_trigger_ref, IntPtr native_traverser_ref, IntPtr userdata);
+
+
+            static private NodeAction_OnAction_Callback s_dispatcher_OnAction;
+
+            [MonoPInvokeCallback(typeof(NodeAction_OnAction_Callback))]
+            static private void OnAction_callback(IntPtr instance,NodeActionEvent action, IntPtr native_context_ref, IntPtr native_trigger_ref, IntPtr native_traverser_ref, IntPtr userdata)
+            {
+                NodeAction na = ReferenceDictionary<NodeAction>.GetObject(instance);
+
+                if (na != null)
+                {
+                    if (action != NodeActionEvent.REMOVE)
+                        na.OnAction?.Invoke(na, action, CreateObject(native_context_ref) as Context, CreateObject(native_trigger_ref) as NodeActionProvider, CreateObject(native_traverser_ref) as TraverseAction, userdata);
+                    else
+                        na.OnAction?.Invoke(na, action, CreateObject(native_context_ref) as Context, null, CreateObject(native_traverser_ref) as TraverseAction, native_trigger_ref);
+                }
             }
 
             #region Native dll interface ----------------------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void NodeAction_SetCallback_OnAction(IntPtr nodeact_ref, NodeAction_OnAction_Callback fn);
+            private static extern void NodeAction_SetCallback_OnAction(NodeAction_OnAction_Callback fn);
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr NodeAction_create(string name);
@@ -136,6 +178,8 @@ namespace GizmoSDK
 
 
 
+
+            #endregion
 
             #endregion
         }

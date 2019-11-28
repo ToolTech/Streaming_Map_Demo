@@ -19,7 +19,7 @@
 // Module		: GizmoDistribution C#
 // Description	: C# Bridge to gzDistManager class
 // Author		: Anders Modén		
-// Product		: GizmoDistribution 2.10.4
+// Product		: GizmoDistribution 2.10.5
 //		
 //
 //			
@@ -220,8 +220,10 @@ namespace GizmoSDK
 
             public void Shutdown(bool wait = false)
             {
-                DistSessionInstanceManager.Clear();
-                DistObjectInstanceManager.Clear();
+                ReferenceDictionary<DistSession>.Clear();
+                ReferenceDictionary<DistClient>.Clear();
+                ReferenceDictionary<DistClient>.Clear();
+
                 DistManager_shutDown(GetNativeReference(), wait);
             }
 
@@ -248,7 +250,14 @@ namespace GizmoSDK
 
             public DistSession GetSession(string sessionName, bool create = false, bool global = false, ServerPriority prio = ServerPriority.PRIO_NORMAL)
             {
-                return DistSessionInstanceManager.GetSession(DistManager_getSession(GetNativeReference(), sessionName, create, global, prio));
+                IntPtr s = DistManager_getSession(GetNativeReference(), sessionName, create, global, prio);
+
+                DistSession session = ReferenceDictionary<DistSession>.GetObject(s);
+
+                if (session == null)
+                    session = new DistSession(s);
+
+                return session;
             }
 
             public DistEvent GetEvent(string typeName = "gzDistEvent")
@@ -258,7 +267,7 @@ namespace GizmoSDK
 
             public DistObject GetObject(string objectName, string typeName = "gzDistObject")
             {
-                return DistObjectInstanceManager.GetObject(DistManager_getObject(GetNativeReference(), objectName, typeName));
+                return ReferenceDictionary<DistObject>.GetObject(DistManager_getObject(GetNativeReference(), objectName, typeName));
             }
 
             public bool RegisterEventHierarchy(string typeName, string parentTypeName = "gzDistEvent", DistEvent factoryEvent = null)
@@ -281,9 +290,6 @@ namespace GizmoSDK
 
                 return res;
             }
-
-            public DistObjectInstanceManager DistObjectInstanceManager { get; private set; } = new DistObjectInstanceManager();
-            public DistSessionInstanceManager DistSessionInstanceManager { get; private set; } = new DistSessionInstanceManager();
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DistManager_getManager(bool create, string name);

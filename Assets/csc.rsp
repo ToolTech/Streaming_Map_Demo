@@ -1,0 +1,3 @@
+-define:NATIVE_64
+-define:UNITY
+-define:NO_SHADERS

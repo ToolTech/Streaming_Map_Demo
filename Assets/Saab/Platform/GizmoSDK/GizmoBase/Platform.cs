@@ -19,7 +19,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge to gzReference.cpp
 // Author		: Anders Modén		
-// Product		: GizmoBase 2.10.4
+// Product		: GizmoBase 2.10.5
 //		
 //
 //			
@@ -32,17 +32,45 @@
 // Who	Date	Description						
 //									
 // AMO	180301	Created file 	
+// AMO  191120  Added platform defines to detect UNITY configurations (2.10.5)
 //
 //******************************************************************************
 
+// -------------------- Check platform specifics ----------------------
 
+// ------------------- UNITY ------------------------------------------
+
+#if !UNIX && !UNIX64 && !WIN32 && !WIN64
+// ----------------- We have no usual defines ------------
+#if UNITY_ANDROID || UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+// ----------------- We are a UNIX based system ----------
+#if NATIVE_64
+// ----------------- We are a 64 bits Unix ---------------
+#define UNIX64
+#else
+// ----------------- We are a 32 bits Unix ---------------
+#define UNIX
+#endif
+#else           
+#if NATIVE_64
+// ----------------- We are a 64 bits Windows ---------------
+#define WIN64
+#else
+// ----------------- We are a 32 bits Windows ---------------
+#define WIN32
+#endif
+#endif
+#endif
+
+// ------------------ End UNITY ---------------------------------------
+
+using System;
 using System.Runtime.InteropServices;
 
 namespace GizmoSDK
 {
     public class Platform
     {
-
 
 #if WIN32  // ---------------- WinNT , 2000, XP  ---------------
 
@@ -76,14 +104,24 @@ namespace GizmoSDK
 #else
         public const string GZ_LIB_EXT = "64";
 #endif
+
 #else
-    #error "No platform Definition Win64,WIN32,UNIX64 etc.."
+        #error "No platform Definition WIN64,WIN32,UNIX64,ANDROID etc.."
 #endif
 
     }
 
     namespace GizmoBase
     {
+        /// <summary>
+        /// Used to enable callbacks from Unity IL2CPP
+        /// </summary>
+        [AttributeUsage(AttributeTargets.Method)]
+        public class MonoPInvokeCallbackAttribute : Attribute
+        {
+            public MonoPInvokeCallbackAttribute(Type type) { }
+        }
+
         public class Platform
         {
             static public void InitializeFactories()
@@ -103,15 +141,18 @@ namespace GizmoSDK
                 bool result = Platform_initialize();
 
                 if (result)
+                {
                     InitializeFactories();
-
-                Message.Initialize();
+                    Message.Initialize();
+                    DynamicEventReceiver.Initialize();
+                }
 
                 return result;
             }
 
             public static bool Uninitialize(bool forceShutdown = false)
             {
+                DynamicEventReceiver.Uninitialize();
                 Message.Uninitialize();
 
                 UninitializeFactories();

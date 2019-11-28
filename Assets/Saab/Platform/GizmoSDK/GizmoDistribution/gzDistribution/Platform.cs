@@ -19,7 +19,7 @@
 // Module		: GizmoDistribution C#
 // Description	: C# Bridge PLatform
 // Author		: Anders Modén		
-// Product		: GizmoDistribution 2.10.4
+// Product		: GizmoDistribution 2.10.5
 //		
 //
 //			
@@ -58,16 +58,25 @@ namespace GizmoSDK
 
             public static bool Initialize()
             {
-                bool result = Platform_initialize();
+                bool result = GizmoBase.Platform.Initialize();
+
+                if(result)
+                    result = Platform_initialize();
 
                 if (result)
+                {
                     InitializeFactories();
+
+                    DistClient.Initialize();
+                }
 
                 return result;
             }
 
             public static bool Uninitialize(bool forceShutdown = false, bool shutdownBase = false)
             {
+                DistClient.Uninitialize_();
+
                 UninitializeFactories();
                 return Platform_uninitialize(forceShutdown, shutdownBase);
             }

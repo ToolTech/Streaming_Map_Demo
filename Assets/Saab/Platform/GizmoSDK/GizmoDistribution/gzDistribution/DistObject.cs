@@ -19,7 +19,7 @@
 // Module		: GizmoDistribution C#
 // Description	: C# Bridge to gzDistObject class
 // Author		: Anders Modén		
-// Product		: GizmoDistribution 2.10.4
+// Product		: GizmoDistribution 2.10.5
 //		
 //
 //			
@@ -46,72 +46,24 @@ namespace GizmoSDK
 {
     namespace GizmoDistribution
     {
-       
-        public class DistObjectInstanceManager
-        {
-            public DistObjectInstanceManager()
-            {
-                _instanses = new ConcurrentDictionary<IntPtr, DistObject>();
-            }
-
-            public DistObject GetObject(IntPtr nativeReference)
-            {
-                // We must allow GetObject for null reference
-                if (nativeReference == IntPtr.Zero)
-                    return null;
-
-                DistObject obj;
-
-                if (!_instanses.TryGetValue(nativeReference, out obj))
-                {
-                    // At least we will always get a DistObject
-                    obj = Reference.CreateObject(nativeReference) as DistObject;
-
-                    // we must protect against race conditions, we must never allow 2 different managed objects to be returned
-                    // for same native reference!
-                    if (!_instanses.TryAdd(nativeReference, obj))
-                    {
-                        var r = _instanses.TryGetValue(nativeReference, out obj);
-                        System.Diagnostics.Debug.Assert(r);
-
-                        return obj;
-                    }
-                }
-
-                if( obj==null || !obj.IsValid() )
-                {
-                    // In case we lost the factory native ref
-                    _instanses[nativeReference]=obj=Reference.CreateObject(nativeReference) as DistObject;
-                }
-
-                return obj;
-            }
-
-            public void Clear()
-            {
-                foreach (var key in _instanses)
-                {
-                    key.Value.Dispose();
-                }
-
-                _instanses.Clear();
-            }
-
-            public bool DropObject(IntPtr nativeReference)
-            {
-                DistObject obj;
-                return _instanses.TryRemove(nativeReference,out obj);
-            }
-
-
-            ConcurrentDictionary<IntPtr, DistObject>         _instanses;
-        }
-
         public class DistObject : Reference
         {
-            public DistObject(IntPtr nativeReference) : base(nativeReference){}
+            public DistObject(IntPtr nativeReference) : base(nativeReference)
+            {
+                ReferenceDictionary<DistObject>.AddObject(this);
+            }
+    
+            public DistObject(string name):base(DistObject_createDefaultObject(name))
+            {
+                ReferenceDictionary<DistObject>.AddObject(this);
+            }
 
-            public DistObject(string name):base(DistObject_createDefaultObject(name)){}
+            override public void Release()
+            {
+                ReferenceDictionary<DistObject>.RemoveObject(this);
+                base.Release();
+            }
+
 
             public string GetName()
             {

@@ -43,7 +43,16 @@ Shader "Instanced/Trees/Opaque/Compute/Crossboard"
 		_RandomColor("Random Color Amount", Range(0,1)) = 1
 
 		_MainTex("Texture", 2D) = "white" {}
-		_Cutoff("Alpha Cutoff", Range(0,1)) = 1.0
+		_Cutoff("Alpha Cutoff", Range(0,2)) = 0.6
+
+		[Toggle(LOD)]
+		_UseLod("Use Lod", Float) = 1
+
+		// settings for the distance to lod out a object is based on its size.
+		// t.ex. a obeject with size 1 will lod out at a distance of 200 m (with the settings below)
+		// and a object with size 10 will instead lod out at a distance of 2000m.
+		_LodFar("Far LodOut Distance", Float) = 6000
+		_LodNear("Near LodOut Distance", Float) = 0 //100  
 
 		// TODO: move to a computeShader which send back a splatmap with the wind info.
 		_TreeAmplitude("Wind Amplitude", Float) = 0.001

@@ -40,6 +40,8 @@
 //
 // *****************************************************************************
 
+//#define DEBUG_CAMERA
+
 // Unity Managed classes
 using UnityEngine;
 
@@ -72,6 +74,8 @@ using System.Collections;
 using UnityEngine.Networking;
 using Saab.Unity.Core;
 using Saab.Core;
+
+
 
 namespace Saab.Foundation.Unity.MapStreamer
 {
@@ -142,20 +146,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             public Node node;
         };
 
-        // GameObjectInfo carries info about added objects to scene
-        struct GameObjectInfo
-        {
-            public GameObjectInfo(NodeLoadInfo _info, GameObject _go)
-            {
-                nodeInfo = _info;
-                go = _go;
-            }
-
-            public NodeLoadInfo nodeInfo;
-            public GameObject go;
-
-        };
-
+        
         // AssetLoadInfo carries info about loading an asset
         struct AssetLoadInfo
         {
@@ -175,8 +166,7 @@ namespace Saab.Foundation.Unity.MapStreamer
         List<NodeLoadInfo> pendingLoaders = new List<NodeLoadInfo>(100);
         // A queue for pending activations/deactivations
         List<ActivationInfo> pendingActivations = new List<ActivationInfo>(100);
-        // A queue for pending new objects
-        List<GameObjectInfo> pendingObjects = new List<GameObjectInfo>(100);
+  
 
         // A queue for post build work
         Queue<NodeHandle> pendingBuilds = new Queue<NodeHandle>(500);
@@ -201,6 +191,8 @@ namespace Saab.Foundation.Unity.MapStreamer
             if (n == null || !n.IsValid())
                 return null;
 
+            // --------------------------- Add game object ---------------------------------------
+
             string name = n.GetName();
 
             if (String.IsNullOrEmpty(name))
@@ -212,9 +204,11 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             //nodeHandle.Renderer = Renderer;
             nodeHandle.node = n;
-            nodeHandle.inObjectDict = false;
             nodeHandle.currentMaterial = currentMaterial;
+
+#if !NO_SHADERS
             nodeHandle.ComputeShader = ComputeShader;
+#endif
 
             // ---------------------------- Check material state ----------------------------------
 
@@ -352,17 +346,24 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             // ---------------------------- DynamicLoader check -------------------------------------
 
-            DynamicLoader dl = n as DynamicLoader;
-
+            DynamicLoader dl = n as DynamicLoader;      // Add dynamic loader as game object in dictionary
+                                                        // so other dynamic loaded data can parent them as child to loader
             if (dl != null)
             {
-                if (!nodeHandle.inObjectDict)
+                List<GameObject> list;
+
+                if (!NodeUtils.FindGameObjects(dl.GetNativeReference(), out list))     // We are not registered
                 {
                     NodeUtils.AddGameObjectReference(dl.GetNativeReference(), gameObject);
-                    nodeHandle.inObjectDict = true;
+
+                    nodeHandle.inNodeUtilsRegistry = true;  // Added to registry
+
+                    // We shall continue to iterate as a group to see if we already have loaded children
                 }
-                else
-                    return gameObject;
+                else  // We are already in list
+                {
+                    return list[0];     // Lets return first object wich is our main registered node
+                }
             }
 
             // ---------------------------- Lod check -------------------------------------
@@ -382,12 +383,13 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                     if (h != null)
                     {
-                        if (!h.inObjectDict)
+                        if(!NodeUtils.HasGameObjects(h.node.GetNativeReference()))
                         {
                             NodeUtils.AddGameObjectReference(h.node.GetNativeReference(), go_child);
+
+                            h.inNodeUtilsRegistry = true;
                             h.node.AddActionInterface(_actionReceiver, NodeActionEvent.IS_TRAVERSABLE);
                             h.node.AddActionInterface(_actionReceiver, NodeActionEvent.IS_NOT_TRAVERSABLE);
-                            h.inObjectDict = true;
                         }
 
                     }
@@ -395,7 +397,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                     go_child.transform.SetParent(gameObject.transform, false);
                 }
 
-                // Dont process group
+                // Dont process group as group is already processed
                 return gameObject;
             }
 
@@ -420,12 +422,13 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                     if (h != null)
                     {
-                        if (!h.inObjectDict)
+                        if (!NodeUtils.HasGameObjects(h.node.GetNativeReference()))
                         {
                             NodeUtils.AddGameObjectReference(h.node.GetNativeReference(), go_child);
+
+                            h.inNodeUtilsRegistry = true;
                             h.node.AddActionInterface(_actionReceiver, NodeActionEvent.IS_TRAVERSABLE);
                             h.node.AddActionInterface(_actionReceiver, NodeActionEvent.IS_NOT_TRAVERSABLE);
-                            h.inObjectDict = true;
                         }
 
                     }
@@ -673,7 +676,9 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                 _native_context = new Context();
 
-                //_native_camera.Debug(_native_context);      // Enable to debug view
+#if DEBUG_CAMERA
+                _native_camera.Debug(_native_context);      // Enable to debug view
+#endif // DEBUG_CAMERA
 
                 _native_traverse_action = new CullTraverseAction();
 
@@ -765,7 +770,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         protected override void OnAwake()
         {
-            UnityPlugin_Initialize();
+
         }
 
         private void OnEnable()
@@ -819,19 +824,17 @@ namespace Saab.Foundation.Unity.MapStreamer
             if (obj == null)
                 return;
 
-            foreach (unTransform child in obj.transform)
-            {
+            foreach (unTransform child in obj.transform)    // Recursive remove
                 RemoveGameObjectHandles(child.gameObject);
-            }
 
             NodeHandle h = obj.GetComponent<NodeHandle>();
 
             if (h != null)
             {
-                if (h.inObjectDict)
+                if (h.inNodeUtilsRegistry)
                 {
                     NodeUtils.RemoveGameObjectReference(h.node.GetNativeReference(), obj);
-                    h.inObjectDict = false;
+                    h.inNodeUtilsRegistry = false;
                 }
 
                 if (h.inNodeUpdateList)
@@ -852,27 +855,33 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             Timer timer = new Timer();      // Measure time precise in update
 
-            #region Dynamic Loading/Add/Remove native handles ---------------------------------------------------------------
+#region Dynamic Loading/Add/Remove native handles ---------------------------------------------------------------
 
             foreach (NodeLoadInfo nodeLoadInfo in pendingLoaders)
             {
-                if (nodeLoadInfo.state == DynamicLoadingState.LOADED)
+                if (nodeLoadInfo.state == DynamicLoadingState.LOADED)   // We got a callback from dyn loader that we were loaded or unloaded
                 {
                     unTransform transform = NodeUtils.FindFirstGameObjectTransform(nodeLoadInfo.loader.GetNativeReference());
 
-                    if ((transform != null) && transform.childCount != 0)       // Already have a child
+                    if (transform == null)              // We have been unloaded or not registered
                         continue;
 
-                    GameObject go = Traverse(nodeLoadInfo.node, null);
-                    pendingObjects.Add(new GameObjectInfo(nodeLoadInfo, go));
+                    if (transform.childCount != 0)       // We have already a child and our sub graph was loaded
+                        continue;
+
+                    GameObject go = Traverse(nodeLoadInfo.node, null);          // Build sub graph
+
+                    if(go!=null)
+                        go.transform.SetParent(transform, false);               // Connect to our parent
+
                 }
                 else if (nodeLoadInfo.state == DynamicLoadingState.UNLOADED)
                 {
-                    ConcurrentBag<GameObject> bag;
+                    List<GameObject> list;
 
-                    if(NodeUtils.FindGameObjects(nodeLoadInfo.loader.GetNativeReference(),out bag))
+                    if(NodeUtils.FindGameObjects(nodeLoadInfo.loader.GetNativeReference(),out list))
                     {
-                        foreach (GameObject go in bag)
+                        foreach (GameObject go in list)
                         {
                             foreach (unTransform child in go.transform)         //We need to unload all limked go in hierarchy
                             {
@@ -881,28 +890,22 @@ namespace Saab.Foundation.Unity.MapStreamer
                             }
                         }
                     }
-                    else
-                    {
-                        // Obvously we have taken care of data in previsous traversal of a chained update of scenegraph
-                        // Message.Send("Unity", MessageLevel.WARNING, "Loader break!!");
-                    }
                 }
-
             }
 
             pendingLoaders.Clear();
 
-            #endregion
+#endregion
 
-            #region Activate/Deactivate GameObjects based on scenegraph -----------------------------------------------------
+#region Activate/Deactivate GameObjects based on scenegraph -----------------------------------------------------
 
             foreach (ActivationInfo activationInfo in pendingActivations)
             {
-                ConcurrentBag<GameObject> bag;  // We need to activate the correct nodes
+                List<GameObject> list;  // We need to activate the correct nodes
 
-                if (NodeUtils.FindGameObjects(activationInfo.node.GetNativeReference(), out bag))
+                if (NodeUtils.FindGameObjects(activationInfo.node.GetNativeReference(), out list))
                 {
-                    foreach (GameObject obj in bag)
+                    foreach (GameObject obj in list)
                     {
                         if (activationInfo.state == NodeActionEvent.IS_TRAVERSABLE)
                             obj.SetActive(true);
@@ -910,55 +913,14 @@ namespace Saab.Foundation.Unity.MapStreamer
                             obj.SetActive(false);
                     }
                 }
-                else
-                {
-                    Message.Send("Unity", MessageLevel.WARNING, "Activation break!!");
-                }
             }
 
             pendingActivations.Clear();
 
-            #endregion
-
-            #region Creating GameObjects based on traversal -----------------------------------------------------------------
-
-            foreach (GameObjectInfo go_info in pendingObjects)
-            {
-                ConcurrentBag<GameObject> bag;  // We need to activate the correct nodes
-
-                if (NodeUtils.FindGameObjects(go_info.nodeInfo.loader.GetNativeReference(), out bag))
-                {
-                    bool shared = false;
-
-                    foreach (GameObject go in bag)      // Possibly multiple gameobjects for shared instances
-                    {
-                        if (!shared)
-                            go_info.go.transform.SetParent(go.transform, false);
-                        else
-                        {
-                            GameObject shared_go = Traverse(go_info.nodeInfo.node, null);
-                            shared_go.transform.SetParent(go.transform, false);
-                        }
-                        shared = true;
-                    }
-                }
-                else
-                {
-                    RemoveGameObjectHandles(go_info.go);
-                    GameObject.Destroy(go_info.go);
-                }
-
-            }
-
-            pendingObjects.Clear();
-
-            #endregion
-
-            //Message.Send("SceneManager", MessageLevel.ALWAYS, $"currentObjects Size {currentObjects.Count}");
-
-            //Message.Send("SceneManager", MessageLevel.ALWAYS, String.Format("currentObjects Size {0}", currentObjects.Count));
-
-            #region Update slow loading assets ------------------------------------------------------------------------------
+#endregion
+                       
+              
+#region Update slow loading assets ------------------------------------------------------------------------------
 
             while (pendingBuilds.Count > 0 && timer.GetTime() < MaxBuildTime)
             {
@@ -966,7 +928,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                 handle.BuildGameObject();
             }
 
-            #endregion
+#endregion
 
             // Right now we use this as a dirty fix to handle unused shared materials
 
@@ -1039,7 +1001,10 @@ namespace Saab.Foundation.Unity.MapStreamer
                            
 
                 _native_camera.Render(_native_context, 1000, 1000, 1000, _native_traverse_action);
-                //_native_camera.DebugRefresh();
+
+#if DEBUG_CAMERA
+                _native_camera.DebugRefresh();
+#endif
             }
             finally
             {
@@ -1049,9 +1014,6 @@ namespace Saab.Foundation.Unity.MapStreamer
             UpdateNodeInternals();
         }
         
-
-        [DllImport("UnityPluginInterface", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-        private static extern void UnityPlugin_Initialize();
     }
 
 }

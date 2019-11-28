@@ -19,7 +19,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge to gzSerialize.cpp
 // Author		: Anders Modén		
-// Product		: GizmoBase 2.10.4
+// Product		: GizmoBase 2.10.5
 //		
 //
 //			
@@ -148,6 +148,11 @@ namespace GizmoSDK
                 return Marshal.PtrToStringUni(SerializeAdapter_getError(GetNativeReference()));
             }
 
+            public static bool SetAssetManagerHandle(IntPtr JNIEnvHandle,IntPtr assetManagerHandle)
+            {
+                return SerializeAdapter_SetAssetManagerHandle(JNIEnvHandle, assetManagerHandle);
+            }
+
             #region -------------- Native calls ------------------
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
@@ -170,7 +175,8 @@ namespace GizmoSDK
             private static extern bool SerializeAdapter_hasData(IntPtr adapter_reference,UInt32 minCount);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern UInt32 SerializeAdapter_length(IntPtr adapter_reference);
-
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool SerializeAdapter_SetAssetManagerHandle(IntPtr handle1, IntPtr handle2);
             #endregion
         }
     }

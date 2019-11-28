@@ -19,7 +19,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge to gzMessage class
 // Author		: Anders Modén		
-// Product		: GizmoBase 2.10.4
+// Product		: GizmoBase 2.10.5
 //		
 //
 //			
@@ -58,6 +58,7 @@ namespace GizmoSDK
 
             INTERNAL=(1<<11),
         }
+               
 
         public class Message
         {
@@ -88,7 +89,7 @@ namespace GizmoSDK
                     s_class_init = null;
             }
 
-            // --------------------- private ----------------------------
+            #region ---------------- Private functions ------------------------
 
 
             private sealed class Initializer
@@ -116,10 +117,13 @@ namespace GizmoSDK
 
             static private EventHandler_OnMessage s_dispatcher;
 
+            [MonoPInvokeCallback(typeof(EventHandler_OnMessage))]
             private static void MessageHandler(string sender, MessageLevel level, string message)
             {
                 OnMessage?.Invoke(sender, level, message);
             }
+
+            #endregion
 
             #region // --------------------- Native calls -----------------------
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode,CallingConvention =CallingConvention.Cdecl)]
