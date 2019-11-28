@@ -67,8 +67,6 @@ using unTransform = UnityEngine.Transform;
 
 // System
 using System.Collections.Generic;
-using System.Collections.Concurrent;
-using System.Runtime.InteropServices;
 using System;
 using System.Collections;
 using UnityEngine.Networking;
@@ -653,7 +651,7 @@ namespace Saab.Foundation.Unity.MapStreamer
         }
 
 
-        public bool InitializeInternal()        //Initialize()
+        public bool InitializeInternal()        
         {
             _actionReceiver = new NodeAction("DynamicLoadManager");
 

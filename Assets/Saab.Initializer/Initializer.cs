@@ -96,18 +96,20 @@ namespace Saab.Unity.Initializer
         {
             GizmoSDK.GizmoBase.Platform.Initialize();
               
+            Message.OnMessage += Message_OnMessage;           // Right now strings do not work with IL2CPP
+
+            Message.SetMessageLevel(MessageLevel.DEBUG);
+
             // Initialize application ragistry
             KeyDatabase.SetDefaultRegistry($"/data/data/{Application.identifier}/files/gizmosdk.reg");
 
-            Message.SetMessageLevel(MessageLevel.DEBUG);
 
             // Set local xml config
             KeyDatabase.SetLocalRegistry("asset:config.xml");
 
             #region -------- Test Related stuff in init --------------------
 
-            // Message.OnMessage += Message_OnMessage;           // Right now strings do not work with IL2CPP
-
+            
             //SetupJavaBindings();
 
             //test();
@@ -119,11 +121,17 @@ namespace Saab.Unity.Initializer
 
         private void Message_OnMessage(string sender, MessageLevel level, string message)
         {
-            if ((level & (MessageLevel.DEBUG | MessageLevel.MEM_DEBUG)) > 0)
+            level = level & MessageLevel.MASK_LEVEL;
+
+            if ((level & MessageLevel.MEM_DEBUG) > 0)
             {
                 Debug.Log(message);
             }
-            else if ((level & (MessageLevel.NOTICE | MessageLevel.ALWAYS)) > 0)
+            else if ((level & MessageLevel.DEBUG) > 0)
+            {
+                Debug.Log(message);
+            }
+            else if ((level & MessageLevel.NOTICE) > 0)
             {
                 Debug.Log(message);
             }
@@ -139,6 +147,11 @@ namespace Saab.Unity.Initializer
             {
                 Debug.LogError(message);
             }
+            else if ((level & MessageLevel.ALWAYS) > 0)
+            {
+                Debug.Log(message);
+            }
+
         }
 
         // Update is called once per frame

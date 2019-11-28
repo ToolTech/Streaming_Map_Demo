@@ -56,6 +56,8 @@ namespace GizmoSDK
             ASSERT = 0x6000,
             ALWAYS = 0x7000,
 
+            MASK_LEVEL=0xF000,
+
             INTERNAL=(1<<11),
         }
                

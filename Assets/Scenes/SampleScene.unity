@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.44657898, g: 0.4964133, b: 0.5748178, a: 1}
+  m_IndirectSpecularColor: {r: 0.44657874, g: 0.49641258, b: 0.574817, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -346,7 +346,7 @@ MonoBehaviour:
   DefaultShader: {fileID: 7, guid: 0000000000000000f000000000000000, type: 0}
   CrossboardShader: {fileID: 4800000, guid: 6cc22e1327a6086419049fb82f479ecb, type: 3}
   ComputeShader: {fileID: 7200000, guid: 75616827e64e7bd478340a97f80a1da0, type: 3}
-  MapUrl: purl:maps?nic=${wlan0},sweden/eksjo/data/map.gzd
+  MapUrl: 'http://www.gizmosdk.com/archives/maps/Sweden/Eksjo/processed/map.gzd '
   FrameCleanupInterval: 1000
   MaxBuildTime: 0.01
 --- !u!4 &1784744576
