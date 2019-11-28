@@ -121,37 +121,36 @@ namespace Saab.Unity.Initializer
 
         private void Message_OnMessage(string sender, MessageLevel level, string message)
         {
-            level = level & MessageLevel.MASK_LEVEL;
 
-            if ((level & MessageLevel.MEM_DEBUG) > 0)
+            switch (level & MessageLevel.LEVEL_MASK)
             {
-                Debug.Log(message);
-            }
-            else if ((level & MessageLevel.DEBUG) > 0)
-            {
-                Debug.Log(message);
-            }
-            else if ((level & MessageLevel.NOTICE) > 0)
-            {
-                Debug.Log(message);
-            }
-            else if ((level & MessageLevel.WARNING) > 0)
-            {
-                Debug.LogWarning(message);
-            }
-            else if ((level & MessageLevel.ASSERT) > 0)
-            {
-                Debug.LogAssertion(message);
-            }
-            else if ((level & MessageLevel.FATAL) > 0)
-            {
-                Debug.LogError(message);
-            }
-            else if ((level & MessageLevel.ALWAYS) > 0)
-            {
-                Debug.Log(message);
-            }
+                case MessageLevel.MEM_DEBUG:
+                case MessageLevel.PERF_DEBUG:
+                case MessageLevel.DEBUG:
+                case MessageLevel.TRACE_DEBUG:
+                    Debug.Log(message);
+                    break;
 
+                case MessageLevel.NOTICE:
+                    Debug.Log(message);
+                    break;
+
+                case MessageLevel.WARNING:
+                    Debug.LogWarning(message);
+                    break;
+
+                case MessageLevel.FATAL:
+                    Debug.LogError(message);
+                    break;
+
+                case MessageLevel.ASSERT:
+                    Debug.LogAssertion(message);
+                    break;
+
+                case MessageLevel.ALWAYS:
+                    Debug.Log(message);
+                    break;
+            }
         }
 
         // Update is called once per frame
