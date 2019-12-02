@@ -142,8 +142,6 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             // ---------------------------- Crossboard check -----------------------------------
 
-#region shader related stuff --------------------------------------------------------
-
 #if !NO_SHADERS
 
             Crossboard cb = node as Crossboard;
@@ -225,8 +223,6 @@ namespace Saab.Foundation.Unity.MapStreamer
 
 #endif
 
-#endregion
-
             // ---------------------------- Geometry check -------------------------------------
 
             Geometry geom = node as Geometry;
@@ -294,7 +290,25 @@ namespace Saab.Foundation.Unity.MapStreamer
                         }
                     }
                     else
-                        mesh.RecalculateNormals();
+                    {
+                        //mesh.RecalculateNormals();
+
+                        Vector3[] normals = new Vector3[vertices.Length];
+
+                        for (int i = 0; i < vertices.Length; i++)
+                        {
+                            normals[i] = new Vector3(0, 1, 0);
+                        }
+
+                        mesh.normals = normals;
+
+                        //Vector3[] normals = new Vector3[1];       // Obviously this doesnt work. Shame!
+
+                        //normals[0] = new Vector3(0, 1, 0);
+
+                        //mesh.normals = normals;
+
+                    }
 
                     uint texture_units = geom.GetTextureUnits();
 
