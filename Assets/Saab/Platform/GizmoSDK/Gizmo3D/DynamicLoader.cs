@@ -97,6 +97,11 @@ namespace GizmoSDK
                 }
             }
 
+            public static void UsePreCache(bool on)
+            {
+                DynamicLoader_usePreCache(on);
+            }
+
            
             static public void Initialize()
             {
@@ -156,6 +161,8 @@ namespace GizmoSDK
             private static extern IntPtr DynamicLoader_getNodeURL(IntPtr loader_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void DynamicLoader_setNodeURL(IntPtr loader_reference,string url);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void DynamicLoader_usePreCache(bool on);
             #endregion
 
             #endregion

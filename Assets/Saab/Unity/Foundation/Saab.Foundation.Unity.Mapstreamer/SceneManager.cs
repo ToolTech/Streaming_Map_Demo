@@ -222,93 +222,94 @@ namespace Saab.Foundation.Unity.MapStreamer
                     {
                         if (texture.HasImage())
                         {
-                            gzImage image = texture.GetImage();
 
-                            int depth = (int)image.GetDepth();
-                            int width = (int)image.GetWidth();
-                            int height = (int)image.GetHeight();
+                            ImageFormat     image_format;
+                            ComponentType   comp_type;
+                            uint            components;
 
-                            bool can_create_mipmaps = false;
+                            byte[] image_data;
 
-                            if (depth == 1)
+                            uint depth; 
+                            uint width; 
+                            uint height;
+
+                            if (texture.GetMipMapImageArray(out image_data, out image_format,out comp_type,out components, out width, out height, out depth, true, false))
                             {
-
-                                if (n is Crossboard)
-                                    currentMaterial = new Material(CrossboardShader);
-                                else
-                                    currentMaterial = new Material(DefaultShader);
-
-                                TextureFormat format = TextureFormat.ARGB32;
-
-                                ImageType image_type = image.GetImageType();
-
-                                switch (image_type)
+                                if (depth == 1)
                                 {
-                                    case ImageType.RGB_8_DXT1:
-                                        format = TextureFormat.DXT1;
-                                        break;
 
-                                    case ImageType.RGBA_8_DXT5:
-                                        format = TextureFormat.DXT5;
-                                        break;
+                                    if (n is Crossboard)
+                                        currentMaterial = new Material(CrossboardShader);
+                                    else
+                                        currentMaterial = new Material(DefaultShader);
 
-                                    case ImageType.RGBA_8:
-                                        format = TextureFormat.RGBA32;
-                                        can_create_mipmaps = true;
-                                        break;
+                                    TextureFormat format = TextureFormat.ARGB32;
 
-                                    case ImageType.RGB_8:
-                                        format = TextureFormat.RGB24;
-                                        can_create_mipmaps = true;
-                                        break;
+                                    switch(comp_type)
+                                    {
+                                        case ComponentType.UNSIGNED_BYTE:
+                                            {
+                                                switch (image_format)
+                                                {
+                                                    case ImageFormat.RGBA:
+                                                        format = TextureFormat.RGBA32;
+                                                        break;
 
-                                    default:
-                                        // Issue your own error here because we can not use this texture yet
-                                        return null;
+                                                    case ImageFormat.RGB:
+                                                        format = TextureFormat.RGB24;
+                                                        break;
+
+                                                    case ImageFormat.COMPRESSED_RGBA_S3TC_DXT1:
+                                                    case ImageFormat.COMPRESSED_RGB_S3TC_DXT1:
+                                                        format = TextureFormat.DXT1;
+                                                        break;
+
+                                                    case ImageFormat.COMPRESSED_RGBA_S3TC_DXT5:
+                                                        format = TextureFormat.DXT5;
+                                                        break;
+
+
+                                                    default:
+                                                        // Issue your own error here because we can not use this texture yet
+                                                        return null;
+                                                }
+                                            }
+                                            break;
+
+                                        default:
+                                            // Issue your own error here because we can not use this texture yet
+                                            return null;
+
+                                    }
+
+
+                                    Texture2D tex = new Texture2D((int)width, (int)height, format, true);
+
+                                    tex.LoadRawTextureData(image_data);
+
+
+                                    switch (texture.MinFilter)
+                                    {
+                                        default:
+                                            tex.filterMode = FilterMode.Point;
+                                            break;
+
+                                        case gzTexture.TextureMinFilter.LINEAR:
+                                        case gzTexture.TextureMinFilter.LINEAR_MIPMAP_NEAREST:
+                                            tex.filterMode = FilterMode.Bilinear;
+                                            break;
+
+                                        case gzTexture.TextureMinFilter.LINEAR_MIPMAP_LINEAR:
+                                            tex.filterMode = FilterMode.Trilinear;
+                                            break;
+                                    }
+
+                                    tex.Apply(texture.UseMipMaps, true);
+
+                                    currentMaterial.mainTexture = tex;
+
                                 }
-
-                                Texture2D tex = new Texture2D(width, height, format, false);
-
-                                byte[] image_data;
-
-                                image.GetImageArray(out image_data);
-
-                                tex.LoadRawTextureData(image_data);
-
-                                if (texture.UseMipMaps && can_create_mipmaps)
-                                {
-                                    Texture2D tex2 = new Texture2D(width, height, format, true);
-                                    tex2.SetPixels(tex.GetPixels(0, 0, tex.width, tex.height));
-
-                                    tex = tex2;
-                                }
-
-
-                                switch (texture.MinFilter)
-                                {
-                                    default:
-                                        tex.filterMode = FilterMode.Point;
-                                        break;
-
-                                    case gzTexture.TextureMinFilter.LINEAR:
-                                    case gzTexture.TextureMinFilter.LINEAR_MIPMAP_NEAREST:
-                                        tex.filterMode = FilterMode.Bilinear;
-                                        break;
-
-                                    case gzTexture.TextureMinFilter.LINEAR_MIPMAP_LINEAR:
-                                        tex.filterMode = FilterMode.Trilinear;
-                                        break;
-                                }
-
-                                tex.Apply(texture.UseMipMaps, true);
-
-                                currentMaterial.mainTexture = tex;
-
                             }
-
-
-
-                            image.Dispose();
                         }
 
                         // Add some kind of check for textures shared by many
@@ -691,6 +692,8 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
 
 
+            DynamicLoader.UsePreCache(true);                    // Enable use of mipmap creation on dynamic loading
+            DynamicLoaderManager.SetNumberOfActiveLoaders(4);   // Lets start with 4 parallell threads
             DynamicLoaderManager.StartManager();
 
             return true;

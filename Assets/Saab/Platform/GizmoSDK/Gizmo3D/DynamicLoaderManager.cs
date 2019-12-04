@@ -59,11 +59,18 @@ namespace GizmoSDK
                 DynamicLoaderManager_stopManager(stopAll, manager_index);
             }
 
+            static public void SetNumberOfActiveLoaders(Byte count)
+            {
+                DynamicLoaderManager_setNumberOfActiveLoaders(count);
+            }
+
             #region Native dll interface ----------------------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void DynamicLoaderManager_startManager(bool startAll, Byte manager_index);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void DynamicLoaderManager_stopManager(bool startAll, Byte manager_index);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void DynamicLoaderManager_setNumberOfActiveLoaders(Byte count);
             #endregion
         }
     }
