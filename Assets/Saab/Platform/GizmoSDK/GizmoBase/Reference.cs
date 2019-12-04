@@ -19,7 +19,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge to gzReference class
 // Author		: Anders Modén		
-// Product		: GizmoBase 2.10.4
+// Product		: GizmoBase 2.10.5
 //		
 //
 //			
@@ -54,8 +54,9 @@ namespace GizmoSDK
             IntPtr GetNativeReference();
             IntPtr GetNativeType();
             string GetNativeTypeName();
-
+            void Release();
         }
+
         public class Reference : IReferenceInterface,IReferenceFactory, IDisposable
         {
             public Reference(IntPtr nativeReference)
@@ -163,31 +164,6 @@ namespace GizmoSDK
                     Reference_unref(oldRef);
             }
 
-            #region ----------------- privates --------------------
-
-            // -------------- Native calls ------------------
-
-            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void Reference_ref(IntPtr ptr);
-            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void Reference_unref(IntPtr ptr);
-            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void Reference_unrefNoDelete(IntPtr ptr);
-            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr Reference_getReferenceTypeName(IntPtr ptr);
-            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr Reference_Test();
-            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr Reference_clone(IntPtr ptr);
-            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr Reference_getType(IntPtr ptr);
-            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern bool Reference_isOfType(IntPtr ptr, IntPtr type);
-            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr Reference_getParentType(IntPtr ptr);
-            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr Reference_getTypeName(IntPtr ptr);
-
             static public bool AddFactory(Reference nativeRef)
             {
                 if (nativeRef == null)
@@ -218,13 +194,13 @@ namespace GizmoSDK
             {
                 IReferenceFactory factory;
 
-                return s_factory.TryRemove(typeName,out factory);
+                return s_factory.TryRemove(typeName, out factory);
 
             }
 
             static public Reference CreateObject(IntPtr nativeReference)
             {
-                if (nativeReference==IntPtr.Zero)
+                if (nativeReference == IntPtr.Zero)
                     return null;
 
                 IntPtr type = Reference_getType(nativeReference);
@@ -236,7 +212,7 @@ namespace GizmoSDK
                     string typeName = Marshal.PtrToStringUni(Reference_getTypeName(type));
 
                     if (s_factory.TryGetValue(typeName, out factory))
-                       return factory.Create(nativeReference);
+                        return factory.Create(nativeReference);
 
                     type = Reference_getParentType(type);
                 }
@@ -244,11 +220,105 @@ namespace GizmoSDK
                 return new Reference(nativeReference);
             }
 
+            #region ----------------- privates --------------------
+
+            // -------------- Native calls ------------------
+
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Reference_ref(IntPtr ptr);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Reference_unref(IntPtr ptr);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Reference_unrefNoDelete(IntPtr ptr);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr Reference_getReferenceTypeName(IntPtr ptr);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr Reference_Test();
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr Reference_clone(IntPtr ptr);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr Reference_getType(IntPtr ptr);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool Reference_isOfType(IntPtr ptr, IntPtr type);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr Reference_getParentType(IntPtr ptr);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr Reference_getTypeName(IntPtr ptr);
+                        
+
             private HandleRef m_reference;
 
             private static ConcurrentDictionary<string, IReferenceFactory> s_factory = new ConcurrentDictionary<string, IReferenceFactory>();
 
             #endregion
+        }
+
+        public class ReferenceDictionary<T> where T : class,IReferenceInterface
+        {
+            static public bool AddObject(IReferenceInterface nativeRef)
+            {
+                if (nativeRef == null)
+                    return false;
+
+                if (nativeRef.GetNativeReference() == IntPtr.Zero)
+                    return false;
+
+                return _instances.TryAdd(nativeRef.GetNativeReference(), nativeRef);
+            }
+
+            static public bool RemoveObject(IReferenceInterface nativeRef)
+            {
+                if (nativeRef == null)
+                    return false;
+
+                return RemoveObject(nativeRef.GetNativeReference());
+            }
+
+            static public bool RemoveObject(IntPtr nativeRef)
+            {
+                if (nativeRef == IntPtr.Zero)
+                    return false;
+
+                IReferenceInterface obj;
+
+                return _instances.TryRemove(nativeRef, out obj);
+            }
+
+            static public T GetObject(IntPtr nativeReference)
+            {
+                // We must allow GetObject for null reference
+                if (nativeReference == IntPtr.Zero)
+                    return null;
+
+                IReferenceInterface obj;
+
+                if (!_instances.TryGetValue(nativeReference, out obj))
+                {
+                    // At least we will always get a DistObject
+                    obj = Reference.CreateObject(nativeReference) as IReferenceInterface;
+
+                    //If we have an auto register in constructor we will hit the false condition
+                    if (!_instances.TryAdd(nativeReference, obj))
+                    {
+                        bool ok = _instances.TryGetValue(nativeReference, out obj);
+                        System.Diagnostics.Debug.Assert(ok);
+                    }
+                }
+
+                return obj as T;
+            }
+
+            static public void Clear()
+            {
+                foreach (var key in _instances)
+                {
+                    key.Value.Release();
+                }
+
+                _instances.Clear();
+            }
+
+            private static ConcurrentDictionary<IntPtr, IReferenceInterface> _instances = new ConcurrentDictionary<IntPtr, IReferenceInterface>();
         }
     }
 }

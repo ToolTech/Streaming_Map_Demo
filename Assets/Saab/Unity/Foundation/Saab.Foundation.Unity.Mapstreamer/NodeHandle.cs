@@ -35,6 +35,12 @@
 //
 //******************************************************************************
 
+// ************************** NOTE *********************************************
+//
+//      Stand alone from BTA !!! No BTA code in this !!!
+//
+// *****************************************************************************
+
 // Unity Managed classes
 using UnityEngine;
 
@@ -45,7 +51,11 @@ using GizmoSDK.Gizmo3D;
 // Fix some conflicts between unity and Gizmo namespaces
 using gzTransform = GizmoSDK.Gizmo3D.Transform;
 using System.Collections.Generic;
+using Saab.Utility.Unity.NodeUtils;
+
+#if !NO_SHADERS
 using Assets.Crossboard;
+#endif
 
 public struct CrossboardDataset
 {
@@ -66,7 +76,7 @@ public struct CrossboardDataset
     public Color[] COLOR;
 }
 
-namespace Saab.Unity.MapStreamer
+namespace Saab.Foundation.Unity.MapStreamer
 {
 
     // The NodeHandle component of a game object stores a Node reference to the corresponding Gizmo item on the native side
@@ -76,8 +86,8 @@ namespace Saab.Unity.MapStreamer
         // Handle to native gizmo node
         internal Node node;
 
-        // True if we have added this object as a lookup table object
-        internal bool inObjectDict = false;
+        // True if we have added this object as a node update object
+        internal bool inNodeUtilsRegistry = false;
 
         // True if we have added this object as a node update object
         internal bool inNodeUpdateList = false;
@@ -88,10 +98,16 @@ namespace Saab.Unity.MapStreamer
         // Set to our material if we shall activate it on out geometry
         internal Material currentMaterial;
 
+#if !NO_SHADERS
+
         // ComputeShader for culling + furstum
         internal ComputeShader ComputeShader;
 
-        private readonly string ID = "Saab.Unity.MapStreamer.NodeHandle";
+        private readonly string ID = "Saab.Foundation.Unity.MapStreamer.NodeHandle";
+
+#endif
+
+
 
         // We need to release all existing objects in a locked mode
         void OnDestroy()
@@ -100,6 +116,13 @@ namespace Saab.Unity.MapStreamer
             // Basically all nodes in the GameObject scene should already be release by callbacks but there might be some nodes left that needs this behaviour
             if (node != null)
             {
+                if (inNodeUtilsRegistry)
+                {
+                    NodeUtils.RemoveGameObjectReference(node.GetNativeReference(), gameObject);
+                    inNodeUtilsRegistry = false;
+                }
+
+
                 if (node.IsValid())
                 {
                     NodeLock.WaitLockEdit();
@@ -118,6 +141,8 @@ namespace Saab.Unity.MapStreamer
                 return false;
 
             // ---------------------------- Crossboard check -----------------------------------
+
+#if !NO_SHADERS
 
             Crossboard cb = node as Crossboard;
 
@@ -196,6 +221,8 @@ namespace Saab.Unity.MapStreamer
 
             }
 
+#endif
+
             // ---------------------------- Geometry check -------------------------------------
 
             Geometry geom = node as Geometry;
@@ -263,7 +290,25 @@ namespace Saab.Unity.MapStreamer
                         }
                     }
                     else
-                        mesh.RecalculateNormals();
+                    {
+                        //mesh.RecalculateNormals();
+
+                        Vector3[] normals = new Vector3[vertices.Length];
+
+                        for (int i = 0; i < vertices.Length; i++)
+                        {
+                            normals[i] = new Vector3(0, 1, 0);
+                        }
+
+                        mesh.normals = normals;
+
+                        //Vector3[] normals = new Vector3[1];       // Obviously this doesnt work. Shame!
+
+                        //normals[0] = new Vector3(0, 1, 0);
+
+                        //mesh.normals = normals;
+
+                    }
 
                     uint texture_units = geom.GetTextureUnits();
 

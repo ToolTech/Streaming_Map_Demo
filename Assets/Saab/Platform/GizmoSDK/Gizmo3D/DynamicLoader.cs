@@ -19,12 +19,12 @@
 // Module		: Gizmo3D C#
 // Description	: C# Bridge to gzDynamicLoader class
 // Author		: Anders Modén		
-// Product		: Gizmo3D 2.10.4
+// Product		: Gizmo3D 2.10.5
 //		
 //
 //			
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
-//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and IRIX® for  
+//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and Android for  
 //			usage in Game or VisSim development.
 //
 //
@@ -61,7 +61,6 @@ namespace GizmoSDK
         }
         public class DynamicLoader : Group
         {
-            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
             public delegate void EventHandler_OnDynamicLoad(DynamicLoadingState state,DynamicLoader loader,Node node);
 
             static public event EventHandler_OnDynamicLoad OnDynamicLoad;
@@ -98,9 +97,12 @@ namespace GizmoSDK
                 }
             }
 
-            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-            delegate void Native_OnDynamicLoad(DynamicLoadingState state, IntPtr loader_ref, IntPtr node_ref);
+            public static void UsePreCache(bool on)
+            {
+                DynamicLoader_usePreCache(on);
+            }
 
+           
             static public void Initialize()
             {
                 if (s_class_init == null)
@@ -113,7 +115,7 @@ namespace GizmoSDK
                     s_class_init = null;
             }
 
-            // Private ------------------------------------------------------------
+            #region -------- Private ------------------------------------------------------------
 
             private sealed class Initializer
             {
@@ -121,7 +123,7 @@ namespace GizmoSDK
                 {
                     if (s_dispatcher == null)
                     {
-                        s_dispatcher = new Native_OnDynamicLoad(MessageHandler);
+                        s_dispatcher = new Native_OnDynamicLoad(OnDynamicLoad_callback);
                         DynamicLoader_SetCallback(s_dispatcher);
                     }
                 }
@@ -138,7 +140,11 @@ namespace GizmoSDK
 
             static private Initializer s_class_init = new Initializer();
 
-            private static void MessageHandler(DynamicLoadingState state, IntPtr loader_reference, IntPtr node_reference)
+            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+            delegate void Native_OnDynamicLoad(DynamicLoadingState state, IntPtr loader_ref, IntPtr node_ref);
+
+            [MonoPInvokeCallback(typeof(Native_OnDynamicLoad))]
+            private static void OnDynamicLoad_callback(DynamicLoadingState state, IntPtr loader_reference, IntPtr node_reference)
             {
                 OnDynamicLoad?.Invoke(state,CreateObject(loader_reference) as DynamicLoader,CreateObject(node_reference) as Node);
             }
@@ -155,6 +161,10 @@ namespace GizmoSDK
             private static extern IntPtr DynamicLoader_getNodeURL(IntPtr loader_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void DynamicLoader_setNodeURL(IntPtr loader_reference,string url);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void DynamicLoader_usePreCache(bool on);
+            #endregion
+
             #endregion
         }
     }

@@ -19,12 +19,12 @@
 // Module		: Gizmo3D C#
 // Description	: C# Bridge to gzCamera classes
 // Author		: Anders Modén		
-// Product		: Gizmo3D 2.10.4
+// Product		: Gizmo3D 2.10.5
 //		
 //
 //			
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
-//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and IRIX® for  
+//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and Android for  
 //			usage in Game or VisSim development.
 //
 //
@@ -153,7 +153,7 @@ namespace GizmoSDK
             public Vec3D Position
             {
                 get { Vec3D pos = new Vec3D(); Camera_getPosition(GetNativeReference(), ref pos); return pos; }
-                set { Camera_setPosition(GetNativeReference(), value); }
+                set { Camera_setPosition(GetNativeReference(), ref value); }
             }
 
             #region Native dll interface ----------------------------------
@@ -170,7 +170,7 @@ namespace GizmoSDK
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr Camera_getScene(IntPtr camera_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void Camera_setPosition(IntPtr camera_reference, Vec3D position);
+            private static extern void Camera_setPosition(IntPtr camera_reference, ref Vec3D position);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void Camera_getPosition(IntPtr camera_reference, ref Vec3D position);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]

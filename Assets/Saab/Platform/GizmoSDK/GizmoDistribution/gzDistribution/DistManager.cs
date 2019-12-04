@@ -19,7 +19,7 @@
 // Module		: GizmoDistribution C#
 // Description	: C# Bridge to gzDistManager class
 // Author		: Anders Modén		
-// Product		: GizmoDistribution 2.10.4
+// Product		: GizmoDistribution 2.10.5
 //		
 //
 //			
@@ -141,7 +141,10 @@ namespace GizmoSDK
                 var prototype = (Reference)Activator.CreateInstance(objectType, flags, null, new object[] { nativeRef }, null);
 
                 // register a factory
-                RegisterObjecttHierarchy(objectType.Name, nativeBaseTypename, factoryObj);
+                if (!RegisterObjecttHierarchy(objectType.Name, nativeBaseTypename, factoryObj))
+                    Message.Send(nameof(DistManager), MessageLevel.DEBUG, $"Using native factory    >>> {objectType.Name}");
+                else
+                    Message.Send(nameof(DistManager), MessageLevel.DEBUG, $"Using managed factory   >>> {objectType.Name}");
 
                 // use the overloaded AddFactory to register with correct typename
                 AddFactory(prototype, objectType.Name);
@@ -200,7 +203,10 @@ namespace GizmoSDK
                 var prototype = (Reference)Activator.CreateInstance(eventType, flags, null, new object[] { nativeRef }, null);
 
                 // register a factory
-                RegisterEventHierarchy(eventType.Name, nativeBaseTypename, factoryObj);
+                if (!RegisterEventHierarchy(eventType.Name, nativeBaseTypename, factoryObj))
+                    Message.Send(nameof(DistManager), MessageLevel.DEBUG, $"Using native factory    >>> {eventType.Name}");
+                else
+                    Message.Send(nameof(DistManager), MessageLevel.DEBUG, $"Using managed factory   >>> {eventType.Name}");
 
                 // use the overloaded AddFactory to register with correct typename
                 AddFactory(prototype, eventType.Name);
@@ -214,8 +220,10 @@ namespace GizmoSDK
 
             public void Shutdown(bool wait = false)
             {
-                DistSessionInstanceManager.Clear();
-                DistObjectInstanceManager.Clear();
+                ReferenceDictionary<DistSession>.Clear();
+                ReferenceDictionary<DistClient>.Clear();
+                ReferenceDictionary<DistClient>.Clear();
+
                 DistManager_shutDown(GetNativeReference(), wait);
             }
 
@@ -242,7 +250,14 @@ namespace GizmoSDK
 
             public DistSession GetSession(string sessionName, bool create = false, bool global = false, ServerPriority prio = ServerPriority.PRIO_NORMAL)
             {
-                return DistSessionInstanceManager.GetSession(DistManager_getSession(GetNativeReference(), sessionName, create, global, prio));
+                IntPtr s = DistManager_getSession(GetNativeReference(), sessionName, create, global, prio);
+
+                DistSession session = ReferenceDictionary<DistSession>.GetObject(s);
+
+                if (session == null)
+                    session = new DistSession(s);
+
+                return session;
             }
 
             public DistEvent GetEvent(string typeName = "gzDistEvent")
@@ -252,7 +267,7 @@ namespace GizmoSDK
 
             public DistObject GetObject(string objectName, string typeName = "gzDistObject")
             {
-                return DistObjectInstanceManager.GetObject(DistManager_getObject(GetNativeReference(), objectName, typeName));
+                return ReferenceDictionary<DistObject>.GetObject(DistManager_getObject(GetNativeReference(), objectName, typeName));
             }
 
             public bool RegisterEventHierarchy(string typeName, string parentTypeName = "gzDistEvent", DistEvent factoryEvent = null)
@@ -275,9 +290,6 @@ namespace GizmoSDK
 
                 return res;
             }
-
-            public DistObjectInstanceManager DistObjectInstanceManager { get; private set; } = new DistObjectInstanceManager();
-            public DistSessionInstanceManager DistSessionInstanceManager { get; private set; } = new DistSessionInstanceManager();
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DistManager_getManager(bool create, string name);

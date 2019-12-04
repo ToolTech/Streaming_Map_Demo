@@ -19,7 +19,7 @@
 // Module		: GizmoDistribution C#
 // Description	: C# Bridge to gzDistSession class
 // Author		: Anders Modén		
-// Product		: GizmoDistribution 2.10.4
+// Product		: GizmoDistribution 2.10.5
 //		
 //
 //			
@@ -46,72 +46,31 @@ namespace GizmoSDK
 {
     namespace GizmoDistribution
     {
-        public class DistSessionInstanceManager
-        {
-            public DistSessionInstanceManager()
-            {
-                _instanses = new ConcurrentDictionary<IntPtr, DistSession>();
-            }
-            public DistSession GetSession(IntPtr nativeReference)
-            {
-                // We must allow GetSession for null reference
-
-                if (nativeReference == IntPtr.Zero)
-                    return null;
-
-                DistSession sess;
-
-                if (!_instanses.TryGetValue(nativeReference, out sess))
-                {
-                    sess = new DistSession(nativeReference);
-
-                    _instanses.TryAdd(nativeReference, sess);
-                }
-
-                if (sess==null || !sess.IsValid())
-                {
-                    _instanses[nativeReference] = sess = new DistSession(nativeReference);
-                }
-
-                return sess;
-            }
-
-            public void Clear()
-            {
-                foreach(var key in _instanses )
-                {
-                    key.Value.Dispose();
-                }
-
-                _instanses.Clear();
-            }
-
-            public bool DropSession(IntPtr nativeReference)
-            {
-                DistSession obj;
-                return _instanses.TryRemove(nativeReference,out obj);
-            }
-
-
-            ConcurrentDictionary<IntPtr, DistSession> _instanses;
-        }
-
         public class DistSession : Reference 
         {
             public DistSession(IntPtr nativeReference) : base(nativeReference)
             {
+                ReferenceDictionary<DistSession>.AddObject(this);
+            }
+            
+            override public void Release()
+            {
+                ReferenceDictionary<DistSession>.RemoveObject(this);
+                base.Release();
             }
 
             public string GetName()
             {
                 return Marshal.PtrToStringUni(DistSession_getName(GetNativeReference()));
             }
-
+                       
 
             #region --------------------------------- private --------------------------------------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DistSession_getName(IntPtr session_reference);
-           
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr DistSession_createDefaultSession();
+
             #endregion
         }
     }

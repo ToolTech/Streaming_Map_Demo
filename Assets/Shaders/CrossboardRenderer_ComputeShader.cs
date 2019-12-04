@@ -1,5 +1,43 @@
-﻿using System.Runtime.InteropServices;
+﻿//******************************************************************************
+//
+// Copyright (C) SAAB AB
+//
+// All rights, including the copyright, to the computer program(s) 
+// herein belong to Saab AB. The program(s) may be used and/or
+// copied only with the written permission of Saab AB, or in
+// accordance with the terms and conditions stipulated in the
+// agreement/contract under which the program(s) have been
+// supplied. 
+//
+//
+// Information Class:	COMPANY UNCLASSIFIED
+// Defence Secrecy:		NOT CLASSIFIED
+// Export Control:		NOT EXPORT CONTROLLED
+//
+//
+// File			: CrossboardRenderer_ComputeShader.cs
+// Module		:
+// Description	: Shader Code
+// Author		: ALBNI
+// Product		: BTA
+//
+//
+// Revision History...
+//
+// Who	Date	Description
+//
+//
+//******************************************************************************
+
+// ************************** NOTE *********************************************
+//
+//      Stand alone from BTA !!! No BTA code in this !!!
+//
+// *****************************************************************************
+
+using System.Runtime.InteropServices;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Assets.Crossboard
 {
@@ -10,8 +48,16 @@ namespace Assets.Crossboard
         public ComputeBuffer _outputBuffer;
         public ComputeBuffer _argBuffer;
 
+        private Plane[] _planes = new Plane[6];
+        private float[] _normalsFloat = new float[12];  // 4x3
+        private bool _rendering = false;
+        private CommandBuffer Cb = null;
+        private Camera _cam;
+
         [SerializeField]
         private Material _material;
+
+        private int _cullingKernel = -1;
 
         [StructLayout(LayoutKind.Sequential)]
         struct instance_data
@@ -57,10 +103,6 @@ namespace Assets.Crossboard
 
                 instanceDataArray[i].Offset = dataset.UV1ListComp[i].x;
                 instanceDataArray[i].PlaneOffset = new Vector3(dataset.UV1ListComp[i].y, dataset.UV1ListComp[i].z, dataset.UV1ListComp[i].w);
-
-                //instanceDataArray[i].Size = dataset.UV0[i].x;
-                //instanceDataArray[i].Rotation = new Vector3(dataset.UV0[i].y, dataset.UV1[i].x, dataset.UV1[i].y);
-                //instanceDataArray[i].Color = new Vector3(dataset.COLOR[i].r, dataset.COLOR[i].g, dataset.COLOR[i].b);
             }
 
             // copy data to GPU buffer
@@ -85,14 +127,52 @@ namespace Assets.Crossboard
             _material.SetBuffer("_buffer", _outputBuffer);
         }
 
-        private int _cullingKernel = -1;
+        private void OnDisable()
+        {
+            _rendering = false;
+            if (Cb != null && _cam != null)
+            {
+                _cam.RemoveCommandBuffer(CameraEvent.BeforeImageEffectsOpaque, Cb);
+            }
+        }
+
+        private void OnEnable()
+        {
+            _rendering = true;
+        }
+
+        private void StartRender(Camera cam)
+        {
+            if (Cb == null)
+            {
+                Cb = new CommandBuffer();
+                Cb.name = "ComputeShader Trees";
+            }
+            else
+            {
+                cam.RemoveCommandBuffer(CameraEvent.BeforeImageEffectsOpaque, Cb);
+            }
+
+            _material.SetMatrix("_LocalToWorld", transform.localToWorldMatrix);
+            var r = _material.SetPass(0);
+            Debug.Assert(r);
+
+            // set buffer
+
+            Cb.Clear();
+            Cb.DrawProceduralIndirect(Matrix4x4.identity, _material, -1, MeshTopology.Points, _argBuffer, 0);
+            cam.AddCommandBuffer(CameraEvent.BeforeImageEffectsOpaque, Cb);
+        }
 
         private void Update()
         {
             if (_cullingKernel == -1) return;
 
             var camera = Camera.main;
-            if(camera == null) { return; }  
+            if (camera == null) { return; }
+
+            _cam = camera;
+
             GeometryUtility.CalculateFrustumPlanes(camera, _planes);
             //CalculateFrustumPlanes(camera.projectionMatrix * camera.worldToCameraMatrix, ref _planes);
 
@@ -110,7 +190,7 @@ namespace Assets.Crossboard
             _outputBuffer.SetCounterValue(0);
 
             // assign shader buffers
-            
+
             _computeShader.SetFloats("_CameraPos", camPos.x, camPos.y, camPos.z);
             _computeShader.SetFloats("_CameraFrustumNormals", _normalsFloat);
             _computeShader.SetMatrix("_ToWorld", transform.localToWorldMatrix);
@@ -119,64 +199,13 @@ namespace Assets.Crossboard
             _computeShader.Dispatch(_cullingKernel, Mathf.CeilToInt(_inputBuffer.count / 64f), 1, 1);
             //_computeShader.Dispatch(_cullingKernel, _inputBuffer.count, 1, 1);
 
-            // get 
-
             // get append buffer counter value
             ComputeBuffer.CopyCount(_outputBuffer, _argBuffer, 0);
 
-            //_argBuffer.GetData(args);
-
-            //Debug.Log("vertex count " + args[0]);
-            ////
-            //Debug.Log("instance count " + args[1]);
-            //
-            //Debug.Log("start vertex " + args[2]);
-            //
-            //Debug.Log("start instance " + args[3]);
-
-            //int n = _outputBuffer.count;
-            //var res = new Vector3[n];
-
-            //_outputBuffer.GetData(res);
-        }
-
-        private void OnRenderObject()
-        {
-            // set first pass
-            if(_material == null)
+            if(_rendering)
             {
-                return;
+                StartRender(camera);
             }
-            
-            _material.SetMatrix("_LocalToWorld", transform.localToWorldMatrix);
-            //_material.SetMatrix("_World2Object", transform.wo);
-
-            var r = _material.SetPass(0);
-            Debug.Assert(r);
-
-
-            //_material.SetMatrix("unity_MatrixVP", Camera.current.projectionMatrix * Camera.current.worldToCameraMatrix);
-            //_material.SetMatrix("unity_ObjectToWorld", Matrix4x4.identity);
-
-            //var m = _material.GetMatrix("unity_ObjectToWorld");
-            //Debug.Log(m);
-
-            // set buffer
-
-            
-
-
-
-            // ... this crash ...
-
-            Graphics.DrawProceduralIndirect(MeshTopology.Points, _argBuffer, 0);
         }
-
-
-        private Plane[] _planes = new Plane[6];
-        private float[] _normalsFloat = new float[12];  // 4x3
-       
     }
-
-    
 }

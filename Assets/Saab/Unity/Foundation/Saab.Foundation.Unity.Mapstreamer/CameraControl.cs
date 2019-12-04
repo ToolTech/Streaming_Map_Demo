@@ -34,12 +34,19 @@
 //
 //******************************************************************************
 
+// ************************** NOTE *********************************************
+//
+//      Stand alone from BTA !!! No BTA code in this !!!
+//
+// *****************************************************************************
 
 using Saab.Core;
 using GizmoSDK.GizmoBase;
+using Saab.Utility.Unity.NodeUtils;
+using System.Collections.Generic;
 using UnityEngine;
 
-namespace Saab.Unity.MapStreamer
+namespace Saab.Foundation.Unity.MapStreamer
 {
     public class CameraControl : MonoBehaviour , IWorldCoord
     {
@@ -75,19 +82,64 @@ namespace Saab.Unity.MapStreamer
             Z = Z + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.right.z;
         }
 
-        private Quaternion Tilt(float rotationSpeed)
+        private UnityEngine.Quaternion Tilt(float rotationSpeed)
         {
-            return Quaternion.Euler(rotationSpeed * UnityEngine.Time.unscaledDeltaTime, 0, 0);
+            return UnityEngine.Quaternion.Euler(rotationSpeed * UnityEngine.Time.unscaledDeltaTime, 0, 0);
         }
 
-        private Quaternion Pan(float rotationSpeed)
+        private UnityEngine.Quaternion Pan(float rotationSpeed)
         {
-            return Quaternion.Euler(0, rotationSpeed * UnityEngine.Time.unscaledDeltaTime, 0);
+            return UnityEngine.Quaternion.Euler(0, rotationSpeed * UnityEngine.Time.unscaledDeltaTime, 0);
         }
 
         // Update is called once per frame
         void Update()
         {
+            // Check mouse click
+
+            if(Input.GetButtonDown("Fire1"))
+            {
+                Map.MapPos mapPos;
+
+                if(Map.MapControl.SystemMap.GetScreenGroundPosition((int)Input.mousePosition.x, (int)(Screen.height-Input.mousePosition.y), (uint)Screen.width, (uint)Screen.height, out mapPos, Map.ClampFlags.DEFAULT))
+                {
+                    List<GameObject> list;
+
+                    if(NodeUtils.FindGameObjects(mapPos.node.GetNativeReference(),out list))
+                    {
+                        foreach(GameObject o in list)
+                        {
+                            GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+
+                            sphere.transform.parent = o.transform;
+                            sphere.transform.transform.localPosition =  new Vector3((float)mapPos.position.x, (float)mapPos.position.y, (float)mapPos.position.z);
+                            sphere.transform.localScale = new Vector3(10,10,10);
+                        }
+                    }
+                }
+
+
+            }
+
+            if (Input.GetButtonDown("Fire2"))
+            {
+                GizmoSDK.Coordinate.LatPos latpos = new GizmoSDK.Coordinate.LatPos
+                {
+                    Altitude = 245.52585220821,
+                    Latitude = 1.00778345058085,
+                    Longitude = 0.251106492463706
+
+                };
+
+                Map.MapPos mappos;
+
+                if (Map.MapControl.SystemMap.GetPosition(latpos,out mappos,Map.GroundClampType.GROUND,Map.ClampFlags.WAIT_FOR_DATA))
+                {
+                    Debug.Log("Hit Ground ok");
+                }
+
+
+            }
 
             //transform.position;
 
@@ -112,12 +164,12 @@ namespace Saab.Unity.MapStreamer
                 MoveRight(-speed);
             }
 
-           
+
 
 
             //transform.position = pos;
 
-            Quaternion rot = transform.rotation;
+            UnityEngine.Quaternion rot = transform.rotation;
 
             if (Input.GetKey(KeyCode.UpArrow))
             {

@@ -19,7 +19,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge to gzDynamicEvent classes
 // Author		: Anders Modén		
-// Product		: GizmoBase 2.10.4
+// Product		: GizmoBase 2.10.5
 //		
 //
 //			
@@ -72,17 +72,14 @@ namespace GizmoSDK
             
             public DynamicEventReceiver() : base(DynamicEventReceiver_create())
             {
-                m_dispatcher_OnEvent = new DynamicEventReceiver_OnEvent_Callback(OnEvent_callback);
-                DynamicEventReceiver_SetCallback_OnEvent(GetNativeReference(), m_dispatcher_OnEvent);
+                ReferenceDictionary<DynamicEventReceiver>.AddObject(this);
+
             }
 
-            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-            private delegate void DynamicEventReceiver_OnEvent_Callback(IntPtr sender,ulong event_id, IntPtr a0, IntPtr a1, IntPtr a2, IntPtr a3, IntPtr a4, IntPtr a5, IntPtr a6, IntPtr a7, IntPtr a8, IntPtr a9);
-
-            private DynamicEventReceiver_OnEvent_Callback m_dispatcher_OnEvent;
-            private void OnEvent_callback(IntPtr sender,UInt64 event_id, IntPtr a0, IntPtr a1, IntPtr a2, IntPtr a3, IntPtr a4,IntPtr a5, IntPtr a6, IntPtr a7, IntPtr a8, IntPtr a9)
+            override public void Release()
             {
-                OnEvent?.Invoke(this, Reference.CreateObject(sender) as DynamicEventInterface,event_id,new DynamicType(a0), new DynamicType(a1), new DynamicType(a2), new DynamicType(a3), new DynamicType(a4), new DynamicType(a5), new DynamicType(a6), new DynamicType(a7), new DynamicType(a8), new DynamicType(a9));
+                ReferenceDictionary<DynamicEventReceiver>.RemoveObject(this);
+                base.Release();
             }
 
             public IntPtr GetNativeInterface()
@@ -90,9 +87,63 @@ namespace GizmoSDK
                 return DynamicEventReceiver_getNativeInterface(GetNativeReference());
             }
 
+            static public void Initialize()
+            {
+                if (s_class_init == null)
+                    s_class_init = new Initializer();
+            }
+
+            static public void Uninitialize()
+            {
+                if (s_class_init != null)
+                    s_class_init = null;
+            }
+
+            #region ---------------- Private functions ------------------------
+
+
+            private sealed class Initializer
+            {
+                public Initializer()
+                {
+                    if (s_dispatcher_OnEvent == null)
+                    {
+                        s_dispatcher_OnEvent = new DynamicEventReceiver_OnEvent_Callback(OnEvent_callback);
+                        DynamicEventReceiver_SetCallback_OnEvent(s_dispatcher_OnEvent);
+                    }
+                }
+
+                ~Initializer()
+                {
+                    if (s_dispatcher_OnEvent != null)
+                    {
+                        DynamicEventReceiver_SetCallback_OnEvent(null);
+                        s_dispatcher_OnEvent = null;
+                    }
+                }
+            }
+
+            static private Initializer s_class_init = new Initializer();
+
+            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+            private delegate void DynamicEventReceiver_OnEvent_Callback(IntPtr instance,IntPtr sender, ulong event_id, IntPtr a0, IntPtr a1, IntPtr a2, IntPtr a3, IntPtr a4, IntPtr a5, IntPtr a6, IntPtr a7, IntPtr a8, IntPtr a9);
+
+            static private DynamicEventReceiver_OnEvent_Callback s_dispatcher_OnEvent;
+
+            [MonoPInvokeCallback(typeof(DynamicEventReceiver_OnEvent_Callback))]
+            static private void OnEvent_callback(IntPtr instance, IntPtr sender, UInt64 event_id, IntPtr a0, IntPtr a1, IntPtr a2, IntPtr a3, IntPtr a4, IntPtr a5, IntPtr a6, IntPtr a7, IntPtr a8, IntPtr a9)
+            {
+                DynamicEventReceiver recv = ReferenceDictionary<DynamicEventReceiver>.GetObject(instance);
+
+                if (recv != null)
+                    recv.OnEvent?.Invoke(recv, Reference.CreateObject(sender) as DynamicEventInterface, event_id, new DynamicType(a0), new DynamicType(a1), new DynamicType(a2), new DynamicType(a3), new DynamicType(a4), new DynamicType(a5), new DynamicType(a6), new DynamicType(a7), new DynamicType(a8), new DynamicType(a9));
+            }
+
+            #endregion
+
             #region // --------------------- Native calls -----------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void DynamicEventReceiver_SetCallback_OnEvent(IntPtr client, DynamicEventReceiver_OnEvent_Callback fn);
+            private static extern void DynamicEventReceiver_SetCallback_OnEvent(DynamicEventReceiver_OnEvent_Callback fn);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DynamicEventReceiver_create();
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]

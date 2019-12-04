@@ -1,4 +1,41 @@
-﻿#pragma kernel CS_Cull
+﻿//******************************************************************************
+//
+// Copyright (C) SAAB AB
+//
+// All rights, including the copyright, to the computer program(s) 
+// herein belong to Saab AB. The program(s) may be used and/or
+// copied only with the written permission of Saab AB, or in
+// accordance with the terms and conditions stipulated in the
+// agreement/contract under which the program(s) have been
+// supplied. 
+//
+//
+// Information Class:	COMPANY UNCLASSIFIED
+// Defence Secrecy:		NOT CLASSIFIED
+// Export Control:		NOT EXPORT CONTROLLED
+//
+//
+// File			: CullShader.compute
+// Module		:
+// Description	: Shader Code
+// Author		: ALBNI
+// Product		: BTA
+//
+//
+// Revision History...
+//
+// Who	Date	Description
+//
+//
+//******************************************************************************
+
+// ************************** NOTE *********************************************
+//
+//      Stand alone from BTA !!! No BTA code in this !!!
+//
+// *****************************************************************************
+
+#pragma kernel CS_Cull
 
 // instance data for a crossboard tree
 struct InstanceData

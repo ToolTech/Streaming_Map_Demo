@@ -19,12 +19,12 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge Platform
 // Author		: Anders Modén		
-// Product		: Gizmo3D 2.10.4
+// Product		: Gizmo3D 2.10.5
 //		
 //
 //			
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
-//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and IRIX® for  
+//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and Android for  
 //			usage in Game or VisSim development.
 //
 //
@@ -95,9 +95,12 @@ namespace GizmoSDK
                     result=Platform_initialize();
 
                 if (result)
+                {
                     InitializeFactories();
 
-                DynamicLoader.Initialize();
+                    DynamicLoader.Initialize();
+                    NodeAction.Initialize();
+                }
 
                 return result;
             }
@@ -106,6 +109,7 @@ namespace GizmoSDK
             {
                 NodeLock.WaitLockEdit();
 
+                NodeAction.Uninitialize();
                 DynamicLoader.Uninitialize();
 
                 UninitializeFactories();

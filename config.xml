@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generic Configuration for Unity -->
+<Unity>
+	
+  <GizmoSDK>
+    <!-- GIZMO_PATH is a comma (,) or semi (;) separated list with abs or relative directories -->
+    <GIZMO_PATH>.;textures</GIZMO_PATH>
+
+    <!-- GIZMO_CACHE_PATH is an absolute directory -->
+    <!--<GIZMO_CACHE_PATH>c:\GizmoCache</GIZMO_CACHE_PATH>-->
+  </GizmoSDK>
+
+</Unity>

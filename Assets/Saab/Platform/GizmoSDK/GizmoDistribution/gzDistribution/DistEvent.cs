@@ -19,7 +19,7 @@
 // Module		: GizmoDistribution C#
 // Description	: C# Bridge to gzDistEvent class
 // Author		: Anders Modén		
-// Product		: GizmoDistribution 2.10.4
+// Product		: GizmoDistribution 2.10.5
 //		
 //
 //			

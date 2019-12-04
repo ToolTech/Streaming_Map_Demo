@@ -34,6 +34,14 @@
 //
 //******************************************************************************
 
+// ************************** NOTE *********************************************
+//
+//      Stand alone from BTA !!! No BTA code in this !!!
+//
+// *****************************************************************************
+
+//#define DEBUG_CAMERA
+
 // Unity Managed classes
 using UnityEngine;
 
@@ -52,20 +60,22 @@ using gzImage = GizmoSDK.GizmoBase.Image;
 // Map utility
 using Saab.Foundation.Map;
 using Saab.Unity.Extensions;
+using Saab.Utility.Unity.NodeUtils;
 
 // Fix unity conflicts
 using unTransform = UnityEngine.Transform;
 
 // System
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using System;
 using System.Collections;
 using UnityEngine.Networking;
 using Saab.Unity.Core;
 using Saab.Core;
 
-namespace Saab.Unity.MapStreamer
+
+
+namespace Saab.Foundation.Unity.MapStreamer
 {
     // The SceneManager behaviour takes a unity camera and follows that to populate the current scene with GameObjects in a scenegraph hierarchy
 
@@ -97,9 +107,8 @@ namespace Saab.Unity.MapStreamer
         private Matrix4x4 _zflipMatrix;
 
         private int _unusedCounter = 0;
-        private readonly MapControl _mapControl = new MapControl();
-
-        private readonly string ID = "Saab.Unity.MapStreamer.SceneManager";
+  
+        private readonly string ID = "Saab.Foundation.Unity.MapStreamer.SceneManager";
 
         //#pragma warning disable 414
         //private UnityPluginInitializer _plugin_initializer;
@@ -135,20 +144,7 @@ namespace Saab.Unity.MapStreamer
             public Node node;
         };
 
-        // GameObjectInfo carries info about added objects to scene
-        struct GameObjectInfo
-        {
-            public GameObjectInfo(NodeLoadInfo _info, GameObject _go)
-            {
-                nodeInfo = _info;
-                go = _go;
-            }
-
-            public NodeLoadInfo nodeInfo;
-            public GameObject go;
-
-        };
-
+        
         // AssetLoadInfo carries info about loading an asset
         struct AssetLoadInfo
         {
@@ -168,17 +164,13 @@ namespace Saab.Unity.MapStreamer
         List<NodeLoadInfo> pendingLoaders = new List<NodeLoadInfo>(100);
         // A queue for pending activations/deactivations
         List<ActivationInfo> pendingActivations = new List<ActivationInfo>(100);
-        // A queue for pending new objects
-        List<GameObjectInfo> pendingObjects = new List<GameObjectInfo>(100);
+  
 
         // A queue for post build work
         Queue<NodeHandle> pendingBuilds = new Queue<NodeHandle>(500);
 
         // A queue for AssetLoading
         Stack<AssetLoadInfo> pendingAssetLoads = new Stack<AssetLoadInfo>(100);
-
-        // The lookup dictinary to find a game object with s specfic native handle
-        Dictionary<IntPtr, List<GameObject>> currentObjects = new Dictionary<IntPtr, List<GameObject>>();
 
         // The current active asset bundles
         Dictionary<string, AssetBundle> currentAssetBundles = new Dictionary<string, AssetBundle>();
@@ -191,37 +183,13 @@ namespace Saab.Unity.MapStreamer
 
         //Add GameObjects to dictionary
 
-        void AddGameObjectReference(IntPtr nativeReference, GameObject gameObject)
-        {
-            List<GameObject> gameObjectList;
-
-            if (!currentObjects.TryGetValue(nativeReference, out gameObjectList))
-            {
-                gameObjectList = new List<GameObject>();
-                currentObjects.Add(nativeReference, gameObjectList);
-            }
-
-            gameObjectList.Add(gameObject);
-        }
-
-        void RemoveGameObjectReference(IntPtr nativeReference, GameObject gameObject)
-        {
-            List<GameObject> gameObjectList;
-
-            if (currentObjects.TryGetValue(nativeReference, out gameObjectList))
-            {
-                gameObjectList.Remove(gameObject);
-
-                if (gameObjectList.Count == 0)
-                    currentObjects.Remove(nativeReference);
-            }
-        }
-
         // Traverse function iterates the scene graph to build local branches on Unity
         GameObject Traverse(Node n, Material currentMaterial)
         {
             if (n == null || !n.IsValid())
                 return null;
+
+            // --------------------------- Add game object ---------------------------------------
 
             string name = n.GetName();
 
@@ -234,9 +202,11 @@ namespace Saab.Unity.MapStreamer
 
             //nodeHandle.Renderer = Renderer;
             nodeHandle.node = n;
-            nodeHandle.inObjectDict = false;
             nodeHandle.currentMaterial = currentMaterial;
+
+#if !NO_SHADERS
             nodeHandle.ComputeShader = ComputeShader;
+#endif
 
             // ---------------------------- Check material state ----------------------------------
 
@@ -252,93 +222,94 @@ namespace Saab.Unity.MapStreamer
                     {
                         if (texture.HasImage())
                         {
-                            gzImage image = texture.GetImage();
 
-                            int depth = (int)image.GetDepth();
-                            int width = (int)image.GetWidth();
-                            int height = (int)image.GetHeight();
+                            ImageFormat     image_format;
+                            ComponentType   comp_type;
+                            uint            components;
 
-                            bool can_create_mipmaps = false;
+                            byte[] image_data;
 
-                            if (depth == 1)
+                            uint depth; 
+                            uint width; 
+                            uint height;
+
+                            if (texture.GetMipMapImageArray(out image_data, out image_format,out comp_type,out components, out width, out height, out depth, true, false))
                             {
-
-                                if (n is Crossboard)
-                                    currentMaterial = new Material(CrossboardShader);
-                                else
-                                    currentMaterial = new Material(DefaultShader);
-
-                                TextureFormat format = TextureFormat.ARGB32;
-
-                                ImageType image_type = image.GetImageType();
-
-                                switch (image_type)
+                                if (depth == 1)
                                 {
-                                    case ImageType.RGB_8_DXT1:
-                                        format = TextureFormat.DXT1;
-                                        break;
 
-                                    case ImageType.RGBA_8_DXT5:
-                                        format = TextureFormat.DXT5;
-                                        break;
+                                    if (n is Crossboard)
+                                        currentMaterial = new Material(CrossboardShader);
+                                    else
+                                        currentMaterial = new Material(DefaultShader);
 
-                                    case ImageType.RGBA_8:
-                                        format = TextureFormat.RGBA32;
-                                        can_create_mipmaps = true;
-                                        break;
+                                    TextureFormat format = TextureFormat.ARGB32;
 
-                                    case ImageType.RGB_8:
-                                        format = TextureFormat.RGB24;
-                                        can_create_mipmaps = true;
-                                        break;
+                                    switch(comp_type)
+                                    {
+                                        case ComponentType.UNSIGNED_BYTE:
+                                            {
+                                                switch (image_format)
+                                                {
+                                                    case ImageFormat.RGBA:
+                                                        format = TextureFormat.RGBA32;
+                                                        break;
 
-                                    default:
-                                        // Issue your own error here because we can not use this texture yet
-                                        return null;
+                                                    case ImageFormat.RGB:
+                                                        format = TextureFormat.RGB24;
+                                                        break;
+
+                                                    case ImageFormat.COMPRESSED_RGBA_S3TC_DXT1:
+                                                    case ImageFormat.COMPRESSED_RGB_S3TC_DXT1:
+                                                        format = TextureFormat.DXT1;
+                                                        break;
+
+                                                    case ImageFormat.COMPRESSED_RGBA_S3TC_DXT5:
+                                                        format = TextureFormat.DXT5;
+                                                        break;
+
+
+                                                    default:
+                                                        // Issue your own error here because we can not use this texture yet
+                                                        return null;
+                                                }
+                                            }
+                                            break;
+
+                                        default:
+                                            // Issue your own error here because we can not use this texture yet
+                                            return null;
+
+                                    }
+
+
+                                    Texture2D tex = new Texture2D((int)width, (int)height, format, true);
+
+                                    tex.LoadRawTextureData(image_data);
+
+
+                                    switch (texture.MinFilter)
+                                    {
+                                        default:
+                                            tex.filterMode = FilterMode.Point;
+                                            break;
+
+                                        case gzTexture.TextureMinFilter.LINEAR:
+                                        case gzTexture.TextureMinFilter.LINEAR_MIPMAP_NEAREST:
+                                            tex.filterMode = FilterMode.Bilinear;
+                                            break;
+
+                                        case gzTexture.TextureMinFilter.LINEAR_MIPMAP_LINEAR:
+                                            tex.filterMode = FilterMode.Trilinear;
+                                            break;
+                                    }
+
+                                    tex.Apply(texture.UseMipMaps, true);
+
+                                    currentMaterial.mainTexture = tex;
+
                                 }
-
-                                Texture2D tex = new Texture2D(width, height, format, false);
-
-                                byte[] image_data;
-
-                                image.GetImageArray(out image_data);
-
-                                tex.LoadRawTextureData(image_data);
-
-                                if (texture.UseMipMaps && can_create_mipmaps)
-                                {
-                                    Texture2D tex2 = new Texture2D(width, height, format, true);
-                                    tex2.SetPixels(tex.GetPixels(0, 0, tex.width, tex.height));
-
-                                    tex = tex2;
-                                }
-
-
-                                switch (texture.MinFilter)
-                                {
-                                    default:
-                                        tex.filterMode = FilterMode.Point;
-                                        break;
-
-                                    case gzTexture.TextureMinFilter.LINEAR:
-                                    case gzTexture.TextureMinFilter.LINEAR_MIPMAP_NEAREST:
-                                        tex.filterMode = FilterMode.Bilinear;
-                                        break;
-
-                                    case gzTexture.TextureMinFilter.LINEAR_MIPMAP_LINEAR:
-                                        tex.filterMode = FilterMode.Trilinear;
-                                        break;
-                                }
-
-                                tex.Apply(texture.UseMipMaps, true);
-
-                                currentMaterial.mainTexture = tex;
-
                             }
-
-
-
-                            image.Dispose();
                         }
 
                         // Add some kind of check for textures shared by many
@@ -374,17 +345,24 @@ namespace Saab.Unity.MapStreamer
 
             // ---------------------------- DynamicLoader check -------------------------------------
 
-            DynamicLoader dl = n as DynamicLoader;
-
+            DynamicLoader dl = n as DynamicLoader;      // Add dynamic loader as game object in dictionary
+                                                        // so other dynamic loaded data can parent them as child to loader
             if (dl != null)
             {
-                if (!nodeHandle.inObjectDict)
+                List<GameObject> list;
+
+                if (!NodeUtils.FindGameObjects(dl.GetNativeReference(), out list))     // We are not registered
                 {
-                    AddGameObjectReference(dl.GetNativeReference(), gameObject);
-                    nodeHandle.inObjectDict = true;
+                    NodeUtils.AddGameObjectReference(dl.GetNativeReference(), gameObject);
+
+                    nodeHandle.inNodeUtilsRegistry = true;  // Added to registry
+
+                    // We shall continue to iterate as a group to see if we already have loaded children
                 }
-                else
-                    return gameObject;
+                else  // We are already in list
+                {
+                    return list[0];     // Lets return first object wich is our main registered node
+                }
             }
 
             // ---------------------------- Lod check -------------------------------------
@@ -404,12 +382,13 @@ namespace Saab.Unity.MapStreamer
 
                     if (h != null)
                     {
-                        if (!h.inObjectDict)
+                        if(!NodeUtils.HasGameObjects(h.node.GetNativeReference()))
                         {
-                            AddGameObjectReference(h.node.GetNativeReference(), go_child);
+                            NodeUtils.AddGameObjectReference(h.node.GetNativeReference(), go_child);
+
+                            h.inNodeUtilsRegistry = true;
                             h.node.AddActionInterface(_actionReceiver, NodeActionEvent.IS_TRAVERSABLE);
                             h.node.AddActionInterface(_actionReceiver, NodeActionEvent.IS_NOT_TRAVERSABLE);
-                            h.inObjectDict = true;
                         }
 
                     }
@@ -417,7 +396,7 @@ namespace Saab.Unity.MapStreamer
                     go_child.transform.SetParent(gameObject.transform, false);
                 }
 
-                // Dont process group
+                // Dont process group as group is already processed
                 return gameObject;
             }
 
@@ -442,12 +421,13 @@ namespace Saab.Unity.MapStreamer
 
                     if (h != null)
                     {
-                        if (!h.inObjectDict)
+                        if (!NodeUtils.HasGameObjects(h.node.GetNativeReference()))
                         {
-                            AddGameObjectReference(h.node.GetNativeReference(), go_child);
+                            NodeUtils.AddGameObjectReference(h.node.GetNativeReference(), go_child);
+
+                            h.inNodeUtilsRegistry = true;
                             h.node.AddActionInterface(_actionReceiver, NodeActionEvent.IS_TRAVERSABLE);
                             h.node.AddActionInterface(_actionReceiver, NodeActionEvent.IS_NOT_TRAVERSABLE);
-                            h.inObjectDict = true;
                         }
 
                     }
@@ -592,16 +572,16 @@ namespace Saab.Unity.MapStreamer
 
                 MapUrl = mapURL;
 
-                _mapControl.NodeURL = mapURL;
-                _mapControl.CurrentMap = node;
+                MapControl.SystemMap.NodeURL = mapURL;
+                MapControl.SystemMap.CurrentMap = node;
 
-                _native_scene.AddNode(_mapControl.CurrentMap);
+                _native_scene.AddNode(MapControl.SystemMap.CurrentMap);
                 
                 _native_scene.Debug();
 
                 _root = new GameObject("root");
 
-                GameObject scene = Traverse(_mapControl.CurrentMap, null);
+                GameObject scene = Traverse(MapControl.SystemMap.CurrentMap, null);
 
                 if(scene!=null)
                     scene.transform.SetParent(_root.transform, false);
@@ -661,7 +641,7 @@ namespace Saab.Unity.MapStreamer
 
                 _root = null;
 
-                _mapControl.Reset();
+                MapControl.SystemMap.Reset();
             }
             finally
             {
@@ -672,7 +652,7 @@ namespace Saab.Unity.MapStreamer
         }
 
 
-        public bool InitializeInternal()        //Initialize()
+        public bool InitializeInternal()        
         {
             _actionReceiver = new NodeAction("DynamicLoadManager");
 
@@ -689,13 +669,15 @@ namespace Saab.Unity.MapStreamer
 
                 _native_camera = new PerspCamera("Test");
                 _native_camera.RoiPosition = true;
-                _mapControl.Camera = _native_camera;
+                MapControl.SystemMap.Camera = _native_camera;
 
                 _native_scene = new Scene("TestScene");
 
                 _native_context = new Context();
 
-                //_native_camera.Debug(_native_context);      // Enable to debug view
+#if DEBUG_CAMERA
+                _native_camera.Debug(_native_context);      // Enable to debug view
+#endif // DEBUG_CAMERA
 
                 _native_traverse_action = new CullTraverseAction();
 
@@ -710,6 +692,8 @@ namespace Saab.Unity.MapStreamer
             }
 
 
+            DynamicLoader.UsePreCache(true);                    // Enable use of mipmap creation on dynamic loading
+            DynamicLoaderManager.SetNumberOfActiveLoaders(4);   // Lets start with 4 parallell threads
             DynamicLoaderManager.StartManager();
 
             return true;
@@ -762,8 +746,8 @@ namespace Saab.Unity.MapStreamer
         protected override IEnumerator InitComponent(Action<bool> success)
         {
             StartCoroutine(AssetLoader());
+            MapUrl = KeyDatabase.GetDefaultUserKey("SceneManager/MapUrl", MapUrl);
 
-            MapUrl = BtaApplication.GetConfigValue(@"SceneManager/MapUrl", MapUrl);
             InitMap();
 
             success(true);
@@ -787,7 +771,7 @@ namespace Saab.Unity.MapStreamer
 
         protected override void OnAwake()
         {
-            UnityPlugin_Initialize();
+
         }
 
         private void OnEnable()
@@ -841,19 +825,17 @@ namespace Saab.Unity.MapStreamer
             if (obj == null)
                 return;
 
-            foreach (unTransform child in obj.transform)
-            {
+            foreach (unTransform child in obj.transform)    // Recursive remove
                 RemoveGameObjectHandles(child.gameObject);
-            }
 
             NodeHandle h = obj.GetComponent<NodeHandle>();
 
             if (h != null)
             {
-                if (h.inObjectDict)
+                if (h.inNodeUtilsRegistry)
                 {
-                    RemoveGameObjectReference(h.node.GetNativeReference(), obj);
-                    h.inObjectDict = false;
+                    NodeUtils.RemoveGameObjectReference(h.node.GetNativeReference(), obj);
+                    h.inNodeUtilsRegistry = false;
                 }
 
                 if (h.inNodeUpdateList)
@@ -868,144 +850,63 @@ namespace Saab.Unity.MapStreamer
 
         }
 
-        #region ---- Map and object position update utilities ---------------------------------------------------------------
+
         
-        public double GetAltitude(LatPos pos, ClampFlags flags=ClampFlags.DEFAULT)
-        {
-            return _mapControl.GetAltitude(pos, flags);
-        }
-
-        public bool GetScreenGroundPosition(int x, int y, uint size_x, uint size_y, out MapPos result, ClampFlags flags = ClampFlags.DEFAULT)
-        {
-            return _mapControl.GetScreenGroundPosition(x, y, size_x, size_y, out result, flags);
-        }
-
-        public bool GetLatPos(MapPos pos, out LatPos latpos)
-        {
-            return _mapControl.GetPosition(pos, out latpos);
-        }
-
-        public bool GetMapPosition(LatPos latpos, out MapPos pos, GroundClampType groundClamp, ClampFlags flags = ClampFlags.DEFAULT)
-        {
-            return _mapControl.GetPosition(latpos, out pos, groundClamp, flags);
-        }
-
-        public bool UpdateMapPosition(ref MapPos pos, GroundClampType groundClamp, ClampFlags flags = ClampFlags.DEFAULT)
-        {
-            // Right now this is trivial as we assume same coordinate system between unity and gizmo but we need a double precision conversion
-
-            return _mapControl.UpdatePosition(ref pos, groundClamp, flags);
-        }
-
-        public Vec3D LocalToWorld(MapPos mappos)
-        {
-            return _mapControl.LocalToWorld(mappos);
-        }
-
-        public MapPos WorldToLocal(Vec3D position)
-        {
-            return _mapControl.WorldToLocal(position);
-        }
-
-        #endregion -----------------------------------------------------------------------------------------------
-
-        #region --- Object lookup - Translation between GameObjects and Node ------------------------------------------------
-
-        public unTransform FindFirstGameObjectTransform(Node node)
-        {
-            List<GameObject> gameObjectList;
-
-            if (!FindGameObjects(node, out gameObjectList))
-                return null;
-
-            return gameObjectList[0].transform;
-        }
-
-        public bool FindGameObjects(Node node,out List<GameObject> gameObjectList)
-        {
-            gameObjectList = null;
-
-            if (node == null)
-                return false;
-
-            if (!node.IsValid())
-                return false;
-
-            bool result = false;
-
-            NodeLock.WaitLockEdit();
-
-            try // We are now locked in edit
-            {
-
-                result = currentObjects.TryGetValue(node.GetNativeReference(), out gameObjectList);
-            }
-            finally
-            {
-                NodeLock.UnLock();
-            }
-
-            return result;
-        }
-
-        #endregion ------------------------------------------------------------------------------------
-
         private void ProcessPendingUpdates()
         {
             Timer timer = new Timer();      // Measure time precise in update
 
-            #region Dynamic Loading/Add/Remove native handles ---------------------------------------------------------------
+#region Dynamic Loading/Add/Remove native handles ---------------------------------------------------------------
 
             foreach (NodeLoadInfo nodeLoadInfo in pendingLoaders)
             {
-                List<GameObject> gameObjectList;
-
-                if (nodeLoadInfo.state == DynamicLoadingState.LOADED)
+                if (nodeLoadInfo.state == DynamicLoadingState.LOADED)   // We got a callback from dyn loader that we were loaded or unloaded
                 {
-                    if (currentObjects.TryGetValue(nodeLoadInfo.loader.GetNativeReference(), out gameObjectList))
-                    {
-                        if(gameObjectList[0].transform.childCount!=0)
-                            continue;
-                    }
+                    unTransform transform = NodeUtils.FindFirstGameObjectTransform(nodeLoadInfo.loader.GetNativeReference());
 
-                    GameObject go = Traverse(nodeLoadInfo.node, null);
-                    pendingObjects.Add(new GameObjectInfo(nodeLoadInfo, go));
+                    if (transform == null)              // We have been unloaded or not registered
+                        continue;
+
+                    if (transform.childCount != 0)       // We have already a child and our sub graph was loaded
+                        continue;
+
+                    GameObject go = Traverse(nodeLoadInfo.node, null);          // Build sub graph
+
+                    if(go!=null)
+                        go.transform.SetParent(transform, false);               // Connect to our parent
+
                 }
                 else if (nodeLoadInfo.state == DynamicLoadingState.UNLOADED)
                 {
-                    if (currentObjects.TryGetValue(nodeLoadInfo.loader.GetNativeReference(), out gameObjectList))
+                    List<GameObject> list;
+
+                    if(NodeUtils.FindGameObjects(nodeLoadInfo.loader.GetNativeReference(),out list))
                     {
-                        foreach (GameObject go in gameObjectList)
+                        foreach (GameObject go in list)
                         {
-                            foreach (unTransform child in go.transform)
+                            foreach (unTransform child in go.transform)         //We need to unload all limked go in hierarchy
                             {
                                 RemoveGameObjectHandles(child.gameObject);
                                 GameObject.Destroy(child.gameObject);
                             }
                         }
                     }
-                    else
-                    {
-                        // Obvously we have taken care of data in previsous traversal of a chained update of scenegraph
-                        // Message.Send("Unity", MessageLevel.WARNING, "Loader break!!");
-                    }
                 }
-
             }
 
             pendingLoaders.Clear();
 
-            #endregion
+#endregion
 
-            #region Activate/Deactivate GameObjects based on scenegraph -----------------------------------------------------
+#region Activate/Deactivate GameObjects based on scenegraph -----------------------------------------------------
 
             foreach (ActivationInfo activationInfo in pendingActivations)
             {
-                List<GameObject> gameObjectList;
+                List<GameObject> list;  // We need to activate the correct nodes
 
-                if (currentObjects.TryGetValue(activationInfo.node.GetNativeReference(), out gameObjectList))
+                if (NodeUtils.FindGameObjects(activationInfo.node.GetNativeReference(), out list))
                 {
-                    foreach (GameObject obj in gameObjectList)
+                    foreach (GameObject obj in list)
                     {
                         if (activationInfo.state == NodeActionEvent.IS_TRAVERSABLE)
                             obj.SetActive(true);
@@ -1013,55 +914,14 @@ namespace Saab.Unity.MapStreamer
                             obj.SetActive(false);
                     }
                 }
-                else
-                {
-                    Message.Send("Unity", MessageLevel.WARNING, "Activation break!!");
-                }
             }
 
             pendingActivations.Clear();
 
-            #endregion
-
-            #region Creating GameObjects based on traversal -----------------------------------------------------------------
-
-            foreach (GameObjectInfo go_info in pendingObjects)
-            {
-                List<GameObject> gameObjectList;
-
-                if (currentObjects.TryGetValue(go_info.nodeInfo.loader.GetNativeReference(), out gameObjectList))
-                {
-                    bool shared = false;
-
-                    foreach (GameObject go in gameObjectList)
-                    {
-                        if (!shared)
-                            go_info.go.transform.SetParent(go.transform, false);
-                        else
-                        {
-                            GameObject shared_go = Traverse(go_info.nodeInfo.node, null);
-                            shared_go.transform.SetParent(go.transform, false);
-                        }
-                        shared = true;
-                    }
-                }
-                else
-                {
-                    RemoveGameObjectHandles(go_info.go);
-                    GameObject.Destroy(go_info.go);
-                }
-
-            }
-
-            pendingObjects.Clear();
-
-            #endregion
-
-            //Message.Send("SceneManager", MessageLevel.ALWAYS, $"currentObjects Size {currentObjects.Count}");
-
-            //Message.Send("SceneManager", MessageLevel.ALWAYS, String.Format("currentObjects Size {0}", currentObjects.Count));
-
-            #region Update slow loading assets ------------------------------------------------------------------------------
+#endregion
+                       
+              
+#region Update slow loading assets ------------------------------------------------------------------------------
 
             while (pendingBuilds.Count > 0 && timer.GetTime() < MaxBuildTime)
             {
@@ -1069,7 +929,7 @@ namespace Saab.Unity.MapStreamer
                 handle.BuildGameObject();
             }
 
-            #endregion
+#endregion
 
             // Right now we use this as a dirty fix to handle unused shared materials
 
@@ -1142,7 +1002,10 @@ namespace Saab.Unity.MapStreamer
                            
 
                 _native_camera.Render(_native_context, 1000, 1000, 1000, _native_traverse_action);
-                //_native_camera.DebugRefresh();
+
+#if DEBUG_CAMERA
+                _native_camera.DebugRefresh();
+#endif
             }
             finally
             {
@@ -1152,9 +1015,6 @@ namespace Saab.Unity.MapStreamer
             UpdateNodeInternals();
         }
         
-
-        [DllImport("UnityPluginInterface", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-        private static extern void UnityPlugin_Initialize();
     }
 
 }

@@ -19,7 +19,7 @@
 // Module		: GizmoDistribution C#
 // Description	: C# Bridge to gzDistClientInterface class
 // Author		: Anders Modén		
-// Product		: GizmoDistribution 2.10.4
+// Product		: GizmoDistribution 2.10.5
 //		
 //
 //			
@@ -87,36 +87,17 @@ namespace GizmoSDK
             {
                 manager = current_manager;      // We always need a current manager
 
-                #region --------- event callback setup ------------------------
-                m_dispatcher_OnTick = new DistEventHandler_OnTick_Callback(OnTick_callback);
-                DistClient_SetCallback_OnTick(GetNativeReference(), m_dispatcher_OnTick);
+                ReferenceDictionary<DistClient>.AddObject(this);
 
-                m_dispatcher_OnNewSession = new DistEventHandler_OnNewSession_Callback(OnNewSession_callback);
-                DistClient_SetCallback_OnNewSession(GetNativeReference(), m_dispatcher_OnNewSession);
+            }
 
-                m_dispatcher_OnRemoveSession = new DistEventHandler_OnRemoveSession_Callback(OnRemoveSession_callback);
-                DistClient_SetCallback_OnRemoveSession(GetNativeReference(), m_dispatcher_OnRemoveSession);
-
-                m_dispatcher_OnEvent = new DistEventHandler_OnEvent_Callback(OnEvent_callback);
-                DistClient_SetCallback_OnEvent (GetNativeReference(), m_dispatcher_OnEvent);
-
-                m_dispatcher_OnNewObject = new DistEventHandler_OnNewObject_Callback(OnNewObject_callback);
-                DistClient_SetCallback_OnNewObject(GetNativeReference(), m_dispatcher_OnNewObject);
-
-                m_dispatcher_OnRemoveObject = new DistEventHandler_OnRemoveObject_Callback(OnRemoveObject_callback);
-                DistClient_SetCallback_OnRemoveObject(GetNativeReference(), m_dispatcher_OnRemoveObject);
-
-                m_dispatcher_OnNewAttributes = new DistEventHandler_OnNewAttributes_Callback(OnNewAttributes_callback);
-                DistClient_SetCallback_OnNewAttributes(GetNativeReference(), m_dispatcher_OnNewAttributes);
-
-                m_dispatcher_OnUpdateAttributes = new DistEventHandler_OnUpdateAttributes_Callback(OnUpdateAttributes_callback);
-                DistClient_SetCallback_OnUpdateAttributes(GetNativeReference(), m_dispatcher_OnUpdateAttributes);
-
-                m_dispatcher_OnRemoveAttributes = new DistEventHandler_OnRemoveAttributes_Callback(OnRemoveAttributes_callback);
-                DistClient_SetCallback_OnRemoveAttributes(GetNativeReference(), m_dispatcher_OnRemoveAttributes);
-
-                #endregion
-
+            /// <summary>
+            /// Override Release behaviour to remove from Reference Dictionary
+            /// </summary>
+            override public void Release()
+            {
+                ReferenceDictionary<DistClient>.RemoveObject(this);
+                base.Release();
             }
 
             public DistManager manager { get; set; }
@@ -140,7 +121,7 @@ namespace GizmoSDK
 
             public DistSession GetSession(string sessionName, bool create = false, bool global = false, ServerPriority prio = ServerPriority.PRIO_NORMAL)
             {
-                return manager.DistSessionInstanceManager.GetSession(DistClient_getSession(GetNativeReference(), sessionName, create, global, prio));
+                return GetSession(DistClient_getSession(GetNativeReference(), sessionName, create, global, prio));
             }
 
             public bool JoinSession(DistSession session, Int32 timeOut = 0)
@@ -253,7 +234,7 @@ namespace GizmoSDK
 
             public DistObject WaitForObject(string objectName, DistSession session, Int32 timeOut = 10)
             {
-                return manager.DistObjectInstanceManager.GetObject(DistClient_waitForObject(GetNativeReference(), objectName, session.GetNativeReference(), timeOut));
+                return GetObject(DistClient_waitForObject(GetNativeReference(), objectName, session.GetNativeReference(), timeOut));
             }
 
             public bool SubscribeAttributes(DistObject o, bool notifyExisting = false, Int32 timeOut = 0)
@@ -328,102 +309,268 @@ namespace GizmoSDK
 
             public bool UseAutoProperty = true;
 
-            #region ------------------------ Private Callbacks ---------------------------------------------
-
-            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-            public delegate void DistEventHandler_OnTick_Callback();
-           
-
-            private DistEventHandler_OnTick_Callback m_dispatcher_OnTick;
-            private void OnTick_callback()
+            static public void Initialize()
             {
-                OnTick?.Invoke(this);
+                if (s_class_init == null)
+                    s_class_init = new Initializer();
             }
 
-            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-            public delegate void DistEventHandler_OnNewSession_Callback(IntPtr session);
-
-            private DistEventHandler_OnNewSession_Callback m_dispatcher_OnNewSession;
-            private void OnNewSession_callback(IntPtr session)
+            static public void Uninitialize_()
             {
-                OnNewSession?.Invoke(this, manager.DistSessionInstanceManager.GetSession(session));
+                if (s_class_init != null)
+                    s_class_init = null;
             }
 
-            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-            public delegate void DistEventHandler_OnRemoveSession_Callback(IntPtr session);
 
-            private DistEventHandler_OnRemoveSession_Callback m_dispatcher_OnRemoveSession;
-            private void OnRemoveSession_callback(IntPtr session)
+            #region ---------------- Private functions ------------------------
+
+            static private DistSession GetSession(IntPtr s)
             {
-                OnRemoveSession?.Invoke(this, manager.DistSessionInstanceManager.GetSession(session));
-                manager.DistSessionInstanceManager.DropSession(session);
+                DistSession session = ReferenceDictionary<DistSession>.GetObject(s);
+
+                if (session == null)
+                    session = new DistSession(s);
+
+                return session;
             }
 
-            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-            public delegate void DistEventHandler_OnEvent_Callback(IntPtr e);
-
-            private DistEventHandler_OnEvent_Callback m_dispatcher_OnEvent;
-            private void OnEvent_callback(IntPtr e)
+            static private DistObject GetObject(IntPtr o)
             {
-                DistEvent @event = Reference.CreateObject(e) as DistEvent;
+                DistObject obj = ReferenceDictionary<DistObject>.GetObject(o);
 
-                if (@event != null)
+                if (obj == null)
+                    obj = Reference.CreateObject(o) as DistObject;
+
+                return obj;
+            }
+
+            private sealed class Initializer
+            {
+                public Initializer()
                 {
-                    if (UseAutoProperty && @event.GetType().IsDefined(typeof(DistPropertyAutoRestore), true))
-                        @event.RestorePropertiesAndFields();
+                    s_dispatcher_OnTick = new DistEventHandler_OnTick_Callback(OnTick_callback);
+                    DistClient_SetCallback_OnTick(s_dispatcher_OnTick);
 
-                    OnEvent?.Invoke(this, @event);
+                    s_dispatcher_OnNewSession = new DistEventHandler_OnNewSession_Callback(OnNewSession_callback);
+                    DistClient_SetCallback_OnNewSession(s_dispatcher_OnNewSession);
+
+                    s_dispatcher_OnRemoveSession = new DistEventHandler_OnRemoveSession_Callback(OnRemoveSession_callback);
+                    DistClient_SetCallback_OnRemoveSession(s_dispatcher_OnRemoveSession);
+
+                    s_dispatcher_OnEvent = new DistEventHandler_OnEvent_Callback(OnEvent_callback);
+                    DistClient_SetCallback_OnEvent(s_dispatcher_OnEvent);
+
+                    s_dispatcher_OnNewObject = new DistEventHandler_OnNewObject_Callback(OnNewObject_callback);
+                    DistClient_SetCallback_OnNewObject(s_dispatcher_OnNewObject);
+
+                    s_dispatcher_OnRemoveObject = new DistEventHandler_OnRemoveObject_Callback(OnRemoveObject_callback);
+                    DistClient_SetCallback_OnRemoveObject(s_dispatcher_OnRemoveObject);
+
+                    s_dispatcher_OnNewAttributes = new DistEventHandler_OnNewAttributes_Callback(OnNewAttributes_callback);
+                    DistClient_SetCallback_OnNewAttributes(s_dispatcher_OnNewAttributes);
+
+                    s_dispatcher_OnUpdateAttributes = new DistEventHandler_OnUpdateAttributes_Callback(OnUpdateAttributes_callback);
+                    DistClient_SetCallback_OnUpdateAttributes(s_dispatcher_OnUpdateAttributes);
+
+                    s_dispatcher_OnRemoveAttributes = new DistEventHandler_OnRemoveAttributes_Callback(OnRemoveAttributes_callback);
+                    DistClient_SetCallback_OnRemoveAttributes(s_dispatcher_OnRemoveAttributes);
+
+                }
+
+                ~Initializer()
+                {
+                    s_dispatcher_OnTick = null;
+                    DistClient_SetCallback_OnTick(null);
+
+                    s_dispatcher_OnNewSession = null;
+                    DistClient_SetCallback_OnNewSession(null);
+
+                    s_dispatcher_OnRemoveSession = null;
+                    DistClient_SetCallback_OnRemoveSession(null);
+
+                    s_dispatcher_OnEvent = null;
+                    DistClient_SetCallback_OnEvent(null);
+
+                    s_dispatcher_OnNewObject = null;
+                    DistClient_SetCallback_OnNewObject(null);
+
+                    s_dispatcher_OnRemoveObject = null;
+                    DistClient_SetCallback_OnRemoveObject(null);
+
+                    s_dispatcher_OnNewAttributes = null;
+                    DistClient_SetCallback_OnNewAttributes(null);
+
+                    s_dispatcher_OnUpdateAttributes = null;
+                    DistClient_SetCallback_OnUpdateAttributes(null);
+
+                    s_dispatcher_OnRemoveAttributes = null;
+                    DistClient_SetCallback_OnRemoveAttributes(null);
                 }
             }
 
-            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-            public delegate void DistEventHandler_OnNewObject_Callback(IntPtr o,IntPtr session);
+            static private Initializer s_class_init = new Initializer();
 
-            private DistEventHandler_OnNewObject_Callback m_dispatcher_OnNewObject;
-            private void OnNewObject_callback(IntPtr o,IntPtr session)
-            {
-                OnNewObject?.Invoke(this, manager.DistObjectInstanceManager.GetObject(o), manager.DistSessionInstanceManager.GetSession(session));
-            }
+            // ----------------------------- OnTick ------------------------------------------------
 
             [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-            public delegate void DistEventHandler_OnRemoveObject_Callback(IntPtr o, IntPtr session);
+            public delegate void DistEventHandler_OnTick_Callback(IntPtr instance);
 
-            private DistEventHandler_OnRemoveObject_Callback m_dispatcher_OnRemoveObject;
-            private void OnRemoveObject_callback(IntPtr o, IntPtr session)
+            private static DistEventHandler_OnTick_Callback s_dispatcher_OnTick;
+
+            [MonoPInvokeCallback(typeof(DistEventHandler_OnTick_Callback))]
+            static private void OnTick_callback(IntPtr instance)
             {
-                OnRemoveObject?.Invoke(this, manager.DistObjectInstanceManager.GetObject(o), manager.DistSessionInstanceManager.GetSession(session));
-                var r = manager.DistObjectInstanceManager.DropObject(o);
-                System.Diagnostics.Debug.Assert(r);
+                DistClient client = ReferenceDictionary<DistClient>.GetObject(instance);
+
+                if(client!=null)
+                    client.OnTick?.Invoke(client);
             }
+
+            // ----------------------------- OnNewSesson ------------------------------------------------
 
             [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-            public delegate void DistEventHandler_OnNewAttributes_Callback(IntPtr notif,IntPtr o, IntPtr session);
+            public delegate void DistEventHandler_OnNewSession_Callback(IntPtr instance,IntPtr session);
 
-            private DistEventHandler_OnNewAttributes_Callback m_dispatcher_OnNewAttributes;
-            private void OnNewAttributes_callback(IntPtr notif,IntPtr o, IntPtr session)
+            private static DistEventHandler_OnNewSession_Callback s_dispatcher_OnNewSession;
+
+            [MonoPInvokeCallback(typeof(DistEventHandler_OnNewSession_Callback))]
+            static private void OnNewSession_callback(IntPtr instance,IntPtr session)
             {
-                OnNewAttributes?.Invoke(this, new DistNotificationSet(notif), manager.DistObjectInstanceManager.GetObject(o), manager.DistSessionInstanceManager.GetSession(session));
+                DistClient client = ReferenceDictionary<DistClient>.GetObject(instance);
+
+                if (client!=null)
+                    client.OnNewSession?.Invoke(client, GetSession(session));
             }
+
+            // ----------------------------- OnRemoveSesson ------------------------------------------------
 
             [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-            public delegate void DistEventHandler_OnUpdateAttributes_Callback(IntPtr notif, IntPtr o, IntPtr session);
+            public delegate void DistEventHandler_OnRemoveSession_Callback(IntPtr instance,IntPtr session);
 
-            private DistEventHandler_OnUpdateAttributes_Callback m_dispatcher_OnUpdateAttributes;
-            private void OnUpdateAttributes_callback(IntPtr notif, IntPtr o, IntPtr session)
+            static private DistEventHandler_OnRemoveSession_Callback s_dispatcher_OnRemoveSession;
+
+            [MonoPInvokeCallback(typeof(DistEventHandler_OnRemoveSession_Callback))]
+            static private void OnRemoveSession_callback(IntPtr instance,IntPtr session)
             {
-                OnUpdateAttributes?.Invoke(this, new DistNotificationSet(notif), manager.DistObjectInstanceManager.GetObject(o), manager.DistSessionInstanceManager.GetSession(session));
+                DistClient client = ReferenceDictionary<DistClient>.GetObject(instance);
+
+                if (client != null)
+                {
+                    client.OnRemoveSession?.Invoke(client, GetSession(session));
+                    ReferenceDictionary<DistSession>.RemoveObject(session);
+                }
             }
+
+            // ----------------------------- OnEvent ------------------------------------------------
 
             [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-            public delegate void DistEventHandler_OnRemoveAttributes_Callback(IntPtr notif, IntPtr o, IntPtr session);
+            public delegate void DistEventHandler_OnEvent_Callback(IntPtr instance,IntPtr e);
 
-            private DistEventHandler_OnRemoveAttributes_Callback m_dispatcher_OnRemoveAttributes;
-            private void OnRemoveAttributes_callback(IntPtr notif, IntPtr o, IntPtr session)
+            static private DistEventHandler_OnEvent_Callback s_dispatcher_OnEvent;
+
+            [MonoPInvokeCallback(typeof(DistEventHandler_OnEvent_Callback))]
+            static private void OnEvent_callback(IntPtr instance,IntPtr e)
             {
-                OnRemoveAttributes?.Invoke(this, new DistNotificationSet(notif), manager.DistObjectInstanceManager.GetObject(o), manager.DistSessionInstanceManager.GetSession(session));
+                DistClient client = ReferenceDictionary<DistClient>.GetObject(instance);
+
+                if (client != null)
+                {
+                    DistEvent @event = Reference.CreateObject(e) as DistEvent;
+
+                    if (@event != null)
+                    {
+                        if (client.UseAutoProperty && @event.GetType().IsDefined(typeof(DistPropertyAutoRestore), true))
+                            @event.RestorePropertiesAndFields();
+
+                        client.OnEvent?.Invoke(client, @event);
+                    }
+                }
             }
 
-            #endregion
+            // ----------------------------- OnNewObject ------------------------------------------------
+
+            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+            public delegate void DistEventHandler_OnNewObject_Callback(IntPtr instance,IntPtr o,IntPtr session);
+
+            static private DistEventHandler_OnNewObject_Callback s_dispatcher_OnNewObject;
+
+            [MonoPInvokeCallback(typeof(DistEventHandler_OnNewObject_Callback))]
+            static private void OnNewObject_callback(IntPtr instance,IntPtr o,IntPtr session)
+            {
+                DistClient client = ReferenceDictionary<DistClient>.GetObject(instance);
+
+                if(client!=null)
+                    client.OnNewObject?.Invoke(client, GetObject(o), GetSession(session));
+            }
+
+            // ----------------------------- OnRemoveObject ------------------------------------------------
+
+            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+            public delegate void DistEventHandler_OnRemoveObject_Callback(IntPtr instance,IntPtr o, IntPtr session);
+
+            static private DistEventHandler_OnRemoveObject_Callback s_dispatcher_OnRemoveObject;
+
+            [MonoPInvokeCallback(typeof(DistEventHandler_OnRemoveObject_Callback))]
+            static private void OnRemoveObject_callback(IntPtr instance,IntPtr o, IntPtr session)
+            {
+                DistClient client = ReferenceDictionary<DistClient>.GetObject(instance);
+
+                if (client != null)
+                {
+                    client.OnRemoveObject?.Invoke(client, GetObject(o), GetSession(session));
+                    ReferenceDictionary<DistSession>.RemoveObject(o);
+                }
+            }
+
+            // ----------------------------- OnNewAttributes ------------------------------------------------
+
+            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+            public delegate void DistEventHandler_OnNewAttributes_Callback(IntPtr instance,IntPtr notif,IntPtr o, IntPtr session);
+
+            static private DistEventHandler_OnNewAttributes_Callback s_dispatcher_OnNewAttributes;
+
+            [MonoPInvokeCallback(typeof(DistEventHandler_OnNewAttributes_Callback))]
+            static private void OnNewAttributes_callback(IntPtr instance,IntPtr notif,IntPtr o, IntPtr session)
+            {
+                DistClient client = ReferenceDictionary<DistClient>.GetObject(instance);
+                if(client!=null)
+                    client.OnNewAttributes?.Invoke(client, new DistNotificationSet(notif), GetObject(o), GetSession(session));
+            }
+
+            // ----------------------------- OnUpdateAttributes ------------------------------------------------
+
+            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+            public delegate void DistEventHandler_OnUpdateAttributes_Callback(IntPtr instance,IntPtr notif, IntPtr o, IntPtr session);
+
+            static private DistEventHandler_OnUpdateAttributes_Callback s_dispatcher_OnUpdateAttributes;
+
+            [MonoPInvokeCallback(typeof(DistEventHandler_OnUpdateAttributes_Callback))]
+            static private void OnUpdateAttributes_callback(IntPtr instance,IntPtr notif, IntPtr o, IntPtr session)
+            {
+                DistClient client = ReferenceDictionary<DistClient>.GetObject(instance);
+
+                if(client!=null)
+                    client.OnUpdateAttributes?.Invoke(client, new DistNotificationSet(notif), GetObject(o), GetSession(session));
+            }
+
+            // ----------------------------- OnRemoveAttributes ------------------------------------------------
+
+            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+            public delegate void DistEventHandler_OnRemoveAttributes_Callback(IntPtr instance,IntPtr notif, IntPtr o, IntPtr session);
+
+            static private DistEventHandler_OnRemoveAttributes_Callback s_dispatcher_OnRemoveAttributes;
+
+            [MonoPInvokeCallback(typeof(DistEventHandler_OnRemoveAttributes_Callback))]
+            static private void OnRemoveAttributes_callback(IntPtr instance,IntPtr notif, IntPtr o, IntPtr session)
+            {
+                DistClient client = ReferenceDictionary<DistClient>.GetObject(instance);
+
+                if(client!=null)
+                    client.OnRemoveAttributes?.Invoke(client, new DistNotificationSet(notif), GetObject(o), GetSession(session));
+            }
+
+
+            #region ------------- Native functions -----------------------------------------------------------------
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DistClient_getClient(string name);
@@ -441,25 +588,27 @@ namespace GizmoSDK
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DistClient_getDistThreadError(bool clearError);
 
+            #endregion
+
             #region ------------------ SetCallback ------------------------------------------------------------------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void DistClient_SetCallback_OnTick(IntPtr client, DistEventHandler_OnTick_Callback fn);
+            private static extern void DistClient_SetCallback_OnTick(DistEventHandler_OnTick_Callback fn);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void DistClient_SetCallback_OnNewSession(IntPtr client, DistEventHandler_OnNewSession_Callback fn);
+            private static extern void DistClient_SetCallback_OnNewSession(DistEventHandler_OnNewSession_Callback fn);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void DistClient_SetCallback_OnRemoveSession(IntPtr client, DistEventHandler_OnRemoveSession_Callback fn);
+            private static extern void DistClient_SetCallback_OnRemoveSession(DistEventHandler_OnRemoveSession_Callback fn);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void DistClient_SetCallback_OnEvent(IntPtr client, DistEventHandler_OnEvent_Callback fn);
+            private static extern void DistClient_SetCallback_OnEvent(DistEventHandler_OnEvent_Callback fn);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void DistClient_SetCallback_OnNewObject(IntPtr client, DistEventHandler_OnNewObject_Callback fn);
+            private static extern void DistClient_SetCallback_OnNewObject(DistEventHandler_OnNewObject_Callback fn);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void DistClient_SetCallback_OnRemoveObject(IntPtr client, DistEventHandler_OnRemoveObject_Callback fn);
+            private static extern void DistClient_SetCallback_OnRemoveObject(DistEventHandler_OnRemoveObject_Callback fn);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void DistClient_SetCallback_OnNewAttributes(IntPtr client, DistEventHandler_OnNewAttributes_Callback fn);
+            private static extern void DistClient_SetCallback_OnNewAttributes(DistEventHandler_OnNewAttributes_Callback fn);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void DistClient_SetCallback_OnUpdateAttributes(IntPtr client, DistEventHandler_OnUpdateAttributes_Callback fn);
+            private static extern void DistClient_SetCallback_OnUpdateAttributes(DistEventHandler_OnUpdateAttributes_Callback fn);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void DistClient_SetCallback_OnRemoveAttributes(IntPtr client, DistEventHandler_OnRemoveAttributes_Callback fn);
+            private static extern void DistClient_SetCallback_OnRemoveAttributes(DistEventHandler_OnRemoveAttributes_Callback fn);
             #endregion
 
             #region ------------------- Init ------------------------------------------------------------------------------------
@@ -543,6 +692,8 @@ namespace GizmoSDK
             #region ------------------------- Reference -------------------------------------
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr Reference_getTypeName(IntPtr ptr);
+            #endregion
+
             #endregion
 
         }

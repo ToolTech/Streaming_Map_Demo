@@ -19,12 +19,12 @@
 // Module		: Gizmo3D C#
 // Description	: C# Bridge to gzDynamicLoaderManager class
 // Author		: Anders Modén		
-// Product		: Gizmo3D 2.10.4
+// Product		: Gizmo3D 2.10.5
 //		
 //
 //			
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
-//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and IRIX® for  
+//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and Android for  
 //			usage in Game or VisSim development.
 //
 //
@@ -59,11 +59,18 @@ namespace GizmoSDK
                 DynamicLoaderManager_stopManager(stopAll, manager_index);
             }
 
+            static public void SetNumberOfActiveLoaders(Byte count)
+            {
+                DynamicLoaderManager_setNumberOfActiveLoaders(count);
+            }
+
             #region Native dll interface ----------------------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void DynamicLoaderManager_startManager(bool startAll, Byte manager_index);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void DynamicLoaderManager_stopManager(bool startAll, Byte manager_index);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void DynamicLoaderManager_setNumberOfActiveLoaders(Byte count);
             #endregion
         }
     }

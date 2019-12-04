@@ -19,7 +19,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge to gzMatrix class
 // Author		: Anders Modén		
-// Product		: GizmoBase 2.10.4
+// Product		: GizmoBase 2.10.5
 //		
 //
 //			
@@ -71,6 +71,15 @@ namespace GizmoSDK
                 Matrix3_euler_zxy(ref mat, z_rot, x_rot, y_rot);
 
                 return mat;
+            }
+
+            public Quaternion Quaternion()
+            {
+                Quaternion quat = new Quaternion();
+
+                Matrix3_quaternion(ref this,ref quat);
+
+                return quat;
             }
 
             public Vec3 GetCol(int column)
@@ -128,6 +137,8 @@ namespace GizmoSDK
                 return Marshal.PtrToStringUni(Matrix3_asString(ref this));
             }
 
+
+            #region // --------------------- Native calls -----------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool Matrix3_inverse(ref Matrix3 source,ref Matrix3 dest);
 
@@ -138,6 +149,9 @@ namespace GizmoSDK
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr Matrix3_asString(ref Matrix3 mat);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Matrix3_quaternion(ref Matrix3 mat,ref Quaternion quat);
+            #endregion
 
         }
 
@@ -228,11 +242,13 @@ namespace GizmoSDK
                 return Marshal.PtrToStringUni(Matrix4_asString(ref this));
             }
 
+            #region // --------------------- Native calls -----------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool Matrix4_inverse(ref Matrix4 source, ref Matrix4 dest);
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr Matrix4_asString(ref Matrix4 mat);
+            #endregion
 
         }
 

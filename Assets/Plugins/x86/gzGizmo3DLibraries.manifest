@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+    <assemblyIdentity name="gzGizmo3DLibraries" version="1.0.0.0" type="win32" />
+    <file name="gzDb.dll" />
+    <file name="gzGraph.dll" />
+    <file name="gzImage.dll" />
+    <file name="gzSystem.dll" />
+    <file name="gzGraphBridge.dll" />
+</assembly>

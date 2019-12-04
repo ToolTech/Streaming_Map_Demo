@@ -19,12 +19,12 @@
 // Module		: Gizmo3D C#
 // Description	: C# Bridge to gzTexture class
 // Author		: Anders Modén		
-// Product		: Gizmo3D 2.10.4
+// Product		: Gizmo3D 2.10.5
 //		
 //
 //			
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
-//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and IRIX® for  
+//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and Android for  
 //			usage in Game or VisSim development.
 //
 //
@@ -170,6 +170,34 @@ namespace GizmoSDK
                 }
             }
 
+            public bool GetMipMapImageArray(out byte[] image_data,out ImageFormat format,out ComponentType componentType, out UInt32 components,out UInt32 width,out UInt32 height,out UInt32 depth, bool useMipMaps, bool uncompress)
+            {
+                UInt32 size = 0;
+
+                width = 0;
+                height = 0;
+                depth = 0;
+
+                IntPtr native_image_data = IntPtr.Zero;
+
+                format = ImageFormat.RGBA;
+                componentType = ComponentType.BYTE;
+                components = 4;
+
+                if (Texture_getMipMapImageArray(GetNativeReference(), useMipMaps, uncompress,ref size, ref native_image_data,ref format,ref componentType, ref components,ref width, ref height, ref depth))
+                {
+                    image_data = new byte[size];
+
+                    Marshal.Copy(native_image_data, image_data, (int)0, (int)size);
+
+                    return true;
+                }
+
+                image_data = null;
+
+                return false;
+            }
+
             #region Native dll interface ----------------------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr Texture_create();
@@ -192,6 +220,8 @@ namespace GizmoSDK
             private static extern bool Texture_getUseMipMaps(IntPtr texture_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void Texture_setUseMipMaps(IntPtr texture_reference, bool on);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool Texture_getMipMapImageArray(IntPtr texture_reference, bool createMipMaps, bool uncompress, ref UInt32 size, ref IntPtr native_image_data,ref ImageFormat format,ref ComponentType compType, ref UInt32 components, ref UInt32 width,ref UInt32 height,ref UInt32 depth);
 
             #endregion
         }
