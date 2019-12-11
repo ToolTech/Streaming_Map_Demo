@@ -36,6 +36,7 @@
 using GizmoSDK.GizmoBase;
 using GizmoSDK.GizmoDistribution;
 using UnityEngine;
+using System.Threading;
 
 namespace Saab.Unity.Initializer
 {
@@ -129,22 +130,31 @@ namespace Saab.Unity.Initializer
 
             EnableMulticastState();
 
-            station = new DebugCommandStation("udp::45454?blocking=no&nic=${wlan0}");
+            station = new DebugCommandStation("udp::45456?blocking=no&nic=${wlan0}");
 
             station.OnExec += Station_OnExec;
 
-#region -------- Test Related stuff in init --------------------
+            Thread thread = new Thread(new ThreadStart(WorkThreadFunction));
+            thread.Start();
 
-            
+            #region -------- Test Related stuff in init --------------------
+
+
             //SetupJavaBindings();
 
             //test();
 
-#endregion
+            #endregion
 
         }
 
-        
+        public void WorkThreadFunction()
+        {
+            while (station != null && station.Exec())
+                Thread.Sleep(100);
+        }
+
+
         private bool Station_OnExec(string exec_message)
         {
             Message.Send(Message.GIZMOSDK, MessageLevel.DEBUG, $"Exec from station {exec_message}");
@@ -186,12 +196,7 @@ namespace Saab.Unity.Initializer
             }
         }
 
-        // Update is called once per frame
-        void Update()
-        {
-            //Message.Send(Message.GIZMOSDK, MessageLevel.DEBUG, $"Tick {GizmoSDK.GizmoBase.Time.Now}");
-            station.Exec();
-        }
+     
     }
 
 }
