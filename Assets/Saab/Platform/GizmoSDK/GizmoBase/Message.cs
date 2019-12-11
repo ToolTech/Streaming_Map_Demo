@@ -61,10 +61,13 @@ namespace GizmoSDK
 
             INTERNAL =(1<<11),
         }
-               
+
+                      
 
         public class Message
         {
+            public const string GIZMOSDK = "GizmoSDK";
+
             [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
             public delegate void EventHandler_OnMessage(string sender ,MessageLevel level, string message);
 

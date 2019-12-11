@@ -36,6 +36,7 @@ rem ------------- End of GizmoSDK dependencies -------------------
 
 mklink /J Assets\Saab\Foundation\Saab.Foundation.Map 	..\BTA_Dev\BTA\source\foundation\Saab.Foundation.Map
 mklink /J Assets\Saab\Utility\Saab.Utility.Map 		..\BTA_Dev\BTA\source\utility\Saab.Utility.Map
+mklink /J Assets\Saab\Utility\Saab.Utility.GfxCaps	..\BTA_Dev\BTA\source\utility\Saab.Utility.GfxCaps
 
 rem ---------------- Link in Unity projects -----------------------------
 

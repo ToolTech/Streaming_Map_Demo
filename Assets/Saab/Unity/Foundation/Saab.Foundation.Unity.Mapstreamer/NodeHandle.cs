@@ -52,10 +52,7 @@ using GizmoSDK.Gizmo3D;
 using gzTransform = GizmoSDK.Gizmo3D.Transform;
 using System.Collections.Generic;
 using Saab.Utility.Unity.NodeUtils;
-
-#if !NO_SHADERS
 using Assets.Crossboard;
-#endif
 
 public struct CrossboardDataset
 {
@@ -98,15 +95,10 @@ namespace Saab.Foundation.Unity.MapStreamer
         // Set to our material if we shall activate it on out geometry
         internal Material currentMaterial;
 
-#if !NO_SHADERS
-
         // ComputeShader for culling + furstum
         internal ComputeShader ComputeShader;
 
         private readonly string ID = "Saab.Foundation.Unity.MapStreamer.NodeHandle";
-
-#endif
-
 
 
         // We need to release all existing objects in a locked mode
@@ -141,8 +133,6 @@ namespace Saab.Foundation.Unity.MapStreamer
                 return false;
 
             // ---------------------------- Crossboard check -----------------------------------
-
-#if !NO_SHADERS
 
             Crossboard cb = node as Crossboard;
 
@@ -221,7 +211,6 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             }
 
-#endif
 
             // ---------------------------- Geometry check -------------------------------------
 

@@ -37,6 +37,7 @@
 
 using System.Runtime.InteropServices;
 using System;
+using System.ComponentModel;
 
 namespace GizmoSDK
 {
@@ -55,17 +56,66 @@ namespace GizmoSDK
                 KeyDatabase_setDefaultRegistry(url);
             }
 
-            static public string GetUserKey(string key, string password="", bool onlyUserKey=false)
+            static public T GetUserKey<T>(string key, string password="", bool onlyUserKey=false)
             {
-                return Marshal.PtrToStringUni(KeyDatabase_getUserKey(key, password, onlyUserKey));
+                string keyval = Marshal.PtrToStringUni(KeyDatabase_getUserKey(key, password, onlyUserKey));
+
+                try
+                {
+                    return (T)TypeDescriptor.GetConverter(typeof(T)).ConvertFromString(keyval);
+                }
+                catch
+                {
+                    Message.Send(Message.GIZMOSDK, MessageLevel.WARNING, $"Failed to convert '{keyval}' in GetUserKey<T>");
+                    return default(T);
+                }
             }
 
-            static public string GetDefaultUserKey(string key, string defaultValue="",string password = "", bool onlyUserKey = false)
+            static public T GetDefaultUserKey<T>(string key, T defaultValue=default(T),string password = "", bool onlyUserKey = false)
             {
-                return Marshal.PtrToStringUni(KeyDatabase_getDefaultUserKey(key, defaultValue,password, onlyUserKey));
+                string keyval = Marshal.PtrToStringUni(KeyDatabase_getDefaultUserKey(key, defaultValue.ToString(), password, onlyUserKey));
+                try
+                {
+                    return (T)TypeDescriptor.GetConverter(typeof(T)).ConvertFromString(keyval);
+                }
+                catch
+                {
+                    Message.Send(Message.GIZMOSDK, MessageLevel.WARNING, $"Failed to convert '{keyval}' in GetDefaultUserKey<T>");
+                    return default(T);
+                }
+            }
+
+            static public T GetGlobalKey<T>(string key, string password = "")
+            {
+                string keyval = Marshal.PtrToStringUni(KeyDatabase_getGlobalKey(key, password));
+
+                try
+                {
+                    return (T)TypeDescriptor.GetConverter(typeof(T)).ConvertFromString(keyval);
+                }
+                catch
+                {
+                    Message.Send(Message.GIZMOSDK, MessageLevel.WARNING, $"Failed to convert '{keyval}' in GetGlobalKey<T>");
+                    return default(T);
+                }
+            }
+
+            static public T GetDefaultGlobalKey<T>(string key, T defaultValue = default(T), string password = "")
+            {
+                string keyval = Marshal.PtrToStringUni(KeyDatabase_getDefaultGlobalKey(key, defaultValue.ToString(), password));
+                try
+                {
+                    return (T)TypeDescriptor.GetConverter(typeof(T)).ConvertFromString(keyval);
+                }
+                catch
+                {
+                    Message.Send(Message.GIZMOSDK, MessageLevel.WARNING, $"Failed to convert '{keyval}' in GetDefaultGlobalKey<T>");
+                    return default(T);
+                }
             }
 
             #region // --------------------- Native calls -----------------------
+
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void KeyDatabase_setDefaultRegistry(string url);
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
@@ -74,6 +124,10 @@ namespace GizmoSDK
             private static extern IntPtr KeyDatabase_getUserKey(string key, string password , bool onlyUserKey);
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr KeyDatabase_getDefaultUserKey(string key, string defaultValue,string password, bool onlyUserKey);
+            [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr KeyDatabase_getGlobalKey(string key, string password);
+            [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr KeyDatabase_getDefaultGlobalKey(string key, string defaultValue, string password);
 
             #endregion
         }

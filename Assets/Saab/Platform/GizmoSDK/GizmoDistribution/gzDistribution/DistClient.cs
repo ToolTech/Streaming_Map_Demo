@@ -309,7 +309,7 @@ namespace GizmoSDK
 
             public bool UseAutoProperty = true;
 
-            static public void Initialize()
+            static public void Initialize_()
             {
                 if (s_class_init == null)
                     s_class_init = new Initializer();

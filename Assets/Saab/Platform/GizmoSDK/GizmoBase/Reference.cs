@@ -49,7 +49,7 @@ namespace GizmoSDK
             Reference Create(IntPtr nativeReference);
         }
 
-        public interface IReferenceInterface
+        public interface IReference
         {
             IntPtr GetNativeReference();
             IntPtr GetNativeType();
@@ -57,7 +57,7 @@ namespace GizmoSDK
             void Release();
         }
 
-        public class Reference : IReferenceInterface,IReferenceFactory, IDisposable
+        public class Reference : IReference,IReferenceFactory, IDisposable
         {
             public Reference(IntPtr nativeReference)
             {
@@ -253,9 +253,9 @@ namespace GizmoSDK
             #endregion
         }
 
-        public class ReferenceDictionary<T> where T : class,IReferenceInterface
+        public class ReferenceDictionary<T> where T : class,IReference
         {
-            static public bool AddObject(IReferenceInterface nativeRef)
+            static public bool AddObject(IReference nativeRef)
             {
                 if (nativeRef == null)
                     return false;
@@ -266,7 +266,7 @@ namespace GizmoSDK
                 return _instances.TryAdd(nativeRef.GetNativeReference(), nativeRef);
             }
 
-            static public bool RemoveObject(IReferenceInterface nativeRef)
+            static public bool RemoveObject(IReference nativeRef)
             {
                 if (nativeRef == null)
                     return false;
@@ -279,7 +279,7 @@ namespace GizmoSDK
                 if (nativeRef == IntPtr.Zero)
                     return false;
 
-                IReferenceInterface obj;
+                IReference obj;
 
                 return _instances.TryRemove(nativeRef, out obj);
             }
@@ -290,12 +290,12 @@ namespace GizmoSDK
                 if (nativeReference == IntPtr.Zero)
                     return null;
 
-                IReferenceInterface obj;
+                IReference obj;
 
                 if (!_instances.TryGetValue(nativeReference, out obj))
                 {
                     // At least we will always get a DistObject
-                    obj = Reference.CreateObject(nativeReference) as IReferenceInterface;
+                    obj = Reference.CreateObject(nativeReference) as IReference;
 
                     //If we have an auto register in constructor we will hit the false condition
                     if (!_instances.TryAdd(nativeReference, obj))
@@ -318,7 +318,7 @@ namespace GizmoSDK
                 _instances.Clear();
             }
 
-            private static ConcurrentDictionary<IntPtr, IReferenceInterface> _instances = new ConcurrentDictionary<IntPtr, IReferenceInterface>();
+            private static ConcurrentDictionary<IntPtr, IReference> _instances = new ConcurrentDictionary<IntPtr, IReference>();
         }
     }
 }

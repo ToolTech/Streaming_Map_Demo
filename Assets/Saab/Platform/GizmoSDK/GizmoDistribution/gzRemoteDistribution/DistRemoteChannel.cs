@@ -51,7 +51,7 @@ namespace GizmoSDK
             TCP
         }
 
-        public interface IDistRemoteChannelInterface : IReferenceInterface
+        public interface IDistRemoteChannelInterface : IReference
         {
 
         }

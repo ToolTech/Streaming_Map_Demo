@@ -41,6 +41,8 @@ namespace Saab.Unity.Initializer
 {
     public class Initializer : MonoBehaviour
     {
+        DebugCommandStation station;
+
         //void test()
         //{
 
@@ -92,6 +94,24 @@ namespace Saab.Unity.Initializer
 #endif
         }
 
+        void EnableMulticastState()
+        {
+#if UNITY_ANDROID
+
+            AndroidJavaObject activity = new AndroidJavaClass("com.unity3d.player.UnityPlayer").GetStatic<AndroidJavaObject>("currentActivity");
+
+            var wifiManager = activity.Call<AndroidJavaObject>("getSystemService", "wifi");
+                           
+            var multicastLock = wifiManager.Call<AndroidJavaObject>("createMulticastLock", "lock");
+
+            multicastLock.Call("setReferenceCounted", true);
+
+            multicastLock.Call("acquire");
+
+            Message.Send(Message.GIZMOSDK, MessageLevel.DEBUG, "MultiCast Lock acquired");
+#endif
+        }
+
         private void Awake()
         {
             GizmoSDK.GizmoBase.Platform.Initialize();
@@ -107,17 +127,30 @@ namespace Saab.Unity.Initializer
             // Set local xml config
             KeyDatabase.SetLocalRegistry("asset:config.xml");
 
-            #region -------- Test Related stuff in init --------------------
+            EnableMulticastState();
+
+            station = new DebugCommandStation("udp::45454?blocking=no&nic=${wlan0}");
+
+            station.OnExec += Station_OnExec;
+
+#region -------- Test Related stuff in init --------------------
 
             
             //SetupJavaBindings();
 
             //test();
 
-            #endregion
+#endregion
 
         }
 
+        
+        private bool Station_OnExec(string exec_message)
+        {
+            Message.Send(Message.GIZMOSDK, MessageLevel.DEBUG, $"Exec from station {exec_message}");
+
+            return true;
+        }
 
         private void Message_OnMessage(string sender, MessageLevel level, string message)
         {
@@ -156,7 +189,8 @@ namespace Saab.Unity.Initializer
         // Update is called once per frame
         void Update()
         {
-
+            //Message.Send(Message.GIZMOSDK, MessageLevel.DEBUG, $"Tick {GizmoSDK.GizmoBase.Time.Now}");
+            station.Exec();
         }
     }
 

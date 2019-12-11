@@ -67,7 +67,7 @@ namespace GizmoSDK
                 {
                     InitializeFactories();
 
-                    DistClient.Initialize();
+                    DistClient.Initialize_();
                 }
 
                 return result;

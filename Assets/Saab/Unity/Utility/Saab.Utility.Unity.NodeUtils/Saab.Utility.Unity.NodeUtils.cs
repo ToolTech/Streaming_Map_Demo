@@ -15,9 +15,9 @@
 // Export Control:		NOT EXPORT CONTROLLED
 //
 //
-// File			: SceneManager.cs
+// File			: NodeUtils.cs
 // Module		:
-// Description	: Management of dynamic asset loader from GizmoSDK
+// Description	: Utility to control access between native handles and game objects
 // Author		: Anders Modén
 // Product		: Gizmo3D 2.10.1
 //

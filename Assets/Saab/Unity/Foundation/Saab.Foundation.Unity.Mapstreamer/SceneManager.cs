@@ -61,6 +61,7 @@ using gzImage = GizmoSDK.GizmoBase.Image;
 using Saab.Foundation.Map;
 using Saab.Unity.Extensions;
 using Saab.Utility.Unity.NodeUtils;
+using Saab.Utility.GfxCaps;
 
 // Fix unity conflicts
 using unTransform = UnityEngine.Transform;
@@ -203,10 +204,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             //nodeHandle.Renderer = Renderer;
             nodeHandle.node = n;
             nodeHandle.currentMaterial = currentMaterial;
-
-#if !NO_SHADERS
             nodeHandle.ComputeShader = ComputeShader;
-#endif
 
             // ---------------------------- Check material state ----------------------------------
 
@@ -485,7 +483,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             Crossboard cb = n as Crossboard;
 
-            if (cb != null)
+            if (cb != null && GfxCaps.HasCapability(Capability.UseCrossboards))
             {
                 // Scheduled for later build
                 pendingBuilds.Enqueue(nodeHandle);
