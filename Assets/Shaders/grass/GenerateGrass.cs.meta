@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 3ecddf93f082aa946a87550e6f2cd800
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - grassObject: {instanceID: 0}
+  - grassPrototypes: {instanceID: 0}
+  - perlinNoise: {instanceID: 0}
+  - _computeShader: {fileID: 7200000, guid: 1b210afcf6f7f48469fb8cf2cca48cca, type: 3}
+  - _grassShader: {fileID: 4800000, guid: cd675d8109e34104fa2267afa707fa09, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

@@ -45,10 +45,12 @@ namespace GizmoSDK
         
         public class DebugCommandStation : Reference
         {
+            public const string DEFAULT_URL = "udp::45456?blocking=no";
+
             public delegate bool DebugCommandStationEventHandler_OnExec(string exec_message);
             public event DebugCommandStationEventHandler_OnExec OnExec;
 
-            public DebugCommandStation(string url= "udp::45456?blocking=no",bool echo=false) : base(DebugCommandStation_create(url,echo))
+            public DebugCommandStation(string url= DEFAULT_URL, bool echo=false) : base(DebugCommandStation_create(url,echo))
             {
                 ReferenceDictionary<DebugCommandStation>.AddObject(this);
             }

@@ -1,0 +1,459 @@
+﻿// Kernels
+#pragma kernel Initialize
+#pragma kernel Update
+#pragma kernel FrustumCulling
+#pragma kernel MeshGrassGenerator
+#pragma kernel MeshTreeGenerator
+#pragma kernel GrassGenerator
+#pragma kernel IndirectGrass
+#pragma kernel InitializeGrass
+
+// Minimum / maximum integer values
+#define intMin -2147483648
+#define intMax 2147483647
+
+// Samplers
+SamplerState LinearClampSampler;
+SamplerState PointClampSampler;
+
+// Axis-aligned bounding box structure for frustum culling
+struct AABB
+{
+	float4 min;
+	float4 max;
+
+	inline float3 GetVertexPositive(float3 normal)
+	{
+		float3 positive = min.xyz;
+		if (normal.x >= 0)
+		{
+			positive.x = max.x;
+		}
+		if (normal.y >= 0)
+		{
+			positive.y = max.y;
+		}
+		if (normal.z >= 0)
+		{
+			positive.z = max.z;
+		}
+		return positive;
+	}
+};
+
+struct ArgsStruct
+{
+	int indexCountPerInstance;
+	int instanceCount;
+	int startIndexLocation;
+	int baseVertexLocation;
+	int startInstanceLocation;
+	int sourceCounterOffset;
+	int startInstanceOffset;
+	int padding2;
+};
+
+// Buffers
+RWTexture2D<float4> frustumPlanesTexture;
+AppendStructuredBuffer<float4> frustumTiles;    // Frustum culling - possitions of tiles that will be rendered in current frame
+AppendStructuredBuffer<float4> grassPoints;     // 
+AppendStructuredBuffer<float4> treePoints;     // 
+
+StructuredBuffer<float3> surfaceVertices;
+StructuredBuffer<int> surfaceIndices;
+StructuredBuffer<float2> surfaceUVs;
+
+StructuredBuffer<AABB> treeAABBsBuffer;         // 
+RWStructuredBuffer<float> gpuToCpuBuffer;       // Buffer for GPU -> CPU data transfer
+
+// Indirect buffer
+RWStructuredBuffer<int> indirectBuffer;
+RWStructuredBuffer<int> indirectBufferTree;
+
+// Textures
+Texture2D<float> heightmap;                     // Read-only heightmap
+RWTexture2D<float> heightmapRW;                 // Read-write heightmap
+Texture2D<float> sparseHeightmap;               // Sparse (virtual) texture for deformations
+RWTexture2D<int> tilesAABBMinHeight;            // AABB min heights of tiles for frustum culling
+RWTexture2D<int> tilesAABBMaxHeight;            // AABB max heights of tiles for frustum culling
+Texture2D<float4> grassTexture;                 // Grass texture
+Texture2D<float4> splatMap;                     // Grass splatMap
+RWTexture2D<float> grassTextureTMP;
+Texture2D<float> grassTextureInput;
+Texture2D<float4> uniformNoise;                 // Uniform noise
+RWTexture2D<float> tilesFrustumCullingGrass;    // Frustum culling tiles
+
+// Variables
+float surfaceGridStep;
+float surfaceGridStepTree;
+int surfaceIndicesSize;
+float4 lods[16];
+int4 lodOffset[16];
+float4 frustumPlanes[6];                      // Frustum planes (6 planes * 4 floats: [ normal.x, normal.y, normal.z, distance ])
+float4 rectMinMax;                              // A rectangle for deformation/update defined by [ x, y ] minimal texture coordinates, and [ z, w ] maximal texture coordinates (in texels)
+float3 terrainSize;                             // Terrain size in meters
+float3 terrainOffset;                           // Terrain offset in meters
+float tileSize;                                 // Tile size in meters
+int terrainHeightMapResolution;                 // Resolution of height map
+int grassResolution;                            // Resolution of grass texture
+int terrainSizeInTiles;                         // Number of tiles in one dimension
+float4x4 heightmapDecalMatrix;                  // Transformation matrix for heightmap deformation (transforms decal on terrain)
+float4x4 ObjectToWorldMatrrix;
+float3 cameraPosition;
+float4x4 cameraProjectionMatrix;
+float lodBias;
+float4 tileMinMax;                              // Region that will be recomputed [ min.x, min.y, max.x, max.y ] [ tiles ]
+int colliderTileResolution;                     // Resolution of terrain collider tile
+int heightmapTileResolution;                    // Resolution of sparse heightmap tile
+int sparseHeightmapResolution;                  // Resolution of sparse heightmap
+int grassTypes;
+int grassType;
+int treesCount;
+int shadowCascade;
+int argsCount;
+float2 grassTexelSize;
+float4x4 frustumCullingMatrix;
+
+// Initialization of resources
+[numthreads(8, 8, 1)]
+void Initialize(int3 id : SV_DispatchThreadID)
+{
+	// Initialize terrain tiles AABB heights
+	if (id.x < terrainSizeInTiles && id.y < terrainSizeInTiles)
+	{
+		tilesAABBMaxHeight[id.xy] = intMin;
+		tilesAABBMinHeight[id.xy] = intMax;
+	}
+
+	// Initialize world-space terrain heights in height map
+	if (id.x < terrainHeightMapResolution && id.y < terrainHeightMapResolution)
+	{
+		heightmapRW[id.xy] = heightmapRW[id.xy] * terrainSize.y + terrainOffset.y;
+	}
+}
+
+// Initialization of grass texture (density/type)
+[numthreads(8, 8, 1)]
+void InitializeGrass(int3 id : SV_DispatchThreadID)
+{
+	if (id.x < grassResolution && id.y < grassResolution)
+	{
+		int grassValues = asint(grassTextureTMP[id.xy]);
+		// [xxxx|xxxx] [xxxx|xxxx] [xxxx|xxxx] [xxxx|xxxx]
+		int newGrassValue = asint(grassTextureInput[id.xy]); // 0-15 for texel for type
+		newGrassValue = clamp(newGrassValue, 0, 15);
+		newGrassValue = newGrassValue << (grassType * 8);
+		grassValues |= newGrassValue;
+		grassTextureTMP[id.xy] = asfloat(grassValues);
+	}
+}
+
+// Atomic update of AABB min/max heights for terrain tiles
+inline void UpdateAABBTiles(int2 coord, float height)
+{
+	// Min/max heights as int
+	int minHeight = floor(height);
+	int maxHeight = ceil(height);
+
+	// Coordinates for current tile
+	int2 tileCoord = coord.xy / float2(terrainHeightMapResolution, terrainHeightMapResolution) * terrainSizeInTiles;
+
+	// Update min/max heights in tiles
+	InterlockedMax(tilesAABBMaxHeight[tileCoord], maxHeight);
+	InterlockedMin(tilesAABBMinHeight[tileCoord], minHeight);
+}
+
+// Update after deformation (AABB heights)
+[numthreads(8, 8, 1)]
+void Update(int3 id : SV_DispatchThreadID)
+{
+	// Texture coordinates of rectangular (min/max) area deformaion
+	int2 uvMin = rectMinMax.xy;
+	int2 uvMax = rectMinMax.zw;
+	id.xy += uvMin;
+
+	if (uvMax.x >= id.x && uvMax.y >= id.y && uvMin.x <= id.x && uvMin.y <= id.y)
+	{
+		// Update AABB tiles
+		UpdateAABBTiles(id.xy, heightmap[id.xy]);
+	}
+}
+
+// Returns a signed distance from plane to point
+inline float DistanceFromPlane(float3 vertex, float4 plane)
+{
+	return dot(float4(vertex, 1.0f), plane);
+}
+
+// Tests intersection between bounding box and camera view frustum
+inline bool AxisAlignedBoxInFrustum(AABB boundingBox)
+{
+	[unroll]
+	for (int i = 0; i < 6; ++i)
+	{
+		if (DistanceFromPlane(boundingBox.GetVertexPositive(frustumPlanes[i].xyz), frustumPlanes[i]) < 0)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+// Terrain frustum culling
+[numthreads(8, 8, 1)]
+void FrustumCulling(int3 id : SV_DispatchThreadID)
+{
+	if (id.x < terrainSizeInTiles && id.y < terrainSizeInTiles)
+	{
+		// The size of a plane/tile geometry (Unity plane size)
+		float planeScale = 10;
+
+		float4 tilePosition = float4(id.x * tileSize, 0.0f, id.y * tileSize, tileSize / planeScale);
+		tilePosition.xyz = tilePosition.xyz + terrainOffset;
+
+		// AABB structure
+		AABB tileBoundingBox;
+		tileBoundingBox.min = float4(tilePosition.xyz, 0);
+		tileBoundingBox.max = float4(tilePosition.xyz + tileSize, 0);
+
+		tileBoundingBox.min.y = tilesAABBMinHeight[id.xy];
+		tileBoundingBox.max.y = tilesAABBMaxHeight[id.xy];
+
+		tilePosition.xyz += tileSize / 2;
+
+		// AABB test against frustum
+		if (AxisAlignedBoxInFrustum(tileBoundingBox))
+		{
+			frustumTiles.Append(tilePosition);
+			tilesFrustumCullingGrass[id.xy] = 1;
+		}
+		else
+		{
+			tilesFrustumCullingGrass[id.xy] = 0;
+		}
+	}
+}
+
+inline float max3(float3 v)
+{
+	return max(v.x, max(v.y, v.z));
+}
+
+inline bool IsInFrustum(float3 positionAfterProjection, float treshold = 1)
+{
+	return max3(abs(positionAfterProjection)) <= treshold;
+}
+
+// Terrain Grass
+[numthreads(8, 8, 1)]
+void GrassGenerator(int3 id : SV_DispatchThreadID)
+{
+	if (id.x < grassResolution && id.y < grassResolution)
+	{
+		float2 texelCenterPosition = grassTexelSize / 2 + grassTexelSize * id.xy;
+		int2 frustumTileCoordinates = int2(texelCenterPosition / tileSize);
+
+		int texelIndex = id.x + id.y * grassResolution;
+		int grassPerTexel = grassTypes * 16;
+
+		int2 uniformNoiseResolution = int2(256, 256);
+
+		// If terrain tile is visible
+		if (tilesFrustumCullingGrass[frustumTileCoordinates.xy])
+		{
+			int grassValues = asint(grassTexture[id.xy]);
+			// For each grass type (texture)
+			for (int i = 0; i < grassTypes; i++)
+			{
+				int grassCount = (grassValues >> i * 4) & 0x0000000f;
+				// Density of grass (grassCount in <0-15>)
+				for (int j = 0; j < grassCount; j++)
+				{
+					uint grassIndex = texelIndex + grassPerTexel + i * grassCount + j + grassValues;
+					int2 noiseIndex = grassIndex;
+					float4 randomValue = uniformNoise[int2((grassIndex + i) % uniformNoiseResolution.x, (grassIndex / uniformNoiseResolution.x + j) % uniformNoiseResolution.y)];
+
+					float2 grassPositionUV = float2(texelCenterPosition.x, texelCenterPosition.y) + (randomValue.xy - 0.5f) * grassTexelSize;
+					float height = heightmap.SampleLevel(LinearClampSampler, (grassPositionUV.xy) / terrainSize.xz * (1.0f - 1.0f / terrainHeightMapResolution) + 1.0f / terrainHeightMapResolution / 2.0f, 0);
+					float4 grassPositionWorldSpace = float4(grassPositionUV.x + terrainOffset.x, height, grassPositionUV.y + terrainOffset.z, 1);
+					float4 projectedNewPosition = mul(frustumCullingMatrix, grassPositionWorldSpace);
+					projectedNewPosition /= projectedNewPosition.w;
+
+					// Add point to buffer
+					if (IsInFrustum(projectedNewPosition.xyz))
+					{
+						grassPoints.Append(float4(grassPositionWorldSpace.xyz, i + frac(randomValue.z)));
+					}
+				}
+			}
+		}
+	}
+}
+
+int GetGrassType(int i, int valid[8])
+{
+	int Types[] = { 0,0,0,0,0,0,0,0 };
+	int index = 0;
+
+	for (int x = 0; x < 8; x++)
+	{
+		if (valid[x] == 1)
+		{
+			Types[index] = x;
+			index++;
+		}
+	}
+
+	if (index == 0)
+	{
+		return -1;
+	}
+
+	return Types[i%index];	
+}
+
+int GetType(int color, int i)
+{
+	int Types[] = { 0,0,0,0,0,0,0,0 };
+
+	if (color >= 128)
+	{
+		Types[7] = 1;
+		color -= 128;
+	}
+	if (color >= 64)
+	{
+		Types[6] = 1;
+		color -= 64;
+	}
+	if (color >= 32)
+	{
+		Types[5] = 1;
+		color -= 32;
+	}
+	if (color >= 16)
+	{
+		Types[4] = 1;
+		color -= 16;
+	}
+	if (color >= 8)
+	{
+		Types[3] = 1;
+		color -= 8;
+	}
+	if (color >= 4)
+	{
+		Types[2] = 1;
+		color -= 4;
+	}
+	if (color >= 2)
+	{
+		Types[1] = 1;
+		color -= 2;
+	}
+	if (color >= 1)
+	{
+		Types[0] = 1;
+		color -= 1;
+	}
+
+	int valid = GetGrassType(i, Types);
+	return valid;
+}
+
+// Mesh Grass
+[numthreads(3, 1, 1)]
+void MeshGrassGenerator(int3 id : SV_DispatchThreadID)
+{
+	float density = surfaceGridStep;
+	float index = id.x * 3;
+
+	float3 v1 = surfaceVertices[surfaceIndices[index]];
+	float3 v2 = surfaceVertices[surfaceIndices[index + 1]];
+	float3 v3 = surfaceVertices[surfaceIndices[index + 2]];
+
+	float2 uv1 = surfaceUVs[surfaceIndices[index]];
+	float2 uv2 = surfaceUVs[surfaceIndices[index + 1]];
+	float2 uv3 = surfaceUVs[surfaceIndices[index + 2]];
+
+	float maxDist = max(distance(v2, v3), max(distance(v1, v2), distance(v1, v3)));
+	float minDist = min(distance(v2, v3), min(distance(v1, v2), distance(v1, v3)));
+
+	float ration1 = maxDist / density;
+	float ration2 = minDist / density;
+	int grassAmount = (ration1 * ration2) / 2;
+
+	// ************* Barycentric coordinate *************
+	for (uint i = 0; i < grassAmount; i++)
+	{
+		float r1 = frac(tan((i + 1) / density));
+		float r2 = frac(tan((i + 1)));
+
+		float2 uv = (1 - sqrt(r1)) * uv1 + (sqrt(r1) * (1 - r2)) * uv2 + (sqrt(r1) * r2) * uv3;
+		float4 color = splatMap[uv * 256];
+
+		float3 newPoint = (1 - sqrt(r1)) * v1 + (sqrt(r1) * (1 - r2)) * v2 + (sqrt(r1) * r2) * v3;
+		float3 finalPoint = terrainOffset + newPoint;
+		int blueColor = (color.z >= 1.0 ? 255 : color.z * 256.0);
+
+		/*int Type = i % grassTypes;
+		grassPoints.Append(float4(finalPoint.xyz, Type));*/
+
+		int valid = GetType(blueColor, i);
+		if (valid != -1)
+		{
+			//if (finalPoint.xyz != float3(0, 0, 0))
+			{
+				grassPoints.Append(float4(finalPoint.xyz, valid));
+			}		
+		}
+	}
+}
+
+// Mesh Tree
+[numthreads(3, 1, 1)]
+void MeshTreeGenerator(int3 id : SV_DispatchThreadID)
+{
+	float density = surfaceGridStepTree;
+	float index = id.x * 3;
+
+	float3 v1 = surfaceVertices[surfaceIndices[index]];
+	float3 v2 = surfaceVertices[surfaceIndices[index + 1]];
+	float3 v3 = surfaceVertices[surfaceIndices[index + 2]];
+
+	float2 uv1 = surfaceUVs[surfaceIndices[index]];
+	float2 uv2 = surfaceUVs[surfaceIndices[index + 1]];
+	float2 uv3 = surfaceUVs[surfaceIndices[index + 2]];
+
+	float maxDist = max(distance(v2, v3), max(distance(v1, v2), distance(v1, v3)));
+	float minDist = min(distance(v2, v3), min(distance(v1, v2), distance(v1, v3)));
+
+	float ration1 = maxDist / density;
+	float ration2 = minDist / density;
+	int TreeAmount = (ration1 * ration2) / 2;
+
+	// ************* Barycentric coordinate *************
+	for (uint i = 0; i < TreeAmount; i++)
+	{
+		float r1 = frac(tan((i + 1) / density));
+		float r2 = frac(tan((i + 1)));
+
+		float2 uv = (1 - sqrt(r1)) * uv1 + (sqrt(r1) * (1 - r2)) * uv2 + (sqrt(r1) * r2) * uv3;
+		float4 color = splatMap[uv * 256];
+
+		float3 newPoint = (1 - sqrt(r1)) * v1 + (sqrt(r1) * (1 - r2)) * v2 + (sqrt(r1) * r2) * v3;
+		float3 finalPoint = terrainOffset + newPoint;
+		int Type = i % grassTypes;
+		if (color.y >= 0.5)
+		{
+			treePoints.Append(float4(finalPoint.xyz, Type));
+		}
+	}
+}
+
+[numthreads(1, 1, 1)]
+void IndirectGrass()
+{
+	indirectBuffer[1] = ceil(indirectBuffer[5] / 64000.0f); // mesh has 64000 vertices
+	indirectBufferTree[1] = ceil(indirectBufferTree[5] / 64000.0f); // mesh has 64000 vertices
+}

@@ -44,32 +44,11 @@ namespace Saab.Unity.Initializer
     {
         DebugCommandStation station;
 
-        //void test()
-        //{
+        // Test of distribution
+        DistManager manager;
+        DistClient client;
 
-        //    if (!UnityEngine.Android.Permission.HasUserAuthorizedPermission("android.permission.INTERNET"))
-        //        UnityEngine.Android.Permission.RequestUserPermission("android.permission.INTERNET");
-
-        //    if (!UnityEngine.Android.Permission.HasUserAuthorizedPermission("android.permission.CHANGE_NETWORK_STATE"))
-        //        UnityEngine.Android.Permission.RequestUserPermission("android.permission.CHANGE_NETWORK_STATE");
-
-        //    if (!UnityEngine.Android.Permission.HasUserAuthorizedPermission("android.permission.CHANGE_WIFI_MULTICAST_STATE"))
-        //        UnityEngine.Android.Permission.RequestUserPermission("android.permission.CHANGE_WIFI_MULTICAST_STATE");
-
-
-
-        //    //GizmoSDK.GizmoDistribution.Platform.Initialize();
-
-        //    //DistManager manager = DistManager.GetManager(true);
-
-        //    //manager.Start(DistRemoteChannel.CreateDefaultSessionChannel(), DistRemoteChannel.CreateDefaultServerChannel());
-
-        //    //DistClient client = new DistClient("putte", manager);
-
-
-
-        //}
-        // Start is called before the first frame update
+       
         void SetupJavaBindings()
         {
 #if UNITY_ANDROID
@@ -146,12 +125,44 @@ namespace Saab.Unity.Initializer
 
             #endregion
 
+            GizmoSDK.GizmoDistribution.Platform.Initialize();
+
+            manager = DistManager.GetManager(true);
+
+            DistTransportType protocol = DistTransportType.MULTICAST;
+
+            string iface = "${wlan0}";
+
+            // Start the manager with settting for transport protocols
+            manager.Start(DistRemoteChannel.CreateDefaultSessionChannel(true, protocol, iface), DistRemoteChannel.CreateDefaultServerChannel(true, protocol, iface));
+
+            // Client set up. You are a client that sends and receives information
+            client = new DistClient("PerfClient", manager);
+
+            // We need to tell the client how to initialize
+            client.Initialize(0, 0);
+
+            // Now we can get a session. A kind of a meeting room that is used to exchange various "topics"
+            DistSession session = client.GetSession("PerfSession", true, true);
+
+            // Joint that session and subribe all events
+            client.JoinSession(session);
+
+            client.SubscribeEvents(session); // Subscribe All Events
+
+            client.OnEvent += Client_OnEvent;
+
+        }
+
+        private void Client_OnEvent(DistClient sender, DistEvent e)
+        {
+            Message.Send("OnEvent", MessageLevel.DEBUG, e.ToString());
         }
 
         public void WorkThreadFunction()
         {
             while (station != null && station.Exec())
-                Thread.Sleep(100);
+                Thread.Sleep(300);
         }
 
 

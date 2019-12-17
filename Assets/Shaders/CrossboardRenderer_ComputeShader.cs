@@ -168,43 +168,49 @@ namespace Assets.Crossboard
         {
             if (_cullingKernel == -1) return;
 
-            var camera = Camera.main;
-            if (camera == null) { return; }
-
-            _cam = camera;
-
-            GeometryUtility.CalculateFrustumPlanes(camera, _planes);
-            //CalculateFrustumPlanes(camera.projectionMatrix * camera.worldToCameraMatrix, ref _planes);
-
-            for (int i = 0; i < 4; i++)
+            var cameras = FindObjectsOfType<Camera>();
+            foreach (var camera in cameras)
             {
-                //Debug.DrawRay(camera.transform.position, _planes[i].normal * 10f, Color.yellow);
-                _normalsFloat[i + 0] = _planes[i].normal.x;
-                _normalsFloat[i + 4] = _planes[i].normal.y;
-                _normalsFloat[i + 8] = _planes[i].normal.z;
-            }
+                if (!camera.enabled) continue;
 
-            var camPos = camera.transform.position;
+                //var camera = Camera.main;
+                if (camera == null) { return; }
 
-            // reset counter
-            _outputBuffer.SetCounterValue(0);
+                _cam = camera;
 
-            // assign shader buffers
+                GeometryUtility.CalculateFrustumPlanes(camera, _planes);
+                //CalculateFrustumPlanes(camera.projectionMatrix * camera.worldToCameraMatrix, ref _planes);
 
-            _computeShader.SetFloats("_CameraPos", camPos.x, camPos.y, camPos.z);
-            _computeShader.SetFloats("_CameraFrustumNormals", _normalsFloat);
-            _computeShader.SetMatrix("_ToWorld", transform.localToWorldMatrix);
+                for (int i = 0; i < 4; i++)
+                {
+                    //Debug.DrawRay(camera.transform.position, _planes[i].normal * 10f, Color.yellow);
+                    _normalsFloat[i + 0] = _planes[i].normal.x;
+                    _normalsFloat[i + 4] = _planes[i].normal.y;
+                    _normalsFloat[i + 8] = _planes[i].normal.z;
+                }
 
-            // execute the compute shader
-            _computeShader.Dispatch(_cullingKernel, Mathf.CeilToInt(_inputBuffer.count / 64f), 1, 1);
-            //_computeShader.Dispatch(_cullingKernel, _inputBuffer.count, 1, 1);
+                var camPos = camera.transform.position;
 
-            // get append buffer counter value
-            ComputeBuffer.CopyCount(_outputBuffer, _argBuffer, 0);
+                // reset counter
+                _outputBuffer.SetCounterValue(0);
 
-            if(_rendering)
-            {
-                StartRender(camera);
+                // assign shader buffers
+
+                _computeShader.SetFloats("_CameraPos", camPos.x, camPos.y, camPos.z);
+                _computeShader.SetFloats("_CameraFrustumNormals", _normalsFloat);
+                _computeShader.SetMatrix("_ToWorld", transform.localToWorldMatrix);
+
+                // execute the compute shader
+                _computeShader.Dispatch(_cullingKernel, Mathf.CeilToInt(_inputBuffer.count / 64f), 1, 1);
+                //_computeShader.Dispatch(_cullingKernel, _inputBuffer.count, 1, 1);
+
+                // get append buffer counter value
+                ComputeBuffer.CopyCount(_outputBuffer, _argBuffer, 0);
+
+                if (_rendering)
+                {
+                    StartRender(camera);
+                }
             }
         }
     }
