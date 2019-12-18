@@ -1,0 +1,3 @@
+http:/www.gizmosdk.se/archives/maps/sweden/eksjo/processed/map.gzd?nic=${wlan0}
+purl:maps?nic=${wlan0},sweden\eksjo\data\map.gzd
+purl:maps?nic=${wlan0},sweden\smaland\data\rapid.gzd
