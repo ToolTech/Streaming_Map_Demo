@@ -67,7 +67,7 @@ namespace Saab.Foundation.Map
         DEFAULT = FRUSTRUM_CULL,
     }
 
-    public class MapControl : IMapLocationProvider<MapPos, Node>
+    public class MapControl
     {
         const string USER_DATA_DB_INFO              = "UserDataDbInfo";
         const string DBI_PROJECTION                 = "DbI-Projection";
@@ -103,16 +103,10 @@ namespace Saab.Foundation.Map
             return true;
         }
 
-        public bool GetScreenGroundPosition(int x, int y, uint size_x, uint size_y,out MapPos result, ClampFlags flags= ClampFlags.DEFAULT)
+
+        public bool GetGroundPosition(Vec3D position, Vec3 direction, out MapPos result, ClampFlags flags = ClampFlags.DEFAULT)
         {
             result = new MapPos();
-
-            Vec3D position;
-            Vec3 direction;
-
-            
-            if (!GetScreenVectors(x, y, size_x, size_y, out position, out direction))
-                return false;
 
             // Coordinate is now in world Cartesian coordinates (Roi Position)
 
@@ -133,7 +127,7 @@ namespace Saab.Foundation.Map
             // Adjust intersector to use origo as center
             position = position - origo;
 
-            isect.SetStartPosition((Vec3)(position));
+            isect.SetStartPosition((Vec3)position);
             isect.SetDirection(direction);
 
             if (isect.Intersect(_currentMap, IntersectQuery.NEAREST_POINT | IntersectQuery.NORMAL | ((flags & ClampFlags.WAIT_FOR_DATA) != 0 ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0), 1, true, origo))
@@ -153,7 +147,7 @@ namespace Saab.Foundation.Map
 
             if (_topRoi != null)
             {
-                RoiNode roi= _topRoi.GetClosestRoiNode(result.position);
+                RoiNode roi = _topRoi.GetClosestRoiNode(result.position);
                 result.node = roi;
 
                 // Remove roiNode position as offset - Go to local RoiNode based coordinate system
@@ -163,6 +157,23 @@ namespace Saab.Foundation.Map
             }
 
             return true;
+
+        }
+
+
+        public bool GetScreenGroundPosition(int x, int y, uint size_x, uint size_y,out MapPos result, ClampFlags flags= ClampFlags.DEFAULT)
+        {
+            Vec3D position;
+            Vec3 direction;
+
+
+            if (!GetScreenVectors(x, y, size_x, size_y, out position, out direction))
+            {
+                result = null;
+                return false;
+            }
+
+            return GetGroundPosition(position, direction, out result, flags);
         }
 
         public Vec3D LocalToWorld(MapPos mappos)
@@ -176,25 +187,18 @@ namespace Saab.Foundation.Map
                 result += roi.Position;
             }
 
-            return result;
+            return new Vec3D(result.x, result.y, -result.z);
         }
 
         public MapPos WorldToLocal(Vec3D position)
         {
+            position.z = -position.z;
+
             MapPos result = new MapPos();
 
             result.position = position/* - _origin*/;
 
-            if (_topRoi != null)
-            {
-                RoiNode roi= _topRoi.GetClosestRoiNode(result.position);
-                result.node = roi;
-
-                // Remove roiNode position as offset - Go to local RoiNode based coordinate system
-
-                if (roi != null && roi.IsValid())
-                    result.position -= roi.Position;
-            }
+            MapToRoi(result);
 
             return result;
         }
@@ -214,7 +218,7 @@ namespace Saab.Foundation.Map
             return updatedPos.Altitude;
         }
 
-        public bool UpdatePosition(ref MapPos result, GroundClampType groundClamp = GroundClampType.NONE, ClampFlags flags = ClampFlags.DEFAULT)
+        public bool UpdatePosition(MapPos result, GroundClampType groundClamp = GroundClampType.NONE, ClampFlags flags = ClampFlags.DEFAULT)
         {
             if (_currentMap == null)    // No map
                 return false;
@@ -367,17 +371,20 @@ namespace Saab.Foundation.Map
             return converter.GetLatPos(out result);
         }
 
-        public bool GetPosition(LatPos pos, out MapPos result,GroundClampType groundClamp= GroundClampType.NONE, ClampFlags flags = ClampFlags.DEFAULT)
+        public bool GetCartPos(MapPos pos, out CartPos result)
         {
             Coordinate converter = new Coordinate();
-            converter.SetLatPos(pos);
 
-            result = new MapPos
-            {
-                local_orientation = new Matrix3(new Vec3(1, 0, 0), new Vec3(0, 0, -1), new Vec3(0, 1, 0))    // East North Up vectors
-            };
+            Vec3D position = pos.position;
 
-            // Convert to global 3D coordinate in appropriate target system
+            result = new CartPos();
+
+            // Check possibly local 3D under a roiNode
+
+            RoiNode roi = pos.node as RoiNode;
+
+            if (roi != null && roi.IsValid())
+                position += roi.Position;
 
             switch (_mapType)
             {
@@ -388,56 +395,128 @@ namespace Saab.Foundation.Map
 
                 case MapType.UTM:
 
-                    UTMPos utmpos;
+                    UTMPos utmpos = new UTMPos(_utmZone, _north, -(position.z + _origin.z), position.x + _origin.x, position.y + _origin.y);
 
-                    if (!converter.GetUTMPos(out utmpos))
-                    {
-                        Message.Send("Controller", MessageLevel.WARNING, "Failed to convert to UTM");
-                        return false;
-                    }
-
-                    result.position = new Vec3D(utmpos.Easting, utmpos.H, -utmpos.Northing) - _origin;
-
-                    
-                    // Possibly compensate for zone and north as well XXX
+                    converter.SetUTMPos(utmpos);
 
                     break;
 
                 case MapType.GEOCENTRIC:
 
-                    CartPos cartpos;
+                    CartPos cartpos = new CartPos(position.x + _origin.x, position.y + _origin.y, position.z + _origin.z);
 
-                    if (!converter.GetCartPos(out cartpos))
-                    {
-                        Message.Send("Controller", MessageLevel.WARNING, "Failed to convert to Geocentric");
-                        return false;
-                    }
+                    converter.SetCartPos(cartpos);
 
-                    result.local_orientation = converter.GetOrientationMatrix(cartpos);
-
-                    result.position = new Vec3D(cartpos.X, cartpos.Y, cartpos.Z) - _origin;
-                                       
                     break;
             }
 
-            // We have now global 3D coordinates
+            return converter.GetCartPos(out result);
+        }
 
+
+        private void MapToRoi(MapPos result)
+        {
+            if (_topRoi == null)
+                return;
+            
+            RoiNode roi = _topRoi.GetClosestRoiNode(result.position);
+            result.node = roi;
+
+            // Remove roiNode position as offset - Go to local RoiNode based coordinate system
+
+            if (roi != null && roi.IsValid())
+                result.position -= roi.Position;
+            
+        }
+
+        public bool SetPosition(MapPos result, LatPos pos, GroundClampType groundClamp = GroundClampType.NONE, ClampFlags flags = ClampFlags.DEFAULT)
+        {
+            Coordinate converter = new Coordinate();
+            converter.SetLatPos(pos);
+
+            if (!WorldToMap(converter, ref result.position, ref result.local_orientation))
+                return false;
+
+            MapToRoi(result);
+
+            return UpdatePosition(result, groundClamp, flags);
+        }
+
+
+
+        public bool SetPosition(MapPos result, CartPos pos, GroundClampType groundClamp = GroundClampType.NONE, ClampFlags flags = ClampFlags.DEFAULT)
+        {
+            Coordinate converter = new Coordinate();
+            converter.SetCartPos(pos);
+
+            if (!WorldToMap(converter, ref result.position, ref result.local_orientation))
+                return false;
 
             // Check possibly local 3D under a roiNode
 
-            if (_topRoi != null)
+            MapToRoi(result);
+
+
+            return UpdatePosition(result, groundClamp, flags);
+        }
+
+        private bool WorldToMap(Coordinate converter, ref Vec3D pos, ref Matrix3 orientationMatrix)
+        {
+
+            // Convert to global 3D coordinate in appropriate target system
+
+            switch (_mapType)
             {
-                RoiNode roi= _topRoi.GetClosestRoiNode(result.position);
-                result.node = roi;
+                case MapType.UTM:
+                    {
+                        UTMPos utmpos;
 
-                // Remove roiNode position as offset - Go to local RoiNode based coordinate system
+                        if (!converter.GetUTMPos(out utmpos))
+                        {
+                            Message.Send("Controller", MessageLevel.WARNING, "Failed to convert to UTM");
+                            return false;
+                        }
 
-                if (roi != null && roi.IsValid())
-                    result.position -= roi.Position;
+                        pos = new Vec3D(utmpos.Easting, utmpos.H, -utmpos.Northing) - _origin;
+
+                        orientationMatrix = new Matrix3(new Vec3(1, 0, 0), new Vec3(0, 0, -1), new Vec3(0, 1, 0));    // East North Up vectors
+
+
+                        // Possibly compensate for zone and north as well XXX
+                    }
+                    break;
+
+                case MapType.GEOCENTRIC:
+                    {
+                        CartPos cartpos;
+
+                        if (!converter.GetCartPos(out cartpos))
+                        {
+                            Message.Send("Controller", MessageLevel.WARNING, "Failed to convert to Geocentric");
+                            return false;
+                        }
+
+                        orientationMatrix = converter.GetOrientationMatrix(cartpos);
+
+                        pos = new Vec3D(cartpos.X, cartpos.Y, cartpos.Z) - _origin;
+                    }
+                    break;
+
+                default:
+                    return false;
             }
 
-            return UpdatePosition(ref result, groundClamp,flags);
-            
+            return true;
+        }
+
+        public bool GetPosition(LatPos pos, out MapPos result,GroundClampType groundClamp= GroundClampType.NONE, ClampFlags flags = ClampFlags.DEFAULT)
+        {
+            result = new MapPos
+            {
+                local_orientation = new Matrix3(new Vec3(1, 0, 0), new Vec3(0, 0, -1), new Vec3(0, 1, 0))    // East North Up vectors
+            };
+
+            return SetPosition(result, pos, groundClamp, flags);                 
         }
 
         public Roi FindTopRoi(Node map)
@@ -464,30 +543,6 @@ namespace Saab.Foundation.Map
             }
 
             return null;
-        }
-
-        public bool GetContext(double lat, double lon, double alt, LocationOptions options, out MapPos location)
-        {
-            var clampType = GroundClampType.NONE;
-            if (options.PositionOptions == PositionOptions.Surface)
-                clampType = GroundClampType.GROUND;
-
-            var clampFlags = ClampFlags.DEFAULT;
-            if (options.LoadOptions == LoadOptions.Load)
-                clampFlags = ClampFlags.WAIT_FOR_DATA;
-
-            if (options.QualityOptions == QualityOptions.Highest)
-                clampFlags |= ClampFlags.ISECT_LOD_QUALITY;
-
-            MapPos mp;
-            if (!GetPosition(new LatPos(lat, lon, alt), out mp, clampType, clampFlags))
-            {
-                location = default(MapPos);
-                return false;
-            }
-
-            location = mp;
-            return true;
         }
 
         public Node CurrentMap

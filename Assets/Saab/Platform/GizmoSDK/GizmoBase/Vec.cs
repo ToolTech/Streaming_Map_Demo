@@ -125,6 +125,21 @@ namespace GizmoSDK
                 z = _z;
             }
 
+            static public float Dot(Vec3 a, Vec3 b)
+            {
+                return a.x* b.x + a.y * b.y + a.z * b.z;
+            }
+
+            static public Vec3 Cross(Vec3 a, Vec3 b)
+            {
+                return new Vec3(
+                    a.y * b.z - a.z * b.y,
+                    a.z * b.x - a.x * b.z,
+                    a.x * b.y - a.y * b.x
+                    );
+
+            }
+
             public static Vec3 operator +(Vec3 a, Vec3 b)
             {
                 return new Vec3(a.x + b.x, a.y + b.y,a.z+b.z);
@@ -367,6 +382,7 @@ namespace GizmoSDK
                 y /= l;
             }
 
+
             public double Length()
             {
                 return Math.Sqrt(x * x + y * y );
@@ -443,6 +459,21 @@ namespace GizmoSDK
                 x /= l;
                 y /= l;
                 z /= l;
+            }
+
+            static public double Dot(Vec3D a, Vec3D b)
+            {
+                return a.x * b.x + a.y * b.y + a.z * b.z;
+            }
+
+            static public Vec3D Cross(Vec3D a, Vec3D b)
+            {
+                return new Vec3D(
+                    a.y * b.z - a.z * b.y,
+                    a.z * b.x - a.x * b.z,
+                    a.x * b.y - a.y * b.x
+                    );
+
             }
 
             public double Length()

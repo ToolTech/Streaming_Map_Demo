@@ -422,8 +422,14 @@ namespace GizmoSDK
             {
                 DistClient client = ReferenceDictionary<DistClient>.GetObject(instance);
 
-                if(client!=null)
-                    client.OnTick?.Invoke(client);
+                try
+                {
+                    client?.OnTick?.Invoke(client);
+                }
+                catch (Exception ex)
+                {
+                    Message.SendException($"DistClient", ex);
+                }
             }
 
             // ----------------------------- OnNewSesson ------------------------------------------------
@@ -438,8 +444,14 @@ namespace GizmoSDK
             {
                 DistClient client = ReferenceDictionary<DistClient>.GetObject(instance);
 
-                if (client!=null)
-                    client.OnNewSession?.Invoke(client, GetSession(session));
+                try
+                { 
+                    client?.OnNewSession?.Invoke(client, GetSession(session));
+                }
+                catch (Exception ex)
+                {
+                    Message.SendException("DistClient", ex);
+                }
             }
 
             // ----------------------------- OnRemoveSesson ------------------------------------------------
@@ -456,7 +468,15 @@ namespace GizmoSDK
 
                 if (client != null)
                 {
-                    client.OnRemoveSession?.Invoke(client, GetSession(session));
+                    try
+                    { 
+                        client.OnRemoveSession?.Invoke(client, GetSession(session));
+                    }
+                    catch (Exception ex)
+                    {
+                        Message.SendException("DistClient", ex);
+                    }
+
                     ReferenceDictionary<DistSession>.RemoveObject(session);
                 }
             }
@@ -482,7 +502,14 @@ namespace GizmoSDK
                         if (client.UseAutoProperty && @event.GetType().IsDefined(typeof(DistPropertyAutoRestore), true))
                             @event.RestorePropertiesAndFields();
 
-                        client.OnEvent?.Invoke(client, @event);
+                        try
+                        { 
+                            client.OnEvent?.Invoke(client, @event);
+                        }
+                        catch (Exception ex)
+                        {
+                            Message.SendException("DistClient", ex);
+                        }
                     }
                 }
             }
@@ -499,8 +526,14 @@ namespace GizmoSDK
             {
                 DistClient client = ReferenceDictionary<DistClient>.GetObject(instance);
 
-                if(client!=null)
-                    client.OnNewObject?.Invoke(client, GetObject(o), GetSession(session));
+                try
+                { 
+                    client?.OnNewObject?.Invoke(client, GetObject(o), GetSession(session));
+                }
+                catch (Exception ex)
+                {
+                    Message.SendException("DistClient", ex);
+                }
             }
 
             // ----------------------------- OnRemoveObject ------------------------------------------------
@@ -517,7 +550,15 @@ namespace GizmoSDK
 
                 if (client != null)
                 {
-                    client.OnRemoveObject?.Invoke(client, GetObject(o), GetSession(session));
+                    try
+                    {
+                        client.OnRemoveObject?.Invoke(client, GetObject(o), GetSession(session));
+                    }
+                    catch (Exception ex)
+                    {
+                        Message.SendException("DistClient", ex);
+                    }
+                    
                     ReferenceDictionary<DistSession>.RemoveObject(o);
                 }
             }
@@ -533,8 +574,15 @@ namespace GizmoSDK
             static private void OnNewAttributes_callback(IntPtr instance,IntPtr notif,IntPtr o, IntPtr session)
             {
                 DistClient client = ReferenceDictionary<DistClient>.GetObject(instance);
-                if(client!=null)
-                    client.OnNewAttributes?.Invoke(client, new DistNotificationSet(notif), GetObject(o), GetSession(session));
+
+                try
+                { 
+                    client?.OnNewAttributes?.Invoke(client, new DistNotificationSet(notif), GetObject(o), GetSession(session));
+                }
+                catch (Exception ex)
+                {
+                    Message.SendException("DistClient", ex);
+                }
             }
 
             // ----------------------------- OnUpdateAttributes ------------------------------------------------
@@ -549,8 +597,14 @@ namespace GizmoSDK
             {
                 DistClient client = ReferenceDictionary<DistClient>.GetObject(instance);
 
-                if(client!=null)
-                    client.OnUpdateAttributes?.Invoke(client, new DistNotificationSet(notif), GetObject(o), GetSession(session));
+                try
+                { 
+                    client?.OnUpdateAttributes?.Invoke(client, new DistNotificationSet(notif), GetObject(o), GetSession(session));
+                }
+                catch (Exception ex)
+                {
+                    Message.SendException("DistClient", ex);
+                }
             }
 
             // ----------------------------- OnRemoveAttributes ------------------------------------------------
@@ -565,8 +619,14 @@ namespace GizmoSDK
             {
                 DistClient client = ReferenceDictionary<DistClient>.GetObject(instance);
 
-                if(client!=null)
-                    client.OnRemoveAttributes?.Invoke(client, new DistNotificationSet(notif), GetObject(o), GetSession(session));
+                try
+                { 
+                    client?.OnRemoveAttributes?.Invoke(client, new DistNotificationSet(notif), GetObject(o), GetSession(session));
+                }
+                catch (Exception ex)
+                {
+                    Message.SendException("DistClient", ex);
+                }
             }
 
 

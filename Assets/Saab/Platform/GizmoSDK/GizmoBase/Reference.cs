@@ -294,14 +294,16 @@ namespace GizmoSDK
 
                 if (!_instances.TryGetValue(nativeReference, out obj))
                 {
-                    // At least we will always get a DistObject
                     obj = Reference.CreateObject(nativeReference) as IReference;
 
-                    //If we have an auto register in constructor we will hit the false condition
-                    if (!_instances.TryAdd(nativeReference, obj))
+                    if (obj is T)    // if we have a valid factory created we will register in here
                     {
-                        bool ok = _instances.TryGetValue(nativeReference, out obj);
-                        System.Diagnostics.Debug.Assert(ok);
+                        //If we have an auto register in constructor we will hit the false condition
+                        if (!_instances.TryAdd(nativeReference, obj))
+                        {
+                            bool ok = _instances.TryGetValue(nativeReference, out obj);
+                            System.Diagnostics.Debug.Assert(ok);
+                        }
                     }
                 }
 

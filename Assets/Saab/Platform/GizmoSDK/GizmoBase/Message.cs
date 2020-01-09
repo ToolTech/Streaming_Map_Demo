@@ -78,6 +78,18 @@ namespace GizmoSDK
                 Message_message(sender,level, message);
             }
 
+            static public void SendException(string sender, Exception ex)
+            {
+                DynamicTypeContainer cont = new DynamicTypeContainer();
+
+                cont.SetAttribute("Message", ex.Message);
+                cont.SetAttribute("Source", ex.Source);
+                cont.SetAttribute("Trace", ex.StackTrace);
+                cont.SetAttribute("Type", ex.GetType().Name);
+
+                Message_message(sender, MessageLevel.ASSERT, ((DynamicType)cont).ToXML());
+            }
+
             static public void SetMessageLevel(MessageLevel level)
             {
                 Message_setMessageLevel(level);

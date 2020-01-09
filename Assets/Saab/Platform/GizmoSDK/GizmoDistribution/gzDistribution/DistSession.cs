@@ -63,13 +63,12 @@ namespace GizmoSDK
             {
                 return Marshal.PtrToStringUni(DistSession_getName(GetNativeReference()));
             }
-                       
 
+    
             #region --------------------------------- private --------------------------------------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DistSession_getName(IntPtr session_reference);
-            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr DistSession_createDefaultSession();
+    
 
             #endregion
         }

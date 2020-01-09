@@ -37,6 +37,7 @@ using GizmoSDK.GizmoBase;
 using GizmoSDK.GizmoDistribution;
 using UnityEngine;
 using System.Threading;
+using Saab.Foundation.Unity.MapStreamer;
 
 namespace Saab.Unity.Initializer
 {
@@ -96,7 +97,7 @@ namespace Saab.Unity.Initializer
         {
             GizmoSDK.GizmoBase.Platform.Initialize();
               
-            Message.OnMessage += Message_OnMessage;           // Right now strings do not work with IL2CPP
+           // Message.OnMessage += Message_OnMessage;           // Right now strings do not work with IL2CPP
 
             Message.SetMessageLevel(MessageLevel.DEBUG);
 
@@ -107,14 +108,14 @@ namespace Saab.Unity.Initializer
             // Set local xml config
             KeyDatabase.SetLocalRegistry("asset:config.xml");
 
-            EnableMulticastState();
+            //EnableMulticastState();
 
-            station = new DebugCommandStation("udp::45456?blocking=no&nic=${wlan0}");
+            //station = new DebugCommandStation("pipe:command?blocking=no&nic=${wlan0}&auto=yes");
 
-            station.OnExec += Station_OnExec;
+            //station.OnExec += Station_OnExec;
 
-            Thread thread = new Thread(new ThreadStart(WorkThreadFunction));
-            thread.Start();
+            //Thread thread = new Thread(new ThreadStart(WorkThreadFunction));
+            //thread.Start();
 
             #region -------- Test Related stuff in init --------------------
 
@@ -125,33 +126,40 @@ namespace Saab.Unity.Initializer
 
             #endregion
 
-            GizmoSDK.GizmoDistribution.Platform.Initialize();
+            //GizmoSDK.GizmoDistribution.Platform.Initialize();
 
-            manager = DistManager.GetManager(true);
+            //manager = DistManager.GetManager(true);
 
-            DistTransportType protocol = DistTransportType.MULTICAST;
+            //DistTransportType protocol = DistTransportType.MULTICAST;
 
-            string iface = "${wlan0}";
+            //string iface = "${wlan0}";
 
-            // Start the manager with settting for transport protocols
-            manager.Start(DistRemoteChannel.CreateDefaultSessionChannel(true, protocol, iface), DistRemoteChannel.CreateDefaultServerChannel(true, protocol, iface));
+            //// Start the manager with settting for transport protocols
+            //manager.Start(DistRemoteChannel.CreateDefaultSessionChannel(true, protocol, iface), DistRemoteChannel.CreateDefaultServerChannel(true, protocol, iface));
 
-            // Client set up. You are a client that sends and receives information
-            client = new DistClient("PerfClient", manager);
+            //// Client set up. You are a client that sends and receives information
+            //client = new DistClient("PerfClient", manager);
 
-            // We need to tell the client how to initialize
-            client.Initialize(0, 0);
+            //// We need to tell the client how to initialize
+            //client.Initialize(0, 0);
 
-            // Now we can get a session. A kind of a meeting room that is used to exchange various "topics"
-            DistSession session = client.GetSession("PerfSession", true, true);
+            //// Now we can get a session. A kind of a meeting room that is used to exchange various "topics"
+            //DistSession session = client.GetSession("PerfSession", true, true);
 
-            // Joint that session and subribe all events
-            client.JoinSession(session);
+            //// Joint that session and subribe all events
+            //client.JoinSession(session);
 
-            client.SubscribeEvents(session); // Subscribe All Events
+            //client.SubscribeEvents(session); // Subscribe All Events
 
-            client.OnEvent += Client_OnEvent;
+            //client.OnEvent += Client_OnEvent;
 
+
+            // Set up scene manager camera
+
+            SceneManager scenemanager = GetComponent<SceneManager>();
+            CameraControl cameracontrol = GetComponent<CameraControl>();
+
+            scenemanager.SceneManagerCamera = cameracontrol;
         }
 
         private void Client_OnEvent(DistClient sender, DistEvent e)

@@ -34,58 +34,93 @@
 //
 //******************************************************************************
 using System;
+using System.Numerics;
 
 namespace Saab.Utility.Map
 {
-	public struct Float3
-	{ 
-		public float X;
-		public float Y;
-		public float Z;
-	}
-	
-    public interface ILocation<TContext>
+    
+    public struct Transform
     {
-        TContext Context { get; }
-        Float3 Offset { get; }
+        public Vector3 Pos;
+        public Quaternion Rot;
     }
 
-    public enum PositionOptions
+    public interface ILocationMethods
     {
+        Transform Step(double time, LocationOptions options);
+    }
+
+
+
+    public interface ILocation<TContext> : ILocationMethods
+    {
+        TContext Context { get; }
+        Vector3 Position { get; }
+        Quaternion Rotation { get; }
+    }
+
+    public interface IMapLocation<TContext> : ILocation<TContext>
+    {
+        void SetLatPos(double lat, double lon, double alt);
+        void SetRotation(float yaw, float pitch, float roll);
+    }
+
+    public interface IDynamicLocation<TContext> : IMapLocation<TContext>
+    {
+        void SetKinematicParams(double posX, double posY, double posZ, Vector3 vel, Vector3 acc, double t);
+    }
+
+
+    public enum PositionOptions : byte
+    {
+        None,
         Ellipsoid,
         Surface,
     }
 
-    public enum LoadOptions
+    public enum LoadOptions : byte
     {
         DontLoad,
         Load,
     }
 
-    public enum QualityOptions
+    public enum QualityOptions : byte
     {
         Default,
         Highest,
     }
+    [Flags]
+    public enum RotationOptions : byte
+    {
+        None = 0,
+        AlignToSurface = 1 << 1,
+        AlignToVelocity = 1 << 2,
 
+        AlignToVelocityAndSurface = AlignToVelocity | AlignToSurface,
+        Default = AlignToVelocity
+    }
+
+    [Serializable]
     public struct LocationOptions
     {
         public PositionOptions PositionOptions;
         public LoadOptions LoadOptions;
         public QualityOptions QualityOptions;
+        public RotationOptions RotationOptions;
 
         public static LocationOptions Default = new LocationOptions()
         {
             PositionOptions = PositionOptions.Surface,
             LoadOptions = LoadOptions.DontLoad,
             QualityOptions = QualityOptions.Default,
+            RotationOptions = RotationOptions.Default
         };
     }
 
     
 
-    public interface IMapLocationProvider<TLocation, TContext> where TLocation : ILocation<TContext>
+    public interface IMapLocationProvider<TLocation,TContext> where TLocation : ILocation<TContext>
     {
-        bool GetContext(double lat, double lon, double alt, LocationOptions options, out TLocation location);
+        bool CreateLocation(LocationOptions options, out TLocation location);
     }
 }

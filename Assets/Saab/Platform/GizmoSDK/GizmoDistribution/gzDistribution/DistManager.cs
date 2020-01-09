@@ -70,6 +70,7 @@ namespace GizmoSDK
             {
             }
 
+            
             static public DistManager GetManager(bool create, string name)
             {
                 IntPtr nativeReference = DistManager_getManager(create, name);
@@ -222,7 +223,7 @@ namespace GizmoSDK
             {
                 ReferenceDictionary<DistSession>.Clear();
                 ReferenceDictionary<DistClient>.Clear();
-                ReferenceDictionary<DistClient>.Clear();
+                ReferenceDictionary<DistObject>.Clear();
 
                 DistManager_shutDown(GetNativeReference(), wait);
             }

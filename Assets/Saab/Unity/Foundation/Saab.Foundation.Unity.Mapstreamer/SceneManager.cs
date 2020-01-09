@@ -71,30 +71,41 @@ using System.Collections.Generic;
 using System;
 using System.Collections;
 using UnityEngine.Networking;
-using Saab.Unity.Core;
-using Saab.Core;
-
 
 
 namespace Saab.Foundation.Unity.MapStreamer
 {
     // The SceneManager behaviour takes a unity camera and follows that to populate the current scene with GameObjects in a scenegraph hierarchy
 
-    public class SceneManager : BtaComponent
+
+    public interface ISceneManagerCamera
     {
+        UnityEngine.Camera Camera { get; }
+        Vec3D Position { get; set; }
 
-        public UnityEngine.Camera   UnityCamera;
-        public UnityEngine.Shader   DefaultShader;
-        [Header("CrossBoards")]
-        public UnityEngine.Shader   CrossboardShader;
+        void PreTraverse();                 // Executed before scene is traversed and updated with new transform
+
+        void PostTraverse();                // Executed after nodes are repositioned with new transforms
+    }
+
+    [Serializable]
+    public struct SceneManagerSettings
+    {
+        public UnityEngine.Shader DefaultShader;
+        public UnityEngine.Shader CrossboardShader;
         public UnityEngine.ComputeShader ComputeShader;
-        [Space(height:20)]
-        public string               MapUrl;
-        public int                  FrameCleanupInterval = 1000;
-        public double               MaxBuildTime = 0.01;   // 100hz
+        public int FrameCleanupInterval;
+        public double MaxBuildTime;
 
-        public delegate void SceneManager_OnUpdate(SceneManager sender);
-        public event SceneManager_OnUpdate OnUpdateScene;
+        public static readonly SceneManagerSettings Default = new SceneManagerSettings { FrameCleanupInterval = 1000, MaxBuildTime = 0.01 /*100hz*/ };
+    }
+
+
+    public class SceneManager : MonoBehaviour
+    {
+        public SceneManagerSettings Settings = SceneManagerSettings.Default;
+        public ISceneManagerCamera  SceneManagerCamera;
+        public string               MapUrl;
 
         #region ------------- Privates ----------------
 
@@ -181,6 +192,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         // Linked List for nodes that needs updates on update
         LinkedList<GameObject> updateNodeObjects = new LinkedList<GameObject>();
+        private bool _initialized;
 
         //Add GameObjects to dictionary
 
@@ -204,7 +216,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             //nodeHandle.Renderer = Renderer;
             nodeHandle.node = n;
             nodeHandle.currentMaterial = currentMaterial;
-            nodeHandle.ComputeShader = ComputeShader;
+            nodeHandle.ComputeShader = Settings.ComputeShader;
 
             // ---------------------------- Check material state ----------------------------------
 
@@ -237,9 +249,9 @@ namespace Saab.Foundation.Unity.MapStreamer
                                 {
 
                                     if (n is Crossboard)
-                                        currentMaterial = new Material(CrossboardShader);
+                                    currentMaterial = new Material(Settings.CrossboardShader);
                                     else
-                                        currentMaterial = new Material(DefaultShader);
+                                    currentMaterial = new Material(Settings.DefaultShader);
 
                                     TextureFormat format = TextureFormat.ARGB32;
 
@@ -736,21 +748,17 @@ namespace Saab.Foundation.Unity.MapStreamer
             return true;
         }
 
-        protected override bool CheckDependencies()
+        internal void Init()
         {
-            return true;
-        }
+            if (_initialized)
+                return;
 
-        protected override IEnumerator InitComponent(Action<bool> success)
-        {
+            _initialized = true;
+
             StartCoroutine(AssetLoader());
-            MapUrl = KeyDatabase.GetDefaultUserKey("SceneManager/MapUrl", MapUrl);
-
             InitMap();
-
-            success(true);
-            yield break;
         }
+
 
         private void ActionReceiver_OnAction(NodeAction sender, NodeActionEvent action, Context context, NodeActionProvider trigger, TraverseAction traverser, IntPtr userdata)
         {
@@ -767,17 +775,16 @@ namespace Saab.Foundation.Unity.MapStreamer
             context?.ReleaseNoDelete();
         }
 
-        protected override void OnAwake()
+        private void Start()
         {
-
+            Init();
         }
 
         private void OnEnable()
         {
-            if (!Initialized)
-            {
+            if (!_initialized)
                 return;
-            }
+
             InitMap();
         }
 
@@ -852,9 +859,9 @@ namespace Saab.Foundation.Unity.MapStreamer
         
         private void ProcessPendingUpdates()
         {
-            Timer timer = new Timer();      // Measure time precise in update
+            var timer = System.Diagnostics.Stopwatch.StartNew();      // Measure time precise in update
 
-#region Dynamic Loading/Add/Remove native handles ---------------------------------------------------------------
+            #region Dynamic Loading/Add/Remove native handles ---------------------------------------------------------------
 
             foreach (NodeLoadInfo nodeLoadInfo in pendingLoaders)
             {
@@ -919,9 +926,9 @@ namespace Saab.Foundation.Unity.MapStreamer
 #endregion
                        
               
-#region Update slow loading assets ------------------------------------------------------------------------------
+            #region Update slow loading assets ------------------------------------------------------------------------------
 
-            while (pendingBuilds.Count > 0 && timer.GetTime() < MaxBuildTime)
+            while (pendingBuilds.Count > 0 && timer.Elapsed.TotalSeconds < Settings.MaxBuildTime)
             {
                 NodeHandle handle = pendingBuilds.Dequeue();
                 handle.BuildGameObject();
@@ -931,13 +938,15 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             // Right now we use this as a dirty fix to handle unused shared materials
 
-            _unusedCounter = (_unusedCounter + 1) % FrameCleanupInterval;
+            _unusedCounter = (_unusedCounter + 1) % Settings.FrameCleanupInterval;
             if(_unusedCounter==0)
                 Resources.UnloadUnusedAssets();
         }
         
         private void UpdateNodeInternals()
         {
+            // Only called if SceneManagerCamera is not null
+
             foreach (GameObject go in updateNodeObjects)
             {
                 NodeHandle h = go.GetComponent<NodeHandle>();
@@ -945,15 +954,17 @@ namespace Saab.Foundation.Unity.MapStreamer
                 h.UpdateNodeInternals();
             }
 
-            OnUpdateScene?.Invoke(this);
+            SceneManagerCamera.PostTraverse();
         }
 
         // Update is called once per frame
-        protected override void OnUpdate()
+        private void LateUpdate()
         {
             if (!NodeLock.TryLockEdit(30))      // 30 msek allow latency of other pending editor
                 return;
 
+
+            
             try // We are now locked in edit
             {
                 ProcessPendingUpdates();
@@ -963,6 +974,12 @@ namespace Saab.Foundation.Unity.MapStreamer
                 NodeLock.UnLock();
             }
 
+            if (SceneManagerCamera == null)
+                return;
+
+            SceneManagerCamera.PreTraverse();
+
+            var UnityCamera = SceneManagerCamera.Camera;
             if (UnityCamera == null)
                 return;
 
@@ -989,15 +1006,8 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                 _native_camera.Transform = gz_transform.ToMatrix4();
 
-
-                var ctrl = UnityCamera.GetComponent<IWorldCoord>();
-
-                if (ctrl != null)
-                {
-                    var cartpos = ctrl.Coordinate;
-                    _native_camera.Position = new Vec3D(cartpos.x, cartpos.y, -cartpos.z);
-                }
-                           
+                var p = SceneManagerCamera.Position;
+                _native_camera.Position = new Vec3D(p.x, p.y, -p.z);
 
                 _native_camera.Render(_native_context, 1000, 1000, 1000, _native_traverse_action);
 

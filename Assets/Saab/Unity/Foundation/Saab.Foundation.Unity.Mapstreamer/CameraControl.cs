@@ -40,15 +40,16 @@
 //
 // *****************************************************************************
 
-using Saab.Core;
+
 using GizmoSDK.GizmoBase;
 using Saab.Utility.Unity.NodeUtils;
 using System.Collections.Generic;
 using UnityEngine;
+using Quaternion = UnityEngine.Quaternion;
 
 namespace Saab.Foundation.Unity.MapStreamer
 {
-    public class CameraControl : MonoBehaviour , IWorldCoord
+    public class CameraControl : MonoBehaviour , ISceneManagerCamera
     {
 
         public float speed = 20f;
@@ -68,6 +69,25 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
         }
 
+        public Camera Camera
+        {
+            get
+            {
+                return GetComponent<Camera>();
+            }
+        }
+
+        public Vec3D Position
+        {
+            get { return Coordinate; }
+            set
+            {
+                X = value.x;
+                Y = value.y;
+                Z = value.z;
+            }
+        }
+
         private void MoveForward(float moveSpeed)
         {
             X = X + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.forward.x;
@@ -82,17 +102,18 @@ namespace Saab.Foundation.Unity.MapStreamer
             Z = Z + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.right.z;
         }
 
-        private UnityEngine.Quaternion Tilt(float rotationSpeed)
+        private Quaternion Tilt(float rotationSpeed)
         {
-            return UnityEngine.Quaternion.Euler(rotationSpeed * UnityEngine.Time.unscaledDeltaTime, 0, 0);
+            System.Numerics.Quaternion.CreateFromYawPitchRoll(0, 0, 0);
+            return Quaternion.Euler(rotationSpeed * UnityEngine.Time.unscaledDeltaTime, 0, 0);
         }
 
-        private UnityEngine.Quaternion Pan(float rotationSpeed)
+        private Quaternion Pan(float rotationSpeed)
         {
-            return UnityEngine.Quaternion.Euler(0, rotationSpeed * UnityEngine.Time.unscaledDeltaTime, 0);
+            return Quaternion.Euler(0, rotationSpeed * UnityEngine.Time.unscaledDeltaTime, 0);
         }
 
-        // Update is called once per frame
+            // Update is called once per frame
         void Update()
         {
             // Check mouse click
@@ -164,12 +185,12 @@ namespace Saab.Foundation.Unity.MapStreamer
                 MoveRight(-speed);
             }
 
-
+           
 
 
             //transform.position = pos;
 
-            UnityEngine.Quaternion rot = transform.rotation;
+            Quaternion rot = transform.rotation;
 
             if (Input.GetKey(KeyCode.UpArrow))
             {
@@ -195,6 +216,16 @@ namespace Saab.Foundation.Unity.MapStreamer
             transform.rotation = rot;
 
 
+        }
+
+        public void PreTraverse()
+        {
+            // Called before traverser runs
+        }
+
+        public void PostTraverse()
+        {
+            // Called after all nodes have updated their transforms
         }
     }
 }

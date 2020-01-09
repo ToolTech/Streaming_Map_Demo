@@ -43,6 +43,7 @@ namespace GizmoSDK
 {
     namespace Coordinate
     {
+        [Serializable]
         [StructLayout(LayoutKind.Sequential)]
         public struct LatPos
         {
