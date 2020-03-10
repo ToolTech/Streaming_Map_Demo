@@ -107,14 +107,19 @@ namespace GizmoSDK
 
             public static bool Uninitialize(bool forceShutdown=false, bool shutdownBase=false)
             {
-                NodeLock.WaitLockEdit();
+                try
+                {
+                    NodeLock.WaitLockEdit();
 
-                NodeAction.Uninitialize();
-                DynamicLoader.Uninitialize();
+                    NodeAction.Uninitialize();
+                    DynamicLoader.Uninitialize();
 
-                UninitializeFactories();
-
-                NodeLock.UnLock();
+                    UninitializeFactories();
+                }
+                finally
+                {
+                    NodeLock.UnLock();
+                }
 
                 bool result= Platform_uninitialize(forceShutdown,shutdownBase);
                                 

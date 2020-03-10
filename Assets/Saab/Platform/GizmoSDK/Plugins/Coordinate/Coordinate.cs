@@ -70,7 +70,7 @@ namespace GizmoSDK
 
             public void SetLatPos(LatPos pos, Datum datum = Datum.WGS84)
             {
-                Coordinate_setLatPos(GetNativeReference(), pos, datum);
+                Coordinate_setLatPos(GetNativeReference(), ref pos, datum);
             }
 
             public bool GetLatPos(out LatPos pos, Datum datum = Datum.WGS84)
@@ -82,7 +82,7 @@ namespace GizmoSDK
 
             public void SetCartPos(CartPos pos, Datum datum = Datum.WGS84)
             {
-                Coordinate_setCartPos(GetNativeReference(), pos, datum);
+                Coordinate_setCartPos(GetNativeReference(), ref pos, datum);
             }
 
             public bool GetCartPos(out CartPos pos, Datum datum = Datum.WGS84)
@@ -94,7 +94,7 @@ namespace GizmoSDK
 
             public void SetProjPos(ProjPos pos, FlatGaussProjection projection = FlatGaussProjection.RT90)
             {
-                Coordinate_setProjPos(GetNativeReference(), pos, projection);
+                Coordinate_setProjPos(GetNativeReference(), ref pos, projection);
             }
 
             public bool GetProjPos(out ProjPos pos, FlatGaussProjection projection = FlatGaussProjection.RT90)
@@ -106,7 +106,7 @@ namespace GizmoSDK
 
             public void SetUTMPos(UTMPos pos, Datum datum = Datum.WGS84)
             {
-                Coordinate_setUTMPos(GetNativeReference(), pos, datum);
+                Coordinate_setUTMPos(GetNativeReference(),ref  pos, datum);
             }
 
             public bool GetUTMPos(out UTMPos pos, Datum datum = Datum.WGS84)
@@ -147,7 +147,7 @@ namespace GizmoSDK
             {
                 Matrix3 mat=new Matrix3();
 
-                Coordinate_getOrientationMatrix_LatPos(GetNativeReference(), latpos, ellipsoid,ref mat);
+                Coordinate_getOrientationMatrix_LatPos(GetNativeReference(), ref latpos, ellipsoid,ref mat);
 
                 return mat;
             }
@@ -162,7 +162,7 @@ namespace GizmoSDK
             {
                 Matrix3 mat = new Matrix3();
 
-                Coordinate_getOrientationMatrix_CartPos(GetNativeReference(), cartpos, ellipsoid,ref mat);
+                Coordinate_getOrientationMatrix_CartPos(GetNativeReference(), ref cartpos, ellipsoid,ref mat);
 
                 return mat;
             }
@@ -174,19 +174,19 @@ namespace GizmoSDK
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr Coordinate_parse(ref Vec3D coordinate, string name);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void Coordinate_setLatPos(IntPtr nativeReference,LatPos pos, Datum datum);
+            private static extern void Coordinate_setLatPos(IntPtr nativeReference,ref LatPos pos, Datum datum);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool Coordinate_getLatPos(IntPtr nativeReference,ref LatPos pos, Datum datum);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void Coordinate_setCartPos(IntPtr nativeReference, CartPos pos, Datum datum);
+            private static extern void Coordinate_setCartPos(IntPtr nativeReference, ref CartPos pos, Datum datum);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool Coordinate_getCartPos(IntPtr nativeReference, ref CartPos pos, Datum datum);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void Coordinate_setProjPos(IntPtr nativeReference, ProjPos pos, FlatGaussProjection projection);
+            private static extern void Coordinate_setProjPos(IntPtr nativeReference, ref ProjPos pos, FlatGaussProjection projection);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool Coordinate_getProjPos(IntPtr nativeReference, ref ProjPos pos, FlatGaussProjection projection);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void Coordinate_setUTMPos(IntPtr nativeReference, UTMPos pos, Datum datum);
+            private static extern void Coordinate_setUTMPos(IntPtr nativeReference, ref UTMPos pos, Datum datum);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool Coordinate_getUTMPos(IntPtr nativeReference, ref UTMPos pos, Datum datum);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
@@ -195,9 +195,9 @@ namespace GizmoSDK
             private static extern IntPtr Coordinate_getMGRSPos(IntPtr nativeReference, Datum datum);
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void Coordinate_getOrientationMatrix_LatPos(IntPtr nativeReference, LatPos pos, Ellipsoid ellipsoid,ref Matrix3 matrix);
+            private static extern void Coordinate_getOrientationMatrix_LatPos(IntPtr nativeReference, ref LatPos pos, Ellipsoid ellipsoid,ref Matrix3 matrix);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void Coordinate_getOrientationMatrix_CartPos(IntPtr nativeReference, CartPos pos, Ellipsoid ellipsoid,ref Matrix3 matrix);
+            private static extern void Coordinate_getOrientationMatrix_CartPos(IntPtr nativeReference, ref CartPos pos, Ellipsoid ellipsoid,ref Matrix3 matrix);
 
 
 

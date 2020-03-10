@@ -1,22 +1,55 @@
-﻿﻿Shader "Terrain/DynamicTerrain/Grass" {
-	Properties{
-		_WavingTint("Fade Color", Color) = (.7, .6, .5, 0)
+﻿//******************************************************************************
+//
+// Copyright (C) SAAB AB
+//
+// All rights, including the copyright, to the computer program(s) 
+// herein belong to Saab AB. The program(s) may be used and/or
+// copied only with the written permission of Saab AB, or in
+// accordance with the terms and conditions stipulated in the
+// agreement/contract under which the program(s) have been
+// supplied. 
+//
+//
+// Information Class:	COMPANY UNCLASSIFIED
+// Defence Secrecy:		NOT CLASSIFIED
+// Export Control:		NOT EXPORT CONTROLLED
+//
+//
+// File			: DynamicTerrainGrass.shader
+// Module		:
+// Description	: Shader Code
+// Author		: ALBNI
+// Product		: BTA
+//
+//
+// Revision History...
+//
+// Who	Date	Description
+//
+//
+//******************************************************************************﻿
+
+Shader "Terrain/DynamicTerrain/Grass"
+{
+	Properties
+	{
 		_MainTexGrass("Albedo (RGB)", 2DArray) = "white" {}
-		_WaveAndDistance("Wave and distance", Vector) = (12, 3.6, 1, 1)
 		_Cutoff("Cutoff", float) = 0.38
 		_GrassTextureWaving("Grass Texture Waving ", float) = 0.01
 		_ColorIntensity("Color Intensity", Range(0, 1)) = 0.85
 	}
 
-		SubShader{
-			Tags {
+		SubShader
+		{
+			Tags
+			{
 				"Queue" = "Geometry"
 				"RenderType" = "Opaque"
 			}
 
 			CGINCLUDE
 
-			// Includes
+			// ****** Includes ******
 			#include "UnityCG.cginc"
 			#include "UnityGBuffer.cginc"
 			#include "UnityStandardUtils.cginc"
@@ -25,76 +58,108 @@
 			#define PI 3.1415926535
 			#define PI2 6.283185307
 
-			// Textures
+			// ****** Textures ******
 			UNITY_DECLARE_TEX2DARRAY(_MainTexGrass);
 			sampler2D _PerlinNoise;
 
-			// Properties
+			// ****** Properties ******
 			float _Cutoff;
 			float _ColorIntensity;
-			float _WindForce;
 			float _GrassTextureWaving;
-			float3 _WindDirection;
 			float3 _ViewDir;
 			float3 _TerrainSize;
-			float3 _TerrainOffset;
-			float4 _WaveAndDistance;
-			float4 _WavingTint;
-			float4 _GrassDryColor[16];
-			float4 _GrassHealthyColor[16];
 			float4 _MinMaxWidthHeight[16];
+			float4 _FrustumPlanes[6];						// Frustum planes (6 planes * 4 floats: [ normal.x, normal.y, normal.z, distance ])
+			float4x4 _worldToObj;
 
-			// Grass point cloud
+			// ****** Grass point cloud ******
 			StructuredBuffer<float4> _GrassBuffer;
 
-			// Grass indirect buffer
-			StructuredBuffer<int> _IndirectGrassBuffer;
-
 			// Vertex shader
-			uint vert(uint id : SV_VertexID, uint instanceID : SV_InstanceID) : TEXCOORD {
+			uint vert(uint id : SV_VertexID, uint instanceID : SV_InstanceID) : TEXCOORD
+			{
 				return id + instanceID * 64000;
 			}
 
-			inline float2 MirrorCoordinates(float2 uv) {
+			inline float2 MirrorCoordinates(float2 uv)
+			{
 				float2 t = frac(uv * 0.5f) * 2.0f;
 				float2 length = float2(1.0f, 1.0f);
 				return length - abs(t - length);
 			}
 
-			// Grass mesh generation
-			inline bool GemerateGeometry(in uint p, inout float4 grassPosition, inout float4 displacement, inout float4 displacementx, inout float3 normal, inout float3 normalx, inout float4 size, inout float tilt, inout float4 bottomColor, inout float4 topColor, inout float2 uvDistortion, inout float2 textureWaving, inout int index) {
-				// Cull extra vertices
-				if (p > (uint) _IndirectGrassBuffer[5]) {
-					return false;
+			inline float3 RGBToHSV(float3 RGB)
+			{
+				float R = (RGB.x >= 1.0 ? 255 : RGB.x * 256.0);
+				float G = (RGB.y >= 1.0 ? 255 : RGB.y * 256.0);
+				float B = (RGB.z >= 1.0 ? 255 : RGB.z * 256.0);
+
+				float h = 0, s;
+
+				float v = max(max(R, G), B);
+				float Cmin = min(min(R, G), B);
+
+				float delta = v - Cmin;
+
+				if (v == 0.0) { s = 0; }
+				else { s = delta / v; }
+
+				if (s == 0) { h = 0.0; }
+				else
+				{
+					if (R == v)
+					{
+						h = (G - B) / delta;
+					}
+					else if (G == v)
+					{
+						h = 2 + (B - R) / delta;
+					}
+					else if (B == v)
+					{
+						h = 4 + (R - G) / delta;
+					}
+
+					h *= 60;
+					if (h < 0.0) { h = h + 360; }
 				}
 
+				return float3(h, s, (v / 255));
+			}
+
+			// Grass mesh generation
+			inline bool GemerateGeometry(in uint p, inout float4 grassPosition, inout float4 displacement, inout float4 displacementx, inout float3 normal, inout float3 normalx, inout float4 size, inout float tilt, inout float4 bottomColor, inout float4 topColor, inout float2 uvDistortion, inout float2 textureWaving, inout int index)
+			{
 				// Get grass position from compute buffer
 				grassPosition = _GrassBuffer[p];
+				float4 objPos = mul(_worldToObj, float4(grassPosition.xyz, 1));
+				float2 _uv = objPos.xz;
+				float4 uv = float4(MirrorCoordinates(_uv.xy), 1, 1);
+
+				// To calculate tilt
 				float cameraDistance = distance(_WorldSpaceCameraPos.xyz, grassPosition.xyz);
 
-				// Grass random number (0,1)
-				float random = frac(grassPosition.x);
-
 				// Sample perlin noise
-				float3 perlinNoise = tex2Dlod(_PerlinNoise, float4(MirrorCoordinates((grassPosition.xz) / 10.0f), 0.0f, 0.0f));
+				float4 perlinNoise = tex2Dlod(_PerlinNoise, uv);
+				float3 hsv = RGBToHSV(perlinNoise.xyz);
 
-				// Grass data
-				float4 uv = float4((grassPosition.xz - _TerrainOffset.xz) / _TerrainSize.xz, 0.0f, 0.0f);
+				// Grass "random" number (0.0 - 1.0)
+				float random = frac(hsv.x);
 
 				// Grass index
 				index = (int)grassPosition.w;
 
 				// Grass color
-				float4 healthyColor = _GrassHealthyColor[index];
-				float4 dryColor = _GrassDryColor[index];
-				float4 color = lerp(dryColor, healthyColor, perlinNoise.x);
-				color.a = 1;
+				float4 color = float4(1.0, 1.0, 1.0, 1.0);
 
 				// Grass size
 				float4 minMaxWidthHeight = _MinMaxWidthHeight[index];
-				float2 s = lerp(minMaxWidthHeight.xz, minMaxWidthHeight.yw, perlinNoise.y);
-				size = float4(s.x, s.y, s.x, 0);
+				float2 s = lerp(minMaxWidthHeight.xz, minMaxWidthHeight.yw, random);
+
+				size = float4(s.x, s.y, s.x, random);
 				uvDistortion = ((uint) (grassPosition.w * 1000.0f)) % 2 ? float2(1.0f, 0) : float2(0.0f, 1.0f);
+
+				// Wind
 				textureWaving = float2(sin(_Time.w + PI * grassPosition.w), cos(_Time.w + PI * grassPosition.x)) * _GrassTextureWaving;
 
 				// Generate grass quad
@@ -104,21 +169,27 @@
 				topColor = color;
 				float sin;
 				float cos;
+
 				sincos(random * PI2, sin, cos);
-				displacement = float4(sin, 0, cos, 0) * 0.5 * size.x;
+				displacement = float4(sin, 0, cos, 0) * 0.5 * size.y;
 				sincos(random * PI2 + PI / 2, sin, cos);
-				displacementx = float4(sin, 0, cos, 0) * 0.5 * size.x;
+				displacementx = float4(sin, 0, cos, 0) * 0.5 * size.y;
+
 				normal = normalize(lerp(displacementx, float3(0, 1, 0), 0.75));
 				normalx = normalize(lerp(displacement, float3(0, 1, 0), 0.75));
+
 				tilt = dot(float3(0, 1, 0), -_ViewDir) * saturate(cameraDistance / 3);
-				bottomColor = color * float4(0.75f, 0.75f, 0.75f, 1.0f);
+
+				bottomColor = topColor * float4(0.75f, 0.75f, 0.75f, 1.0f);
 				return true;
 			}
 
 			ENDCG
 
-			Pass {
-				Tags {
+			Pass
+			{
+				Tags
+				{
 					"LightMode" = "Deferred"
 				}
 
@@ -139,7 +210,8 @@
 
 
 				// Fragment input
-				struct FramentInput {
+				struct FramentInput
+				{
 					float4 position : SV_POSITION;
 					float3 texcoord : TEXCOORD0;
 					float3 worldNormal : NORMAL;
@@ -150,7 +222,8 @@
 					#endif
 				};
 
-				inline void AppendVertex(inout TriangleStream<FramentInput> triStream, float4 worldPosition, float4 displacement, half3 worldNormal, float3 uv, float4 color) {
+				inline void AppendVertex(inout TriangleStream<FramentInput> triStream, float4 worldPosition, float4 displacement, half3 worldNormal, float3 uv, float4 color)
+				{
 					FramentInput o;
 					o.position = mul(UNITY_MATRIX_VP, worldPosition + displacement);
 					o.worldPosition = worldPosition;
@@ -166,7 +239,8 @@
 
 				// Geometry shader
 				[maxvertexcount(8)]
-				void geom(point uint p[1] : TEXCOORD, inout TriangleStream<FramentInput> triStream) {
+				void geom(point uint p[1] : TEXCOORD, inout TriangleStream<FramentInput> triStream)
+				{
 					// Initialize fragment input
 					FramentInput o;
 					UNITY_INITIALIZE_OUTPUT(FramentInput, o);
@@ -194,8 +268,8 @@
 					index = 0;
 
 					// Generate grass mesh
-					if (GemerateGeometry(p[0], grassPosition, displacement, displacementx, normal, normalx, size, tilt, bottomColor, topColor, uvDistortion, textureWaving, index)) {
-
+					if (GemerateGeometry(p[0], grassPosition, displacement, displacementx, normal, normalx, size, tilt, bottomColor, topColor, uvDistortion, textureWaving, index))
+					{
 						// Top vertices
 						AppendVertex(triStream, grassPosition, displacement + float4(0, size.y, 0, 0) + displacementx * tilt, normal, float3(uvDistortion.x + textureWaving.x, 1.0f, index), topColor);
 						AppendVertex(triStream, grassPosition, -displacement + float4(0, size.y, 0, 0) - displacementx * tilt, normal, float3(uvDistortion.y + textureWaving.y, 1.0f, index), topColor);
@@ -217,7 +291,8 @@
 				}
 
 				// Fragment shader
-				void frag(FramentInput IN, out half4 outGBuffer0 : SV_Target0, out half4 outGBuffer1 : SV_Target1, out half4 outGBuffer2 : SV_Target2, out half4 outEmission : SV_Target3) {
+				void frag(FramentInput IN, out half4 outGBuffer0 : SV_Target0, out half4 outGBuffer1 : SV_Target1, out half4 outGBuffer2 : SV_Target2, out half4 outEmission : SV_Target3)
+				{
 					// Sample texture and multiply color
 					fixed4 c = UNITY_SAMPLE_TEX2DARRAY(_MainTexGrass, IN.texcoord);
 
@@ -288,110 +363,114 @@
 						// Call lighting function to output g-buffer
 						outEmission = LightingStandardSpecular_Deferred(o, worldViewDir, gi, outGBuffer0, outGBuffer1, outGBuffer2);
 						outGBuffer2.w = 0;
-						#ifndef UNITY_HDR_ON
-							outEmission.rgb = exp2(-outEmission.rgb);
-						#endif
-					}
-					ENDCG
+					#ifndef UNITY_HDR_ON
+						outEmission.rgb = exp2(-outEmission.rgb);
+					#endif
+
+			}
+			ENDCG
+			}
+
+			Pass
+			{
+				Name "ShadowCaster"
+				Tags
+				{
+					"LightMode" = "ShadowCaster"
+				}
+				Cull Off
+				Blend Off
+				CGPROGRAM
+
+				// Includes
+				#include "UnityCG.cginc"
+
+				// Shader programs
+				#pragma vertex vert
+				#pragma geometry geom
+				#pragma fragment frag
+
+				// Compiler definitions
+				#pragma target 5.0
+				#pragma multi_compile_shadowcaster
+				#pragma only_renderers d3d11
+
+				struct FramentInput
+				{
+					float3 texcoord : TEXCOORD0;
+					V2F_SHADOW_CASTER;
+					UNITY_VERTEX_OUTPUT_STEREO
+				};
+
+				inline void AppendVertex(inout TriangleStream<FramentInput> triStream, float4 worldPosition, float4 displacement, half3 worldNormal, float3 uv, float4 color)
+				{
+					FramentInput o;
+					o.texcoord = uv;
+					o.pos = mul(UNITY_MATRIX_VP, worldPosition + displacement);
+					triStream.Append(o);
 				}
 
-				Pass{
-					Name "ShadowCaster"
-					Tags {
-						"LightMode" = "ShadowCaster"
-					}
-					Cull Off
-					Blend Off
-					CGPROGRAM
+				// Geometry shader
+				[maxvertexcount(8)]
+				void geom(point uint p[1] : TEXCOORD, inout TriangleStream<FramentInput> triStream)
+				{
+					// Initialize fragment input
+					FramentInput o;
+					UNITY_INITIALIZE_OUTPUT(FramentInput, o);
 
-					// Includes
-					#include "UnityCG.cginc"
+					int index;
+					float tilt;
+					float4 grassPosition;
+					float4 size;
+					float2 uvDistortion, textureWaving;
+					float3 normal, normalx;
+					float4 displacement, displacementx;
+					float4 bottomColor, topColor;
 
-					// Shader programs
-					#pragma vertex vert
-					#pragma geometry geom
-					#pragma fragment frag
-
-					// Compiler definitions
-					#pragma target 5.0
-					#pragma multi_compile_shadowcaster
-					#pragma only_renderers d3d11
-
-					struct FramentInput {
-						float3 texcoord : TEXCOORD0;
-						V2F_SHADOW_CASTER;
-						UNITY_VERTEX_OUTPUT_STEREO
-					};
-
-					inline void AppendVertex(inout TriangleStream<FramentInput> triStream, float4 worldPosition, float4 displacement, half3 worldNormal, float3 uv, float4 color) {
-						FramentInput o;
-						o.texcoord = uv;
-						o.pos = mul(UNITY_MATRIX_VP, worldPosition + displacement);
-						triStream.Append(o);
-					}
-
-					// Geometry shader
-					[maxvertexcount(8)]
-					void geom(point uint p[1] : TEXCOORD, inout TriangleStream<FramentInput> triStream) 
+					grassPosition = 0;
+					displacement = 0;
+					displacementx = 0;
+					normal = 0;
+					normalx = 0;
+					size = 0;
+					tilt = 0;
+					bottomColor = 0;
+					topColor = 0;
+					uvDistortion = 0;
+					textureWaving = 0;
+					index = 0;
+					// Generate grass mesh
+					if (GemerateGeometry(p[0], grassPosition, displacement, displacementx, normal, normalx, size, tilt, bottomColor, topColor, uvDistortion, textureWaving, index))
 					{
-						// Initialize fragment input
-						FramentInput o;
-						UNITY_INITIALIZE_OUTPUT(FramentInput, o);
+						// Top vertices
+						AppendVertex(triStream, grassPosition, displacement + float4(0, size.y, 0, 0) + displacementx * tilt, normal, float3(uvDistortion.x + textureWaving.x, 1.0f, index), topColor);
+						AppendVertex(triStream, grassPosition, -displacement + float4(0, size.y, 0, 0) - displacementx * tilt, normal, float3(uvDistortion.y + textureWaving.y, 1.0f, index), topColor);
 
-						int index;
-						float tilt;
-						float4 grassPosition;
-						float4 size;
-						float2 uvDistortion, textureWaving;
-						float3 normal, normalx;
-						float4 displacement, displacementx;
-						float4 bottomColor, topColor;
+						// Bottom vertices
+						AppendVertex(triStream, grassPosition, displacement, normal, float3(uvDistortion.x, 0.0f, index), bottomColor);
+						AppendVertex(triStream, grassPosition, -displacement, normal, float3(uvDistortion.y, 0.0f, index), bottomColor);
 
-						grassPosition = 0;
-						displacement = 0;
-						displacementx = 0;
-						normal = 0;
-						normalx = 0;
-						size = 0;
-						tilt = 0;
-						bottomColor = 0;
-						topColor = 0;
-						uvDistortion = 0;
-						textureWaving = 0;
-						index = 0;
+						triStream.RestartStrip();
 
-						// Generate grass mesh
-						if (GemerateGeometry(p[0], grassPosition, displacement, displacementx, normal, normalx, size, tilt, bottomColor, topColor, uvDistortion, textureWaving, index)) 
-						{
-							// Top vertices
-							AppendVertex(triStream, grassPosition, displacement + float4(0, size.y, 0, 0) + displacementx * tilt, normal, float3(uvDistortion.x + textureWaving.x, 1.0f, index), topColor);
-							AppendVertex(triStream, grassPosition, -displacement + float4(0, size.y, 0, 0) - displacementx * tilt, normal, float3(uvDistortion.y + textureWaving.y, 1.0f, index), topColor);
+						// Top vertices (crossed)
+						AppendVertex(triStream, grassPosition, displacementx + float4(0, size.y, 0, 0) - displacement * tilt, normalx, float3(uvDistortion.x + textureWaving.x, 1.0f, index), topColor);
+						AppendVertex(triStream, grassPosition, -displacementx + float4(0, size.y, 0, 0) - displacement * tilt, normalx, float3(uvDistortion.y + textureWaving.y, 1.0f, index), topColor);
 
-							// Bottom vertices
-							AppendVertex(triStream, grassPosition, displacement, normal, float3(uvDistortion.x, 0.0f, index), bottomColor);
-							AppendVertex(triStream, grassPosition, -displacement, normal, float3(uvDistortion.y, 0.0f, index), bottomColor);
-
-							triStream.RestartStrip();
-
-							// Top vertices (crossed)
-							AppendVertex(triStream, grassPosition, displacementx + float4(0, size.y, 0, 0) - displacement * tilt, normalx, float3(uvDistortion.x + textureWaving.x, 1.0f, index), topColor);
-							AppendVertex(triStream, grassPosition, -displacementx + float4(0, size.y, 0, 0) - displacement * tilt, normalx, float3(uvDistortion.y + textureWaving.y, 1.0f, index), topColor);
-
-							// Bottom vertices (crossed)
-							AppendVertex(triStream, grassPosition, displacementx, normalx, float3(uvDistortion.x, 0.0f, index), bottomColor);
-							AppendVertex(triStream, grassPosition, -displacementx, normalx, float3(uvDistortion.y, 0.0f, index), bottomColor);
-						}
+						// Bottom vertices (crossed)
+						AppendVertex(triStream, grassPosition, displacementx, normalx, float3(uvDistortion.x, 0.0f, index), bottomColor);
+						AppendVertex(triStream, grassPosition, -displacementx, normalx, float3(uvDistortion.y, 0.0f, index), bottomColor);
 					}
-
-					float4 frag(FramentInput IN) : SV_Target 
-					{
-						// Sample texture and multiply color
-						fixed4 c = UNITY_SAMPLE_TEX2DARRAY(_MainTexGrass, IN.texcoord);
-						// Cutoff
-						clip(c.a - _Cutoff);
-						SHADOW_CASTER_FRAGMENT(IN)
-					}
-					ENDCG
 				}
+
+				float4 frag(FramentInput IN) : SV_Target
+				{
+					// Sample texture and multiply color
+					fixed4 c = UNITY_SAMPLE_TEX2DARRAY(_MainTexGrass, IN.texcoord);
+				// Cutoff
+				clip(c.a - _Cutoff);
+				SHADOW_CASTER_FRAGMENT(IN)
+			}
+		ENDCG
+		}
 		}
 }

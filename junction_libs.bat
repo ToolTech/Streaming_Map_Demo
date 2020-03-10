@@ -34,20 +34,21 @@ mklink /J Assets\Saab\Platform\GizmoSDK\Plugins\Coordinate %GIZMOSDK%\plugins\gz
 
 rem ------------- End of GizmoSDK dependencies -------------------
 
-mklink /J Assets\Saab\Foundation\Saab.Foundation.Map 	..\BTA_Dev\BTA\source\foundation\Saab.Foundation.Map
-mklink /J Assets\Saab\Utility\Saab.Utility.Map 		..\BTA_Dev\BTA\source\utility\Saab.Utility.Map
-mklink /J Assets\Saab\Utility\Saab.Utility.GfxCaps	..\BTA_Dev\BTA\source\utility\Saab.Utility.GfxCaps
+mklink /J Assets\Saab\Foundation\Saab.Foundation.Map.Manager 			..\BTA_Dev\BTA\source\foundation\Saab.Foundation.Map\Saab.Foundation.Map.Manager
+mklink /J Assets\Saab\Utility\Saab.Utility.GfxCaps				..\BTA_Dev\BTA\source\utility\Saab.Utility.GfxCaps
+mklink /J Assets\Saab\Utility\Saab.Utility.Map					..\BTA_Dev\BTA\source\utility\Saab.Utility.Map
 
 rem ---------------- Link in Unity projects -----------------------------
 
 mklink /J Assets\Saab\Unity\Foundation\Saab.Foundation.Unity.Mapstreamer 	..\BTA_Dev\BTA\Source\Foundation\Unity\Saab.Foundation.Unity.Mapstreamer
 mklink /J Assets\Saab\Unity\Foundation\Saab.Foundation.Unity.NodeProperties 	..\BTA_Dev\BTA\Source\Foundation\Unity\Saab.Foundation.Unity.NodeProperties
-mklink /J Assets\Saab\Unity\Utility\Saab.Utility.Unity.NodeUtils 		..\BTA_Dev\BTA\Source\Utility\Unity\Saab.Utility.Unity.NodeUtils
+mklink /J Assets\Saab\Unity\Utility\Saab.Utility.Unity.NodeUtils 		..\BTA_Dev\BTA\source\Utility\Unity\Saab.Utility.Unity.NodeUtils
+
 
 rem ---------------- Shaders -------------------------------------------------
 
 rmdir /S / Q Assets\Shaders
-mklink /J Assets\Shaders 					..\BTA_Dev\BTA\resources\shaders
+mklink /J Assets\Shaders 							..\BTA_Dev\BTA\resources\shaders
 
 exit
 

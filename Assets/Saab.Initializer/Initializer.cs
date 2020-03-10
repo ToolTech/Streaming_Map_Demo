@@ -43,12 +43,6 @@ namespace Saab.Unity.Initializer
 {
     public class Initializer : MonoBehaviour
     {
-        DebugCommandStation station;
-
-        // Test of distribution
-        DistManager manager;
-        DistClient client;
-
        
         void SetupJavaBindings()
         {
@@ -97,7 +91,7 @@ namespace Saab.Unity.Initializer
         {
             GizmoSDK.GizmoBase.Platform.Initialize();
               
-           // Message.OnMessage += Message_OnMessage;           // Right now strings do not work with IL2CPP
+            Message.OnMessage += Message_OnMessage;           // Right now strings do not work with IL2CPP
 
             Message.SetMessageLevel(MessageLevel.DEBUG);
 
@@ -109,16 +103,9 @@ namespace Saab.Unity.Initializer
             KeyDatabase.SetLocalRegistry("asset:config.xml");
 
             //EnableMulticastState();
-
-            //station = new DebugCommandStation("pipe:command?blocking=no&nic=${wlan0}&auto=yes");
-
-            //station.OnExec += Station_OnExec;
-
-            //Thread thread = new Thread(new ThreadStart(WorkThreadFunction));
-            //thread.Start();
+                        
 
             #region -------- Test Related stuff in init --------------------
-
 
             //SetupJavaBindings();
 
@@ -126,59 +113,12 @@ namespace Saab.Unity.Initializer
 
             #endregion
 
-            //GizmoSDK.GizmoDistribution.Platform.Initialize();
-
-            //manager = DistManager.GetManager(true);
-
-            //DistTransportType protocol = DistTransportType.MULTICAST;
-
-            //string iface = "${wlan0}";
-
-            //// Start the manager with settting for transport protocols
-            //manager.Start(DistRemoteChannel.CreateDefaultSessionChannel(true, protocol, iface), DistRemoteChannel.CreateDefaultServerChannel(true, protocol, iface));
-
-            //// Client set up. You are a client that sends and receives information
-            //client = new DistClient("PerfClient", manager);
-
-            //// We need to tell the client how to initialize
-            //client.Initialize(0, 0);
-
-            //// Now we can get a session. A kind of a meeting room that is used to exchange various "topics"
-            //DistSession session = client.GetSession("PerfSession", true, true);
-
-            //// Joint that session and subribe all events
-            //client.JoinSession(session);
-
-            //client.SubscribeEvents(session); // Subscribe All Events
-
-            //client.OnEvent += Client_OnEvent;
-
-
             // Set up scene manager camera
 
             SceneManager scenemanager = GetComponent<SceneManager>();
             CameraControl cameracontrol = GetComponent<CameraControl>();
 
             scenemanager.SceneManagerCamera = cameracontrol;
-        }
-
-        private void Client_OnEvent(DistClient sender, DistEvent e)
-        {
-            Message.Send("OnEvent", MessageLevel.DEBUG, e.ToString());
-        }
-
-        public void WorkThreadFunction()
-        {
-            while (station != null && station.Exec())
-                Thread.Sleep(300);
-        }
-
-
-        private bool Station_OnExec(string exec_message)
-        {
-            Message.Send(Message.GIZMOSDK, MessageLevel.DEBUG, $"Exec from station {exec_message}");
-
-            return true;
         }
 
         private void Message_OnMessage(string sender, MessageLevel level, string message)

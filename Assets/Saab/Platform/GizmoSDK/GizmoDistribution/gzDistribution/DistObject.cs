@@ -96,6 +96,11 @@ namespace GizmoSDK
                 return DistObject_hasAttribute(GetNativeReference(), name);
             }
 
+            public bool InSession()
+            {
+                return DistObject_inSession(GetNativeReference());
+            }
+
             public static void InitializeFactory()
             {
                 AddFactory(new DistObject("factory"));
@@ -191,6 +196,8 @@ namespace GizmoSDK
             private static extern IntPtr DistObject_asString(IntPtr event_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DistObject_asJSON(IntPtr event_reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool DistObject_inSession(IntPtr object_reference);
 
             #endregion
         }

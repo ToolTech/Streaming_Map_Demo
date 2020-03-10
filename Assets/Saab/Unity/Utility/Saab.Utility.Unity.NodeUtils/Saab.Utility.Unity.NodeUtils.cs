@@ -47,8 +47,10 @@ using System.Collections;
 
 namespace Saab.Utility.Unity.NodeUtils
 {
+   
     public class NodeUtils
     {
+       
         public static bool HasGameObjects(IntPtr nativeReference)
         {
             GizmoSDK.Gizmo3D.NodeLock.WaitLockEdit();

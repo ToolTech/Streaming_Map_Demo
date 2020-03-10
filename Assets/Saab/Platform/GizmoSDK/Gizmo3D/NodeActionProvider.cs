@@ -96,11 +96,17 @@ namespace GizmoSDK
             {
                 if (IsValid())
                 {
-                    NodeLock.WaitLockEdit();
+                    try
+                    {
+                        NodeLock.WaitLockEdit();
 
-                    base.Release(); 
+                        base.Release();
+                    }
+                    finally
+                    {
 
-                    NodeLock.UnLock();
+                        NodeLock.UnLock();
+                    }
                 }
             }
 
@@ -109,11 +115,16 @@ namespace GizmoSDK
             {
                 if (IsValid())
                 {
-                    NodeLock.WaitLockRender();
+                    try
+                    {
+                        NodeLock.WaitLockRender();
 
-                    base.Release();
-
-                    NodeLock.UnLock();
+                        base.Release();
+                    }
+                    finally
+                    {
+                        NodeLock.UnLock();
+                    }
                 }
             }
 

@@ -14,11 +14,11 @@ mkdir Assets\Plugins\Android\Libs
 
 ren ............. plugin selections -----------------------------------------
 
-mklink /J Assets\Plugins\x86				%GIZMOSDK%\build\ws\vs15\GizmoSDK_Unity_Libs\Debug
-mklink /J Assets\Plugins\x86_64				%GIZMOSDK%\build\ws\vs15\GizmoSDK_Unity_Libs\x64\Debug
-mklink /J Assets\Plugins\Android\Libs\armeabi-v7a 	%GIZMOSDK%\build\ws\vs15\GizmoSDK_Unity_Libs\ARM\Debug
-mklink /J Assets\Plugins\Android\Libs\arm64-v8a 	%GIZMOSDK%\build\ws\vs15\GizmoSDK_Unity_Libs\ARM64\Debug
-mklink /J Assets\Plugins\Android\Libs\x86 		%GIZMOSDK%\build\ws\vs15\GizmoSDK_Unity_Libs\x86\Debug
+mklink /J Assets\Plugins\x86				%GIZMOSDK%\build\ws\vs16\GizmoSDK_Unity_Libs\Debug
+mklink /J Assets\Plugins\x86_64				%GIZMOSDK%\build\ws\vs16\GizmoSDK_Unity_Libs\x64\Debug
+mklink /J Assets\Plugins\Android\Libs\armeabi-v7a 	%GIZMOSDK%\build\ws\vs16\GizmoSDK_Unity_Libs\ARM\Debug
+mklink /J Assets\Plugins\Android\Libs\arm64-v8a 	%GIZMOSDK%\build\ws\vs16\GizmoSDK_Unity_Libs\ARM64\Debug
+mklink /J Assets\Plugins\Android\Libs\x86 		%GIZMOSDK%\build\ws\vs16\GizmoSDK_Unity_Libs\x86\Debug
 
 
 copy /Y %GIZMOSDK%\scripts\mono_settings\csc_64_DEBUG.rsp Assets\csc.rsp

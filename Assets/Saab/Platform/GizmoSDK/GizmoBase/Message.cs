@@ -37,6 +37,7 @@
 
 using System.Runtime.InteropServices;
 using System;
+using System.Xml.Serialization;
 
 namespace GizmoSDK
 {
@@ -62,13 +63,26 @@ namespace GizmoSDK
             INTERNAL =(1<<11),
         }
 
+        [XmlRoot]
+        public class ExceptionMessage
+        {
+            [XmlElement]
+            public string Message { get; set; }
+            [XmlElement]
+            public string Source { get; set; }
+            [XmlElement]
+            public string Stacktrace { get; set; }
+            [XmlElement]
+            public string Type { get; set; }
+        }
+
                       
 
         public class Message
         {
             public const string GIZMOSDK = "GizmoSDK";
 
-            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
             public delegate void EventHandler_OnMessage(string sender ,MessageLevel level, string message);
 
             static public event EventHandler_OnMessage OnMessage;
@@ -80,14 +94,21 @@ namespace GizmoSDK
 
             static public void SendException(string sender, Exception ex)
             {
-                DynamicTypeContainer cont = new DynamicTypeContainer();
+                var exceptionMessage = new ExceptionMessage()
+                {
+                    Message = ex.Message,
+                    Source = ex.Source,
+                    Stacktrace = ex.StackTrace,
+                    Type = ex.GetType().FullName,
+                };
 
-                cont.SetAttribute("Message", ex.Message);
-                cont.SetAttribute("Source", ex.Source);
-                cont.SetAttribute("Trace", ex.StackTrace);
-                cont.SetAttribute("Type", ex.GetType().Name);
+                var xmlSerializer = new XmlSerializer(typeof(ExceptionMessage));
 
-                Message_message(sender, MessageLevel.ASSERT, ((DynamicType)cont).ToXML());
+                var xml = new System.Text.StringBuilder();
+                using (var xmlWriter = System.Xml.XmlWriter.Create(xml))
+                    xmlSerializer.Serialize(xmlWriter, exceptionMessage);
+
+                Message_message(sender, MessageLevel.ASSERT, xml.ToString());
             }
 
             static public void SetMessageLevel(MessageLevel level)

@@ -64,12 +64,12 @@ namespace GizmoSDK
 
             public override string ToString()
             {
-                return Marshal.PtrToStringUni(LatPos_asString(this));
+                return Marshal.PtrToStringUni(LatPos_asString(ref this));
             }
 
             public static implicit operator DynamicType(LatPos pos)
             {
-                return new DynamicType(LatPos_create_dynamic(pos));
+                return new DynamicType(LatPos_create_dynamic(ref pos));
             }
 
             public static implicit operator LatPos(DynamicType data)
@@ -82,9 +82,9 @@ namespace GizmoSDK
             }
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr LatPos_asString(LatPos pos);
+            private static extern IntPtr LatPos_asString(ref LatPos pos);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr LatPos_create_dynamic(LatPos pos);
+            private static extern IntPtr LatPos_create_dynamic(ref LatPos pos);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool LatPos_create_pos(IntPtr native_reference,[Out] out LatPos pos);
         }
@@ -111,12 +111,12 @@ namespace GizmoSDK
 
             public override string ToString()
             {
-                return Marshal.PtrToStringUni(CartPos_asString(this));
+                return Marshal.PtrToStringUni(CartPos_asString(ref this));
             }
 
             public static implicit operator DynamicType(CartPos pos)
             {
-                return new DynamicType(CartPos_create_dynamic(pos));
+                return new DynamicType(CartPos_create_dynamic(ref pos));
             }
 
             public static implicit operator CartPos(DynamicType data)
@@ -129,9 +129,9 @@ namespace GizmoSDK
             }
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr CartPos_asString(CartPos pos);
+            private static extern IntPtr CartPos_asString(ref CartPos pos);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr CartPos_create_dynamic(CartPos pos);
+            private static extern IntPtr CartPos_create_dynamic(ref CartPos pos);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool CartPos_create_pos(IntPtr native_reference, [Out] out CartPos pos);
         }
@@ -156,12 +156,12 @@ namespace GizmoSDK
 
             public override string ToString()
             {
-                return Marshal.PtrToStringUni(ProjPos_asString(this));
+                return Marshal.PtrToStringUni(ProjPos_asString(ref this));
             }
 
             public static implicit operator DynamicType(ProjPos pos)
             {
-                return new DynamicType(ProjPos_create_dynamic(pos));
+                return new DynamicType(ProjPos_create_dynamic(ref pos));
             }
 
             public static implicit operator ProjPos(DynamicType data)
@@ -174,9 +174,9 @@ namespace GizmoSDK
             }
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr ProjPos_asString(ProjPos pos);
+            private static extern IntPtr ProjPos_asString(ref ProjPos pos);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr ProjPos_create_dynamic(ProjPos pos);
+            private static extern IntPtr ProjPos_create_dynamic(ref ProjPos pos);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool ProjPos_create_pos(IntPtr native_reference, [Out] out ProjPos pos);
 
@@ -213,12 +213,12 @@ namespace GizmoSDK
 
             public override string ToString()
             {
-                return Marshal.PtrToStringUni(UTMPos_asString(this));
+                return Marshal.PtrToStringUni(UTMPos_asString(ref this));
             }
 
             public static implicit operator DynamicType(UTMPos pos)
             {
-                return new DynamicType(UTMPos_create_dynamic(pos));
+                return new DynamicType(UTMPos_create_dynamic(ref pos));
             }
 
             public static implicit operator UTMPos(DynamicType data)
@@ -231,9 +231,9 @@ namespace GizmoSDK
             }
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr UTMPos_asString(UTMPos pos);
+            private static extern IntPtr UTMPos_asString(ref UTMPos pos);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr UTMPos_create_dynamic(UTMPos pos);
+            private static extern IntPtr UTMPos_create_dynamic(ref UTMPos pos);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool UTMPos_create_pos(IntPtr native_reference, [Out] out UTMPos pos);
 

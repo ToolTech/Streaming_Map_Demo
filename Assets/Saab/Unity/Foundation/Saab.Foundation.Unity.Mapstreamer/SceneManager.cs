@@ -31,6 +31,7 @@
 // Who	Date	Description
 //
 // AMO	180607	Created file        (2.9.1)
+// AMO  200304  Updated SceneManager with events for external users     (2.10.1)
 //
 //******************************************************************************
 
@@ -106,6 +107,14 @@ namespace Saab.Foundation.Unity.MapStreamer
         public SceneManagerSettings Settings = SceneManagerSettings.Default;
         public ISceneManagerCamera  SceneManagerCamera;
         public string               MapUrl;
+
+        public delegate void EventHandler_OnGameObject(GameObject o);
+
+        // Notifications for external users that wants to add components to created game objects. Be swift as we are in edit lock
+        public event EventHandler_OnGameObject OnNewGeometry;   // GameObject with mesh
+        public event EventHandler_OnGameObject OnNewLod;        // GameObject that toggles on off dep on distance
+        public event EventHandler_OnGameObject OnNewTransform;  // GameObject that has a specific parent transform
+        public event EventHandler_OnGameObject OnNewLoader;     // GameObject that works like a dynamic loader
 
         #region ------------- Privates ----------------
 
@@ -199,6 +208,8 @@ namespace Saab.Foundation.Unity.MapStreamer
         // Traverse function iterates the scene graph to build local branches on Unity
         GameObject Traverse(Node n, Material currentMaterial)
         {
+            // We must be called in edit lock
+
             if (n == null || !n.IsValid())
                 return null;
 
@@ -351,6 +362,8 @@ namespace Saab.Foundation.Unity.MapStreamer
                     gameObject.transform.localPosition = trans;
                 }
 
+                // Notify subscribers of new Transform
+                OnNewTransform?.Invoke(gameObject);
             }
 
             // ---------------------------- DynamicLoader check -------------------------------------
@@ -373,6 +386,9 @@ namespace Saab.Foundation.Unity.MapStreamer
                 {
                     return list[0];     // Lets return first object wich is our main registered node
                 }
+
+                // Notify subscribers of new Loader
+                OnNewLoader?.Invoke(gameObject);
             }
 
             // ---------------------------- Lod check -------------------------------------
@@ -405,6 +421,9 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                     go_child.transform.SetParent(gameObject.transform, false);
                 }
+
+                // Notify subscribers of new Lod
+                OnNewLod?.Invoke(gameObject);
 
                 // Dont process group as group is already processed
                 return gameObject;
@@ -509,9 +528,12 @@ namespace Saab.Foundation.Unity.MapStreamer
             {
                 nodeHandle.BuildGameObject();
 
-                // Latron we will identify types of geoemtry that will be scheduled later if they are extensive and not ground
-                //// Scheduled for later build
-                //pendingBuilds.Enqueue(nodeHandle);
+                // Notify subscribers of new Geometry
+                OnNewGeometry?.Invoke(gameObject);
+
+                // Later on we will identify types of geoemtry that will be scheduled later if they are extensive and not ground that covers other geometry
+                // and build them in a later pass distributed over time
+                // pendingBuilds.Enqueue(nodeHandle);
             }
 
             return gameObject;
@@ -859,6 +881,8 @@ namespace Saab.Foundation.Unity.MapStreamer
         
         private void ProcessPendingUpdates()
         {
+            // We must be called in edit lock
+
             var timer = System.Diagnostics.Stopwatch.StartNew();      // Measure time precise in update
 
             #region Dynamic Loading/Add/Remove native handles ---------------------------------------------------------------
@@ -958,12 +982,10 @@ namespace Saab.Foundation.Unity.MapStreamer
         }
 
         // Update is called once per frame
-        private void LateUpdate()
+        private void Update()
         {
             if (!NodeLock.TryLockEdit(30))      // 30 msek allow latency of other pending editor
                 return;
-
-
             
             try // We are now locked in edit
             {

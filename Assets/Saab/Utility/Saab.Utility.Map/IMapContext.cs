@@ -108,7 +108,7 @@ namespace Saab.Utility.Map
         public QualityOptions QualityOptions;
         public RotationOptions RotationOptions;
 
-        public static LocationOptions Default = new LocationOptions()
+        public static readonly LocationOptions Default = new LocationOptions()
         {
             PositionOptions = PositionOptions.Surface,
             LoadOptions = LoadOptions.DontLoad,

@@ -153,6 +153,8 @@ namespace Assets.Crossboard
                 cam.RemoveCommandBuffer(CameraEvent.BeforeImageEffectsOpaque, Cb);
             }
 
+            if ((cam.cullingMask & 1) == 0) return;
+
             _material.SetMatrix("_LocalToWorld", transform.localToWorldMatrix);
             var r = _material.SetPass(0);
             Debug.Assert(r);

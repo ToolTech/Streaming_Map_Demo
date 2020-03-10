@@ -70,11 +70,20 @@ namespace GizmoSDK
 
             public RoiNode GetClosestRoiNode(Vec3D position)
             {
-                //NodeLock.WaitLockEdit();
+                RoiNode node;
 
-                RoiNode node = CreateObject(Roi_getClosestRoiNode(GetNativeReference(), ref position)) as RoiNode;
+                // We must call this from a node locked state as childs might unload during other edits
 
-                //NodeLock.UnLock();
+                try
+                {
+                    NodeLock.WaitLockEdit();
+
+                    node = CreateObject(Roi_getClosestRoiNode(GetNativeReference(), ref position)) as RoiNode;
+                }
+                finally
+                {
+                    NodeLock.UnLock();
+                }
 
                 return node;
             }

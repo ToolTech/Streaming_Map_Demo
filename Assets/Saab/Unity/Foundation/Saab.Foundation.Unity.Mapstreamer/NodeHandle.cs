@@ -137,7 +137,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             Crossboard cb = node as Crossboard;
 
 
-            if (cb != null)
+            if (false)
             {
                 if (currentMaterial == null)    // No available material
                 {
@@ -375,16 +375,12 @@ namespace Saab.Foundation.Unity.MapStreamer
                             }
                         }
                     }
-
+                    
                     filter.sharedMesh = mesh;
-
                     renderer.sharedMaterial = currentMaterial;
-
                 }
                 return true;
-
             }
-
             return true;
         }
 
@@ -401,7 +397,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                     if (tr.GetTranslation(out translation))
                     {
                         Vector3 trans = new Vector3(translation.x, translation.y, translation.z);
-                        transform.localPosition = trans;
+                        transform.localPosition = trans;                       
                     }
                 }
             }
