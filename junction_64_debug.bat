@@ -9,10 +9,13 @@ if not defined GIZMOSDK (
 
 rem ------------- runtime dlls -----------------------------------------------
 
-rmdir /S / Q Assets\Plugins
+rmdir /S /Q Assets\Plugins\x86
+rmdir /S /Q Assets\Plugins\x86_64
+rmdir /S /Q Assets\Plugins\Android\Libs
+
 mkdir Assets\Plugins\Android\Libs
 
-ren ............. plugin selections -----------------------------------------
+rem ............. plugin selections -----------------------------------------
 
 mklink /J Assets\Plugins\x86				%GIZMOSDK%\build\ws\vs16\GizmoSDK_Unity_Libs\Debug
 mklink /J Assets\Plugins\x86_64				%GIZMOSDK%\build\ws\vs16\GizmoSDK_Unity_Libs\x64\Debug
