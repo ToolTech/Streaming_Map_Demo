@@ -514,7 +514,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             Crossboard cb = n as Crossboard;
 
-            if (cb != null && GfxCaps.HasCapability(Capability.UseCrossboards))
+            if (cb != null && GfxCaps.HasCapability(Capability.UseTreeCrossboards))
             {
                 // Scheduled for later build
                 pendingBuilds.Enqueue(nodeHandle);
