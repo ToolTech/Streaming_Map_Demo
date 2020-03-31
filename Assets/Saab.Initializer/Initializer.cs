@@ -43,7 +43,7 @@ namespace Saab.Unity.Initializer
 {
     public class Initializer : MonoBehaviour
     {
-        private DebugCommandStation station;
+        private DebugCommandStation station=null;
 
 #if UNITY_ANDROID
 

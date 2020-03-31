@@ -94,7 +94,7 @@ namespace GizmoSDK
 
                 set
                 {
-                    Node_setState(GetNativeReference(), value.GetNativeReference());
+                    Node_setState(GetNativeReference(), value?.GetNativeReference() ?? IntPtr.Zero);
                 }
             }
 

@@ -40,12 +40,16 @@
 //
 // *****************************************************************************
 
+#define TEST_ROTATION   // Just test some default rotation
 
 using GizmoSDK.GizmoBase;
 using Saab.Utility.Unity.NodeUtils;
 using System.Collections.Generic;
 using UnityEngine;
+
 using Quaternion = UnityEngine.Quaternion;
+
+
 
 namespace Saab.Foundation.Unity.MapStreamer
 {
@@ -212,6 +216,9 @@ namespace Saab.Foundation.Unity.MapStreamer
                 rot = Pan(rotspeed) * rot;
             }
 
+#if TEST_ROTATION
+            rot = Pan(-rotspeed) * rot;
+#endif
 
             transform.rotation = rot;
 
