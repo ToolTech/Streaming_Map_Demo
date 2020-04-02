@@ -131,6 +131,8 @@ namespace Saab.Foundation.Unity.MapStreamer
   
         private readonly string ID = "Saab.Foundation.Unity.MapStreamer.SceneManager";
 
+        private byte[] _image_texture_data;
+
         //#pragma warning disable 414
         //private UnityPluginInitializer _plugin_initializer;
         //#pragma warning restore 414
@@ -248,21 +250,53 @@ namespace Saab.Foundation.Unity.MapStreamer
                             ComponentType   comp_type;
                             uint            components;
 
-                            byte[] image_data;
-
                             uint depth; 
                             uint width; 
                             uint height;
 
-                            if (texture.GetMipMapImageArray(out image_data, out image_format,out comp_type,out components, out width, out height, out depth, true, false))
+                            uint size;
+
+                            bool uncompress = false;
+
+                            Image image = texture.GetImage();
+
+                            image_format = image.GetFormat();
+
+                            image.Dispose();
+
+                            switch (image_format)      // Not yet
+                            {
+                                case ImageFormat.COMPRESSED_RGBA8_ETC2:
+                                    if(!SystemInfo.SupportsTextureFormat(TextureFormat.ETC2_RGBA8))
+                                        uncompress = true;
+                                    break;
+
+                                case ImageFormat.COMPRESSED_RGB8_ETC2:
+                                    if (!SystemInfo.SupportsTextureFormat(TextureFormat.ETC2_RGB))
+                                        uncompress = true;
+                                    break;
+
+                                case ImageFormat.COMPRESSED_RGBA_S3TC_DXT1:
+                                case ImageFormat.COMPRESSED_RGB_S3TC_DXT1:
+                                    if (!SystemInfo.SupportsTextureFormat(TextureFormat.DXT1))
+                                        uncompress = true;
+                                    break;
+
+                                case ImageFormat.COMPRESSED_RGBA_S3TC_DXT5:
+                                    if (!SystemInfo.SupportsTextureFormat(TextureFormat.DXT5))
+                                        uncompress = true;
+                                    break;
+                            }
+
+
+                            if (texture.GetMipMapImageArray(ref _image_texture_data, out size,out image_format,out comp_type,out components, out width, out height, out depth, true, uncompress))
                             {
                                 if (depth == 1)
                                 {
-
                                     if (n is Crossboard)
-                                    currentMaterial = new Material(Settings.CrossboardShader);
+                                        currentMaterial = new Material(Settings.CrossboardShader);
                                     else
-                                    currentMaterial = new Material(Settings.DefaultShader);
+                                        currentMaterial = new Material(Settings.DefaultShader);
 
                                     TextureFormat format = TextureFormat.ARGB32;
 
@@ -289,6 +323,14 @@ namespace Saab.Foundation.Unity.MapStreamer
                                                         format = TextureFormat.DXT5;
                                                         break;
 
+                                                    case ImageFormat.COMPRESSED_RGB8_ETC2:
+                                                        format = TextureFormat.ETC2_RGB;
+                                                        break;
+
+                                                    case ImageFormat.COMPRESSED_RGBA8_ETC2:
+                                                        format = TextureFormat.ETC2_RGBA8;
+                                                        break;
+
 
                                                     default:
                                                         // Issue your own error here because we can not use this texture yet
@@ -306,7 +348,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                                     Texture2D tex = new Texture2D((int)width, (int)height, format, true);
 
-                                    tex.LoadRawTextureData(image_data);
+                                    tex.LoadRawTextureData(_image_texture_data);
 
 
                                     switch (texture.MinFilter)
@@ -344,7 +386,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                     nodeHandle.currentMaterial = currentMaterial;
                     texture.Dispose();
                 }
-
+                
                 state.Dispose();
             }
 
@@ -514,7 +556,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             Crossboard cb = n as Crossboard;
 
-            if (cb != null && GfxCaps.HasCapability(Capability.UseCrossboards))
+            if (cb != null && GfxCaps.HasCapability(Capability.UseTreeCrossboards))
             {
                 // Scheduled for later build
                 pendingBuilds.Enqueue(nodeHandle);

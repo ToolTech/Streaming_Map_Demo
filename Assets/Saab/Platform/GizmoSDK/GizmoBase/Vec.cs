@@ -32,6 +32,7 @@
 // Who	Date	Description						
 //									
 // AMO	180301	Created file 	
+// AMO	200311	Added string output of Vec2,Vec3,Vec4 and their double repr (2.10.5)
 //
 //******************************************************************************
 
@@ -114,6 +115,14 @@ namespace GizmoSDK
             {
                 return (b - a).Length();
             }
+
+            public override string ToString()
+            {
+                return Marshal.PtrToStringUni(Vec2_asString(ref this));
+            }
+
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr Vec2_asString(ref Vec2 vec);
         }
         [Serializable]
         public struct Vec3
@@ -405,6 +414,14 @@ namespace GizmoSDK
             {
                 return (b - a).Length();
             }
+
+            public override string ToString()
+            {
+                return Marshal.PtrToStringUni(Vec2D_asString(ref this));
+            }
+
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr Vec2D_asString(ref Vec2D vec);
         }
 
         [Serializable]
@@ -508,6 +525,14 @@ namespace GizmoSDK
             {
                 return (b - a).Length();
             }
+
+            public override string ToString()
+            {
+                return Marshal.PtrToStringUni(Vec3D_asString(ref this));
+            }
+
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr Vec3D_asString(ref Vec3D vec);
         }
 
         [Serializable]
@@ -588,6 +613,14 @@ namespace GizmoSDK
             {
                 return (b - a).Length();
             }
+
+            public override string ToString()
+            {
+                return Marshal.PtrToStringUni(Vec4D_asString(ref this));
+            }
+
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr Vec4D_asString(ref Vec4D vec);
         }
     }
 }

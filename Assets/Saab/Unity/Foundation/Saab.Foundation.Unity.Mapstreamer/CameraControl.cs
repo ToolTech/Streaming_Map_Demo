@@ -40,12 +40,16 @@
 //
 // *****************************************************************************
 
+#define TEST_ROTATION   // Just test some default rotation
 
 using GizmoSDK.GizmoBase;
 using Saab.Utility.Unity.NodeUtils;
 using System.Collections.Generic;
 using UnityEngine;
+
 using Quaternion = UnityEngine.Quaternion;
+
+
 
 namespace Saab.Foundation.Unity.MapStreamer
 {
@@ -60,6 +64,8 @@ namespace Saab.Foundation.Unity.MapStreamer
         public double X = 0;
         public double Y = 0;
         public double Z = 0;
+
+        double _tickTime = 0;
 
         public Vec3D Coordinate
         {
@@ -88,34 +94,43 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
         }
 
-        private void MoveForward(float moveSpeed)
+        private void MoveForward(double moveSpeed)
         {
-            X = X + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.forward.x;
-            Y = Y + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.forward.y;
-            Z = Z + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.forward.z;
+            X = X + moveSpeed * transform.forward.x;
+            Y = Y + moveSpeed * transform.forward.y;
+            Z = Z + moveSpeed * transform.forward.z;
         }
 
-        private void MoveRight(float moveSpeed)
+        private void MoveRight(double moveSpeed)
         {
-            X = X + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.right.x;
-            Y = Y + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.right.y;
-            Z = Z + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.right.z;
+            X = X + moveSpeed * transform.right.x;
+            Y = Y + moveSpeed * transform.right.y;
+            Z = Z + moveSpeed * transform.right.z;
         }
 
-        private Quaternion Tilt(float rotationSpeed)
+        private Quaternion Tilt(double rotationSpeed)
         {
             System.Numerics.Quaternion.CreateFromYawPitchRoll(0, 0, 0);
-            return Quaternion.Euler(rotationSpeed * UnityEngine.Time.unscaledDeltaTime, 0, 0);
+            return Quaternion.Euler((float)rotationSpeed , 0, 0);
         }
 
-        private Quaternion Pan(float rotationSpeed)
+        private Quaternion Pan(double rotationSpeed)
         {
-            return Quaternion.Euler(0, rotationSpeed * UnityEngine.Time.unscaledDeltaTime, 0);
+            return Quaternion.Euler(0, (float)rotationSpeed , 0);
         }
 
             // Update is called once per frame
         void Update()
         {
+            double deltaTime = 0;
+
+            double now = GizmoSDK.GizmoBase.Time.SystemSeconds;
+
+            if (_tickTime!=0)
+             deltaTime = now - _tickTime;
+
+            _tickTime = now;
+            
             // Check mouse click
 
             if(Input.GetButtonDown("Fire1"))
@@ -166,23 +181,23 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             if (Input.GetKey("w"))
             {
-                MoveForward(speed);
+                MoveForward(speed*deltaTime);
             }
             if (Input.GetKey("s"))
             {
-                MoveForward(-speed);
+                MoveForward(-speed * deltaTime);
             }
 
             
 
             if (Input.GetKey("d"))
             {
-                MoveRight(speed);
+                MoveRight(speed * deltaTime);
             }
 
             if (Input.GetKey("a"))
             {
-                MoveRight(-speed);
+                MoveRight(-speed * deltaTime);
             }
 
            
@@ -194,24 +209,27 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             if (Input.GetKey(KeyCode.UpArrow))
             {
-                rot = rot * Tilt(rotspeed);
+                rot = rot * Tilt(rotspeed * deltaTime);
             }
 
             if (Input.GetKey(KeyCode.DownArrow))
             {
-                rot = rot * Tilt(-rotspeed);
+                rot = rot * Tilt(-rotspeed * deltaTime);
             }
 
             if (Input.GetKey(KeyCode.LeftArrow))
             {
-                rot = Pan(-rotspeed) * rot;
+                rot = Pan(-rotspeed * deltaTime) * rot;
             }
 
             if (Input.GetKey(KeyCode.RightArrow))
             {
-                rot = Pan(rotspeed) * rot;
+                rot = Pan(rotspeed * deltaTime) * rot;
             }
 
+#if TEST_ROTATION
+            rot = Pan(-rotspeed * deltaTime) * rot;
+#endif
 
             transform.rotation = rot;
 

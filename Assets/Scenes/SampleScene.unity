@@ -312,9 +312,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   speed: 2000
-  rotspeed: 20
+  rotspeed: 10
   X: 1166.015796387307
-  Y: 830.9652661591107
+  Y: 200
   Z: 3288.2997620350284
 --- !u!114 &534669907
 MonoBehaviour:
@@ -334,7 +334,7 @@ MonoBehaviour:
     ComputeShader: {fileID: 7200000, guid: 75616827e64e7bd478340a97f80a1da0, type: 3}
     FrameCleanupInterval: 1000
     MaxBuildTime: 0.01
-  MapUrl: http:/www.gizmosdk.se/archives/maps/sweden/eksjo/processed/map.gzd?nic=${wlan0}
+  MapUrl: http:/www.gizmosdk.se/archives/maps/sweden/eksjo/processed/map.gzd?nic=${w}
 --- !u!114 &534669908
 MonoBehaviour:
   m_ObjectHideFlags: 0

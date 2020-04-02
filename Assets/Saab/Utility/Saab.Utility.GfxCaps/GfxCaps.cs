@@ -41,10 +41,13 @@ namespace Saab.Utility.GfxCaps
     [Flags]
     public enum Capability
     {
-        UseGeneralShaders   = 1 << 0,
-        UseCrossboards      = 1 << 1,
+        None = 0,
+        UseGeneralShaders           = 1 << 0,
+        UseTreeCrossboards          = 1 << 1,
+        UseDynamicTreeCrossboards   = 1 << 2,
+        UseDynamicGrassCrossboards  = 1 << 3,
 
-        DefaultCaps         = 0xffff,
+        DefaultCaps                 = 0xffff,
     }
 
     public class GfxCaps

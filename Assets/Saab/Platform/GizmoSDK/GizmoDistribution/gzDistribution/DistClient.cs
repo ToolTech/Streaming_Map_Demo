@@ -224,7 +224,12 @@ namespace GizmoSDK
 
             public bool UpdateObject(DistTransaction transaction, DistObject o, Int32 timeOut = 0)
             {
-                return DistClient_updateObject(GetNativeReference(), transaction.GetNativeReference(),o.GetNativeReference(), timeOut);
+                bool result=DistClient_updateObject(GetNativeReference(), transaction.GetNativeReference(),o.GetNativeReference(), timeOut);
+
+                // Invalidate the tranaction
+                transaction.Release();  
+
+                return result;
             }
 
             public bool UpdateObject(string name,DynamicType value, DistObject o, Int32 timeOut = 0)

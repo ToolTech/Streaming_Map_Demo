@@ -181,9 +181,9 @@ namespace GizmoSDK
                 }
             }
 
-            public bool GetMipMapImageArray(out byte[] image_data,out ImageFormat format,out ComponentType componentType, out UInt32 components,out UInt32 width,out UInt32 height,out UInt32 depth, bool useMipMaps, bool uncompress)
+            public bool GetMipMapImageArray(ref byte[] image_data,out UInt32 size,out ImageFormat format,out ComponentType componentType, out UInt32 components,out UInt32 width,out UInt32 height,out UInt32 depth, bool useMipMaps, bool uncompress)
             {
-                UInt32 size = 0;
+                size = 0;
 
                 width = 0;
                 height = 0;
@@ -197,14 +197,14 @@ namespace GizmoSDK
 
                 if (Texture_getMipMapImageArray(GetNativeReference(), useMipMaps, uncompress,ref size, ref native_image_data,ref format,ref componentType, ref components,ref width, ref height, ref depth))
                 {
-                    image_data = new byte[size];
+                    // Check alloc memory return
+                    if(image_data == null || image_data.Length != size)
+                        image_data = new byte[size];
 
                     Marshal.Copy(native_image_data, image_data, (int)0, (int)size);
 
                     return true;
                 }
-
-                image_data = null;
 
                 return false;
             }

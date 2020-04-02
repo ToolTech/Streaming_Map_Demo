@@ -98,6 +98,13 @@ namespace GizmoSDK
 
             // Special depth image format
             DEPTH_COMPONENT             = Enums.GZ_DEPTH_COMPONENT,
+
+            // Predefined ETC2/EAC Compressed variants
+            COMPRESSED_RGB8_ETC2        = Enums.GZ_COMPRESSED_RGB8_ETC2,
+            COMPRESSED_RGB8_A1_ETC2     = Enums.GZ_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2,
+            COMPRESSED_RGBA8_ETC2       = Enums.GZ_COMPRESSED_RGBA8_ETC2_EAC,
+            COMPRESSED_R11_EAC          = Enums.GZ_COMPRESSED_R11_EAC,
+            COMPRESSED_RG11_EAC         = Enums.GZ_COMPRESSED_RG11_EAC,
         };
 
         public enum ComponentType

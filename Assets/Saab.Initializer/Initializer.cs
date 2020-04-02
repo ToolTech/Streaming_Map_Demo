@@ -43,7 +43,14 @@ namespace Saab.Unity.Initializer
 {
     public class Initializer : MonoBehaviour
     {
-       
+        private DebugCommandStation station=null;
+
+#if UNITY_ANDROID
+
+        private AndroidJavaObject multicastLock;
+
+#endif
+
         void SetupJavaBindings()
         {
 #if UNITY_ANDROID
@@ -77,15 +84,27 @@ namespace Saab.Unity.Initializer
 
             var wifiManager = activity.Call<AndroidJavaObject>("getSystemService", "wifi");
                            
-            var multicastLock = wifiManager.Call<AndroidJavaObject>("createMulticastLock", "lock");
+            multicastLock = wifiManager.Call<AndroidJavaObject>("createMulticastLock", "lock");
 
             multicastLock.Call("setReferenceCounted", true);
 
             multicastLock.Call("acquire");
 
             Message.Send(Message.GIZMOSDK, MessageLevel.DEBUG, "MultiCast Lock acquired");
+
+            station = new DebugCommandStation("udp::45456?nic=${wlan0}&blocking=no");
+
+            Thread thread = new Thread(new ThreadStart(WorkThreadFunction));
+            thread.Start();
 #endif
         }
+
+        private void WorkThreadFunction()
+        {
+            while (station != null && station.Exec())
+                Thread.Sleep(10);
+        }
+                
 
         private void Awake()
         {
@@ -100,9 +119,10 @@ namespace Saab.Unity.Initializer
 
 
             // Set local xml config
-            KeyDatabase.SetLocalRegistry("asset:config.xml");
+            KeyDatabase.SetLocalRegistry("config.xml");
 
-            //EnableMulticastState();
+            // Enable multicast state listener
+            EnableMulticastState();
                         
 
             #region -------- Test Related stuff in init --------------------

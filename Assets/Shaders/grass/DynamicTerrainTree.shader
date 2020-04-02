@@ -34,9 +34,9 @@ Shader "Terrain/DynamicTerrain/Tree"
 	Properties
 	{
 		_MainTexGrass("Albedo (RGB)", 2DArray) = "white" {}
-		_Cutoff("Cutoff", float) = 0.68
+		_Cutoff("Cutoff", float) = 0.32
 		_GrassTextureWaving("Grass Texture Waving ", float) = 0.01
-		_ColorIntensity("Color Intensity", Range(0, 1)) = 0.45
+		_ColorIntensity("Color Intensity", Range(0, 1)) = 1.0
 	}
 
 		SubShader
@@ -61,6 +61,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 			// ****** Textures ******
 			UNITY_DECLARE_TEX2DARRAY(_MainTexGrass);
 			sampler2D _PerlinNoise;
+			sampler2D _ColorVariance;
 
 			// ****** Properties ******
 			float _Cutoff;
@@ -139,6 +140,9 @@ Shader "Terrain/DynamicTerrain/Tree"
 
 				// To calculate tilt
 				//float cameraDistance = distance(_WorldSpaceCameraPos.xyz, grassPosition.xyz);
+				float4 colorVar = tex2Dlod(_ColorVariance, uv);
+				float offset = 0.75f;
+				colorVar = float4(colorVar.x + offset > 1 ? 1 : colorVar.x + offset, colorVar.y + offset > 1 ? 1 : colorVar.y + offset, colorVar.z + offset > 1 ? 1 : colorVar.z + offset, 0);
 
 				// Sample perlin noise
 				float4 perlinNoise = tex2Dlod(_PerlinNoise, uv);
@@ -151,7 +155,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 				index = (int)grassPosition.w;
 
 				// Grass color
-				float4 color = float4(1.0, 1.0, 1.0, 1.0);
+				float4 color = float4(colorVar.xyz, 1.0);
 
 				// Grass size
 				float4 minMaxWidthHeight = _MinMaxWidthHeight[index];
@@ -249,7 +253,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 								}
 
 								// Geometry shader
-								[maxvertexcount(8)]
+								[maxvertexcount(12)]
 								void geom(point uint p[1] : TEXCOORD, inout TriangleStream<FramentInput> triStream)
 								{
 									// Initialize fragment input
@@ -293,12 +297,18 @@ Shader "Terrain/DynamicTerrain/Tree"
 										float fade = 1;
 										float transparency = 0;
 
+										grassPosition.y -= 0.18 * size.y;
+
+										float yaw = dot(normalize(grassPosition + size.y / 2), upNormal);
+
 										if (dist < fadeDist)
 										{
 											fade = dist / fadeDist;
 											//fade = ((dist - (fadeDist - fadeAmount)) / fadeAmount);
 											//if (fade < 0) { fade = 0; }
 										}
+
+										// ************ Front ************
 
 										if (tiltx <= 1 && tiltx >= -1)
 										{
@@ -310,13 +320,15 @@ Shader "Terrain/DynamicTerrain/Tree"
 											}
 
 											// Top vertices
-											AppendVertex(triStream, grassPosition, displacement + float4(0, size.y, 0, 0), upNormal, float3(uvDistortion.x + textureWaving.x, 1.0f, index), topColor);
-											AppendVertex(triStream, grassPosition, -displacement + float4(0, size.y, 0, 0), upNormal, float3(uvDistortion.y + textureWaving.y, 1.0f, index), topColor);
+											AppendVertex(triStream, grassPosition, displacement + float4(0, size.y, 0, 0), upNormal, float3(0 + textureWaving.x, 0.5f, index), topColor);
+											AppendVertex(triStream, grassPosition, -displacement + float4(0, size.y, 0, 0), upNormal, float3(0.5 + textureWaving.y, 0.5f, index), topColor);
 
 											// Bottom vertices
-											AppendVertex(triStream, grassPosition, displacement, upNormal, float3(uvDistortion.x, 0.0f, index), bottomColor);
-											AppendVertex(triStream, grassPosition, -displacement, upNormal, float3(uvDistortion.y, 0.0f, index), bottomColor);
+											AppendVertex(triStream, grassPosition, displacement, upNormal, float3(0, 0.0f, index), bottomColor);
+											AppendVertex(triStream, grassPosition, -displacement, upNormal, float3(0.5f, 0.0f, index), bottomColor);
 										}
+
+										// ************ Side ************
 
 										if (tilt <= 1 && tilt >= -1)
 										{
@@ -330,12 +342,34 @@ Shader "Terrain/DynamicTerrain/Tree"
 											triStream.RestartStrip();
 
 											// Top vertices (crossed)
-											AppendVertex(triStream, grassPosition, displacementx + float4(0, size.y, 0, 0), upNormal, float3(uvDistortion.x + textureWaving.x, 1.0f, index), topColor);
-											AppendVertex(triStream, grassPosition, -displacementx + float4(0, size.y, 0, 0), upNormal, float3(uvDistortion.y + textureWaving.y, 1.0f, index), topColor);
+											AppendVertex(triStream, grassPosition, displacementx + float4(0, size.y, 0, 0), upNormal, float3(0 + textureWaving.x, 1, index), topColor);
+											AppendVertex(triStream, grassPosition, -displacementx + float4(0, size.y, 0, 0), upNormal, float3(0.5 + textureWaving.y, 1, index), topColor);
 
 											// Bottom vertices (crossed)
-											AppendVertex(triStream, grassPosition, displacementx, upNormal, float3(uvDistortion.x, 0.0f, index), bottomColor);
-											AppendVertex(triStream, grassPosition, -displacementx, upNormal, float3(uvDistortion.y, 0.0f, index), bottomColor);
+											AppendVertex(triStream, grassPosition, displacementx, upNormal, float3(0 , 0.5f, index), bottomColor);
+											AppendVertex(triStream, grassPosition, -displacementx, upNormal, float3(0.5 , 0.5f, index), bottomColor);
+										}
+
+										// ************ Top ************
+
+										if (yaw < 0)
+										{
+											if (dist < maxdist)
+											{
+												transparency = (abs(yaw) * 2) > 1 ? 1 : (abs(yaw) * 2);
+												topColor.a = transparency < fade ? transparency : fade;
+												bottomColor.a = topColor.a;
+											}
+
+											triStream.RestartStrip();
+
+											// Top vertices (crossed)
+											AppendVertex(triStream, grassPosition, displacementx + float4(0, size.y / 2, 0, 0) + displacement, upNormal, float3(0.5, 0.5f, index), topColor);
+											AppendVertex(triStream, grassPosition, -displacementx + float4(0, size.y / 2, 0, 0) + displacement, upNormal, float3(1, 0.5f, index), topColor);
+
+											// Bottom vertices (crossed)
+											AppendVertex(triStream, grassPosition, displacementx + float4(0, size.y / 2, 0, 0) - displacement, upNormal, float3(0.5, 0, index), bottomColor);
+											AppendVertex(triStream, grassPosition, -displacementx + float4(0, size.y / 2, 0, 0) - displacement, upNormal, float3(1, 0, index), bottomColor);
 										}
 									}
 								}
@@ -513,29 +547,54 @@ Shader "Terrain/DynamicTerrain/Tree"
 									// Generate grass mesh
 									if (GemerateGeometry(p[0], grassPosition, displacement, displacementx, normal, normalx, size, tilt, tiltx, bottomColor, topColor, uvDistortion, textureWaving, index))
 									{
+										float dist = distance(grassPosition.xyz, float3(0, 0, 0));
+										grassPosition.y -= 0.18 * size.y;
 
-										if (tiltx <= 0.55 && tiltx >= -0.55)
+										float yaw = dot(normalize(grassPosition + size.y / 2), upNormal);
+
+										// ************ Front ************
+
+										if (tiltx <= 0.5 && tiltx >= -0.5)
 										{
 											// Top vertices
-											AppendVertex(triStream, grassPosition, displacement + float4(0, size.y, 0, 0), upNormal, float3(uvDistortion.x + textureWaving.x, 1.0f, index), topColor);
-											AppendVertex(triStream, grassPosition, -displacement + float4(0, size.y, 0, 0), upNormal, float3(uvDistortion.y + textureWaving.y, 1.0f, index), topColor);
+											AppendVertex(triStream, grassPosition, displacement + float4(0, size.y, 0, 0), upNormal, float3(0 + textureWaving.x, 0.5f, index), topColor);
+											AppendVertex(triStream, grassPosition, -displacement + float4(0, size.y, 0, 0), upNormal, float3(0.5 + textureWaving.y, 0.5f, index), topColor);
 
 											// Bottom vertices
-											AppendVertex(triStream, grassPosition, displacement, upNormal, float3(uvDistortion.x, 0.0f, index), bottomColor);
-											AppendVertex(triStream, grassPosition, -displacement, upNormal, float3(uvDistortion.y, 0.0f, index), bottomColor);
+											AppendVertex(triStream, grassPosition, displacement, upNormal, float3(0, 0.0f, index), bottomColor);
+											AppendVertex(triStream, grassPosition, -displacement, upNormal, float3(0.5f, 0.0f, index), bottomColor);
 										}
-										if (tilt <= 0.55 && tilt >= -0.55)
-										{
-											triStream.RestartStrip();
 
-											// Top vertices (crossed)
-											AppendVertex(triStream, grassPosition, displacementx + float4(0, size.y, 0, 0), upNormal, float3(uvDistortion.x + textureWaving.x, 1.0f, index), topColor);
-											AppendVertex(triStream, grassPosition, -displacementx + float4(0, size.y, 0, 0), upNormal, float3(uvDistortion.y + textureWaving.y, 1.0f, index), topColor);
+										// ************ Side ************
 
-											// Bottom vertices (crossed)
-											AppendVertex(triStream, grassPosition, displacementx, upNormal, float3(uvDistortion.x, 0.0f, index), bottomColor);
-											AppendVertex(triStream, grassPosition, -displacementx, upNormal, float3(uvDistortion.y, 0.0f, index), bottomColor);
-										}
+										else
+											//if (tilt <= 0.55 && tilt >= -0.55)
+											{
+												triStream.RestartStrip();
+
+												// Top vertices (crossed)
+												AppendVertex(triStream, grassPosition, displacementx + float4(0, size.y, 0, 0), upNormal, float3(0 + textureWaving.x, 1, index), topColor);
+												AppendVertex(triStream, grassPosition, -displacementx + float4(0, size.y, 0, 0), upNormal, float3(0.5 + textureWaving.y, 1, index), topColor);
+
+												// Bottom vertices (crossed)
+												AppendVertex(triStream, grassPosition, displacementx, upNormal, float3(0, 0.5f, index), bottomColor);
+												AppendVertex(triStream, grassPosition, -displacementx, upNormal, float3(0.5, 0.5f, index), bottomColor);
+											}
+
+										// ************ Top ************
+
+										//if (yaw < -0.55)
+										//{
+										//	triStream.RestartStrip();
+
+										//	// Top vertices (crossed)
+										//	AppendVertex(triStream, grassPosition, displacementx + float4(0, size.y / 2, 0, 0) + displacement, upNormal, float3(0.5, 0.5f, index), topColor);
+										//	AppendVertex(triStream, grassPosition, -displacementx + float4(0, size.y / 2, 0, 0) + displacement, upNormal, float3(1, 0.5f, index), topColor);
+
+										//	// Bottom vertices (crossed)
+										//	AppendVertex(triStream, grassPosition, displacementx + float4(0, size.y / 2, 0, 0) - displacement, upNormal, float3(0.5, 0, index), bottomColor);
+										//	AppendVertex(triStream, grassPosition, -displacementx + float4(0, size.y / 2, 0, 0) - displacement, upNormal, float3(1, 0, index), bottomColor);
+										//}
 									}
 								}
 
@@ -543,21 +602,6 @@ Shader "Terrain/DynamicTerrain/Tree"
 								{
 									// Sample texture and multiply color
 									fixed4 c = UNITY_SAMPLE_TEX2DARRAY(_MainTexGrass, IN.texcoord);
-
-								/*const float4x4 thresholdMatrix =
-								{
-									1, 9, 3, 11,
-									13, 5, 15, 7,
-									4, 12, 2, 10,
-									16, 8, 14, 6
-								};
-
-								float threshold = thresholdMatrix[IN.texcoord.x % 4][IN.texcoord.z % 4] / 17;
-
-								if (0.5 - threshold <= 0)
-								{
-									discard;
-								}*/
 
 								// Cutoff
 								clip((c.a - _Cutoff));

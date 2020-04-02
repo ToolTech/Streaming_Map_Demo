@@ -1,7 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Generic Configuration for Unity -->
 <Unity>
-	
+
+  <GfxCaps>
+    <!-- Used by CurrentCaps below, to combine add numbers
+            UseGeneralShaders           => 1	
+            UseTreeCrossboards          => 2
+            UseDynamicTreeCrossboards   => 4 
+            UseDynamicGrassCrossboards  => 8
+        -->
+    <CurrentCaps info="Which graphics capabilities to use">12</CurrentCaps>
+    <Tree>
+      <Density info="Density of Dynamic Tree">19.127</Density>
+    </Tree>
+    <Grass>
+      <Density info="Density of Dynamic grass">0.0413</Density>
+    </Grass>
+  </GfxCaps>
+
   <GizmoSDK>
     <!-- GIZMO_PATH is a comma (,) or semi (;) separated list with abs or relative directories -->
     <GIZMO_PATH>.;textures</GIZMO_PATH>

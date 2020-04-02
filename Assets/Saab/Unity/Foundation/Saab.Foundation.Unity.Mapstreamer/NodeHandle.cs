@@ -136,8 +136,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             Crossboard cb = node as Crossboard;
 
-
-            if (false)
+            if (cb != null)
             {
                 if (currentMaterial == null)    // No available material
                 {

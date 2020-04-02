@@ -55,6 +55,7 @@ namespace GizmoSDK
             IntPtr GetNativeType();
             string GetNativeTypeName();
             void Release();
+            UInt32 GetReferenceCount();
         }
 
         public class Reference : IReference,IReferenceFactory, IDisposable
@@ -164,6 +165,12 @@ namespace GizmoSDK
                     Reference_unref(oldRef);
             }
 
+            public uint GetReferenceCount()
+            {
+                return Reference_getRef(m_reference.Handle);
+            }
+
+
             static public bool AddFactory(Reference nativeRef)
             {
                 if (nativeRef == null)
@@ -244,7 +251,10 @@ namespace GizmoSDK
             private static extern IntPtr Reference_getParentType(IntPtr ptr);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr Reference_getTypeName(IntPtr ptr);
-                        
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern UInt32 Reference_getRef(IntPtr ptr);
+
+            // ------------- reference -------------
 
             private HandleRef m_reference;
 

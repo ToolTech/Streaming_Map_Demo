@@ -2,8 +2,6 @@ rem ---- DONT RUN THIS as a GIT USER, No need --------------------------------
 rem ---- Set up all paths in the project as relative paths - Saab Dev Only ---
 
 rmdir /S /Q Assets\Saab
-rmdir /S /Q Assets\Resources
-
 mkdir Assets\Saab
 
 rem ------------- GizmoSDK dependencies --------------------------------------
