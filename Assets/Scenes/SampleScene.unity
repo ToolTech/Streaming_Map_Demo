@@ -312,7 +312,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   speed: 2000
-  rotspeed: 20
+  rotspeed: 10
   X: 1166.015796387307
   Y: 200
   Z: 3288.2997620350284

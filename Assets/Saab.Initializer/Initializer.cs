@@ -119,7 +119,7 @@ namespace Saab.Unity.Initializer
 
 
             // Set local xml config
-            KeyDatabase.SetLocalRegistry("asset:config.xml");
+            KeyDatabase.SetLocalRegistry("config.xml");
 
             // Enable multicast state listener
             EnableMulticastState();
