@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 170076734}
-  m_IndirectSpecularColor: {r: 0.44345647, g: 0.49274307, b: 0.57235557, a: 1}
+  m_IndirectSpecularColor: {r: 0.4434472, g: 0.49273324, b: 0.5723498, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -227,6 +227,7 @@ GameObject:
   - component: {fileID: 534669906}
   - component: {fileID: 534669907}
   - component: {fileID: 534669908}
+  - component: {fileID: 534669909}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -334,7 +335,7 @@ MonoBehaviour:
     ComputeShader: {fileID: 7200000, guid: 75616827e64e7bd478340a97f80a1da0, type: 3}
     FrameCleanupInterval: 1000
     MaxBuildTime: 0.01
-  MapUrl: 'http:/www.gizmosdk.se/archives/maps/sweden/eksjo/processed/map.gzd?nic=${wlan0} '
+  MapUrl: purl:maps?nic=${wlan0},sweden/eksjo/data/map.gzd
 --- !u!114 &534669908
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -347,3 +348,86 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c2e02af6fa35924458434ab42b58dcae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &534669909
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 534669902}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 938f8c8c9a37449478b52f1baab22262, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SceneManager: {fileID: 534669907}
+  EnableTrees: 1
+  EnableGrass: 1
+  UseETC2: 0
+  TerrainSettings:
+    GrassTextures:
+    - FeatureTexture: {fileID: 2800000, guid: be86975c653144c4781ceae3b543e59f, type: 3}
+      Height: {x: 0.2, y: 0.6}
+      Width: {x: 0.6, y: 1}
+    - FeatureTexture: {fileID: 2800000, guid: be86975c653144c4781ceae3b543e59f, type: 3}
+      Height: {x: 0.2, y: 0.6}
+      Width: {x: 0.6, y: 1}
+    - FeatureTexture: {fileID: 2800000, guid: be86975c653144c4781ceae3b543e59f, type: 3}
+      Height: {x: 0.2, y: 0.6}
+      Width: {x: 0.6, y: 1}
+    - FeatureTexture: {fileID: 2800000, guid: be86975c653144c4781ceae3b543e59f, type: 3}
+      Height: {x: 0.2, y: 0.6}
+      Width: {x: 0.6, y: 1}
+    - FeatureTexture: {fileID: 2800000, guid: be86975c653144c4781ceae3b543e59f, type: 3}
+      Height: {x: 0.2, y: 0.6}
+      Width: {x: 0.6, y: 1}
+    - FeatureTexture: {fileID: 2800000, guid: be86975c653144c4781ceae3b543e59f, type: 3}
+      Height: {x: 0.2, y: 0.6}
+      Width: {x: 0.6, y: 1}
+    - FeatureTexture: {fileID: 2800000, guid: be86975c653144c4781ceae3b543e59f, type: 3}
+      Height: {x: 0.2, y: 0.6}
+      Width: {x: 0.6, y: 1}
+    - FeatureTexture: {fileID: 2800000, guid: be86975c653144c4781ceae3b543e59f, type: 3}
+      Height: {x: 0.2, y: 0.6}
+      Width: {x: 0.6, y: 1}
+    TreeTextures:
+    - FeatureTexture: {fileID: 2800000, guid: 2b9c25094dea4a449b7b2d6a1fe0f5bf, type: 3}
+      Height: {x: 7, y: 14}
+      Width: {x: 7, y: 14}
+    - FeatureTexture: {fileID: 2800000, guid: 2b9c25094dea4a449b7b2d6a1fe0f5bf, type: 3}
+      Height: {x: 7, y: 14}
+      Width: {x: 7, y: 14}
+    - FeatureTexture: {fileID: 2800000, guid: 2b9c25094dea4a449b7b2d6a1fe0f5bf, type: 3}
+      Height: {x: 7, y: 14}
+      Width: {x: 7, y: 14}
+    - FeatureTexture: {fileID: 2800000, guid: 2b9c25094dea4a449b7b2d6a1fe0f5bf, type: 3}
+      Height: {x: 7, y: 14}
+      Width: {x: 7, y: 14}
+    - FeatureTexture: {fileID: 2800000, guid: 2b9c25094dea4a449b7b2d6a1fe0f5bf, type: 3}
+      Height: {x: 7, y: 14}
+      Width: {x: 7, y: 14}
+    - FeatureTexture: {fileID: 2800000, guid: 2b9c25094dea4a449b7b2d6a1fe0f5bf, type: 3}
+      Height: {x: 7, y: 14}
+      Width: {x: 7, y: 14}
+    - FeatureTexture: {fileID: 2800000, guid: 2b9c25094dea4a449b7b2d6a1fe0f5bf, type: 3}
+      Height: {x: 7, y: 14}
+      Width: {x: 7, y: 14}
+    - FeatureTexture: {fileID: 2800000, guid: 2b9c25094dea4a449b7b2d6a1fe0f5bf, type: 3}
+      Height: {x: 7, y: 14}
+      Width: {x: 7, y: 14}
+    PerlinNoise: {fileID: 2800000, guid: 08ffa87f206b13341bb3c0ffb485837c, type: 3}
+    DefaultSplatMap: {fileID: 2800000, guid: f14011d6405471c479227563542fb335, type: 3}
+    PlacementMap: {fileID: 2800000, guid: f14011d6405471c479227563542fb335, type: 3}
+    wind: 0.02
+    GrassDensity: 0.04
+    TreeDensity: 22
+    GrassShadows: 1
+    TreeShadows: 1
+    GrassDrawDistance: 300
+    TreeDrawDistance: 5000
+    TreeTestMesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+    TreeTestMaterial: {fileID: 2100000, guid: 250724218cbc6e743b8c647cf0951eaf, type: 2}
+    ComputeTerrainShader: {fileID: 7200000, guid: 1b210afcf6f7f48469fb8cf2cca48cca,
+      type: 3}
+    GrassShader: {fileID: 4800000, guid: cd675d8109e34104fa2267afa707fa09, type: 3}
+    TreeShader: {fileID: 4800000, guid: 20303ea8db251714e88d9696b79fd3e5, type: 3}

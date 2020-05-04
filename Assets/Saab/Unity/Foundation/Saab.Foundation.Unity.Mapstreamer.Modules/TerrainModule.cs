@@ -1,0 +1,167 @@
+﻿using UnityEngine;
+using System;
+
+namespace Saab.Foundation.Unity.MapStreamer.Modules
+{
+    [Serializable]
+    public struct Settings
+    {
+        public TerrainTextures[] GrassTextures;
+        public TerrainTextures[] TreeTextures;
+
+        public Texture2D PerlinNoise;
+        public Texture2D DefaultSplatMap;
+        public Texture2D PlacementMap;
+
+        public float wind;
+
+        public float GrassDensity;      // 0.0413
+        public float TreeDensity;       // 22.127
+
+        public bool GrassShadows;
+        public bool TreeShadows;
+
+        public int GrassDrawDistance;
+        public int TreeDrawDistance;
+
+        public Mesh TreeTestMesh;
+        public Material TreeTestMaterial;
+
+        public ComputeShader ComputeTerrainShader;
+        public Shader GrassShader;
+        public Shader TreeShader;
+    }
+
+    public class TerrainModule : MonoBehaviour
+    {
+        public SceneManager SceneManager;
+        private GrassModule _grassModule;
+        private TreeModule _treeModule;
+
+        private GameObject _modulesParent;
+
+        public bool EnableTrees = false;
+        public bool EnableGrass = false;
+        public bool UseETC2 = false;
+
+        public Settings TerrainSettings;
+
+        private void Start()
+        {
+            _modulesParent = new GameObject("Terrain Modules");
+
+            if (SceneManager == null) { return; }
+            SceneManager.OnNewGeometry += SceneManager_OnNewGeometry;
+            InitMapModules();
+        }
+        public void InitializeModule(SceneManager sceneManager)
+        {
+            if (SceneManager != null) { return; }
+
+            SceneManager = sceneManager;
+            InitMapModules();
+        }
+        public void SceneCameraUpdated()
+        {
+            if (_treeModule != null)
+            {
+                _treeModule.UpdateSceneCamera(SceneManager.SceneManagerCamera as SceneManagerCamera);
+            }
+            if (_grassModule != null)
+            {
+                _grassModule.UpdateSceneCamera(SceneManager.SceneManagerCamera as SceneManagerCamera);
+            }
+        }
+        private void InitMapModules()
+        {
+            if (EnableGrass)
+            {
+                // ******* setup GameObject *******
+                var go = new GameObject("GrassModule");
+                go.transform.parent = _modulesParent.transform;
+                _grassModule = go.AddComponent<GrassModule>();
+
+                // ********************************
+                _grassModule.UseETC2 = UseETC2;
+
+                _grassModule.GrassTextures = TerrainSettings.GrassTextures;
+                _grassModule.PerlinNoise = TerrainSettings.PerlinNoise;
+                _grassModule.DefaultSplatMap = TerrainSettings.DefaultSplatMap;
+                _grassModule.ComputeShader = TerrainSettings.ComputeTerrainShader;
+                _grassModule.GrassShader = TerrainSettings.GrassShader;
+
+                _grassModule.DrawDistance = TerrainSettings.GrassDrawDistance;
+                _grassModule.DrawGrassShadows = TerrainSettings.GrassShadows;
+
+                _grassModule.GrassWind = TerrainSettings.wind;
+
+                _grassModule.GrassDensity = TerrainSettings.GrassDensity;
+                _grassModule.PlacementMap = TerrainSettings.PlacementMap;
+
+               
+            }
+
+            if (EnableTrees)
+            {
+                // ******* setup GameObject *******
+                var go = new GameObject("TreeModule");
+                go.transform.parent = _modulesParent.transform;
+                _treeModule = go.AddComponent<TreeModule>();
+
+                // ********************************
+                _treeModule.UseETC2 = UseETC2;
+
+                _treeModule.TreeTextures = TerrainSettings.TreeTextures;
+                _treeModule.PerlinNoise = TerrainSettings.PerlinNoise;
+                _treeModule.DefaultSplatMap = TerrainSettings.DefaultSplatMap;
+                _treeModule.ComputeShader = TerrainSettings.ComputeTerrainShader;
+                _treeModule.TreeShader = TerrainSettings.TreeShader;
+
+                _treeModule.TestMesh = TerrainSettings.TreeTestMesh;
+                _treeModule.TestMat = TerrainSettings.TreeTestMaterial;
+
+                _treeModule.DrawDistance = TerrainSettings.TreeDrawDistance;
+                _treeModule.DrawTreeShadows = TerrainSettings.TreeShadows;
+
+                _treeModule.Wind = TerrainSettings.wind / 10;
+
+                _treeModule.Density = TerrainSettings.TreeDensity;
+                _treeModule.PlacementMap = TerrainSettings.PlacementMap;
+
+                
+            }
+
+            if (EnableGrass || EnableTrees)
+            {
+                SceneManager.OnNewGeometry += SceneManager_OnNewGeometry;
+
+                if(EnableTrees)
+                    _treeModule.UpdateSceneCamera(SceneManager.SceneManagerCamera as SceneManagerCamera);
+
+                if(EnableTrees)
+                    _grassModule.UpdateSceneCamera(SceneManager.SceneManagerCamera as SceneManagerCamera);
+            }
+        }
+        private void SceneManager_OnNewGeometry(GameObject o)
+        {
+            var nodehandler = o.GetComponent<NodeHandle>();
+            if (nodehandler != null)
+            {
+                if (EnableGrass)
+                {
+                    if (nodehandler.node.BoundaryRadius < 190 && nodehandler.node.BoundaryRadius > 0)
+                    {
+                        _grassModule.AddGrass(o);
+                    }
+                }
+                if (EnableTrees)
+                {
+                    if (nodehandler.node.BoundaryRadius < 890 && nodehandler.node.BoundaryRadius > 0)
+                    {
+                        _treeModule.AddTree(o);
+                    }
+                }
+            }
+        }
+    }
+}

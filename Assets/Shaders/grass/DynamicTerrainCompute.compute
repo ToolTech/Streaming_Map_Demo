@@ -26,6 +26,8 @@
 //
 // Who	Date	Description
 //
+// Links:
+// http://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
 //
 //******************************************************************************
 
@@ -39,6 +41,7 @@
 // Minimum / maximum integer values
 #define intMin -2147483648
 #define intMax 2147483647
+#define plasticConstant 1.32471795724474602596
 
 // Buffers
 StructuredBuffer<float3> surfaceVertices;
@@ -273,14 +276,17 @@ void MeshGrassGenerator(int3 id : SV_DispatchThreadID)
 	// Area
 	float area = length(cross((v2 - v1), (v3 - v1)) / 2);
 	if (area < density) { return; }
-	float grassAmount = area / density;
+	int grassAmount = ceil(area / density);
 	float halfDensity = density / 2;
 
 	// ************* Barycentric coordinate *************
-	for (float i = 0; i < (grassAmount / 10); i += 0.1f)
+	for (float i = 0; i < (grassAmount); i += 1.0f)
 	{
-		float r1 = frac(tan((i + 0.1) / density) + halfDensity);
-		float r2 = frac(tan(i + 0.1) + halfDensity);
+		float a1 = 1 / (plasticConstant);
+		float a2 = 1 / ((plasticConstant) * (plasticConstant));
+
+		float r1 = frac(0.5 + a1 * i);
+		float r2 = frac(0.5 + a2 * i);
 
 		float2 uv = (1 - sqrt(r1)) * uv1 + (sqrt(r1) * (1 - r2)) * uv2 + (sqrt(r1) * r2) * uv3;
 		float3 newPoint = (1 - sqrt(r1)) * v1 + (sqrt(r1) * (1 - r2)) * v2 + (sqrt(r1) * r2) * v3;
@@ -338,15 +344,21 @@ void MeshTreeGenerator(int3 id : SV_DispatchThreadID)
 
 	// Area
 	float area = length(cross((v2 - v1), (v3 - v1)) / 2);
-	if (area < density) { return; }
+	//if (area < density) { return; }
 	float grassAmount = area / density;
 	float halfDensity = density / 2;
 
 	// ************* Barycentric coordinate *************
-	for (float i = 0; i < grassAmount; i += 1)
+	for (float i = 0; i < grassAmount; i += 1.0f)
 	{
-		float r1 = frac(tan((i + 1) / density) + halfDensity);
-		float r2 = frac(tan(i + 1) + halfDensity);
+		//float r1 = frac(tan((i + 1) / density) + halfDensity);
+		//float r2 = frac(tan(i + 1) + halfDensity);
+
+		float a1 = 1 / (plasticConstant);
+		float a2 = 1 / ((plasticConstant) * (plasticConstant));
+
+		float r1 = frac(0.5 + a1 * i);
+		float r2 = frac(0.5 + a2 * i);
 
 		float2 uv = (1 - sqrt(r1)) * uv1 + (sqrt(r1) * (1 - r2)) * uv2 + (sqrt(r1) * r2) * uv3;
 		float3 newPoint = (1 - sqrt(r1)) * v1 + (sqrt(r1) * (1 - r2)) * v2 + (sqrt(r1) * r2) * v3;
@@ -356,7 +368,7 @@ void MeshTreeGenerator(int3 id : SV_DispatchThreadID)
 		float4 nodeColor = NodeTexture[uv * 512];
 		float3 placement = PlacementMap[uv * 512];
 
-		//int chance = intToByte(placement, 4);
+		int chance = intToByte(placement, 4);
 		// ****** 48 <=> 0.189 ******
 		// ****** 32 <=> 0.126 ******
 		// ****** 16 <=> 0.063 ******
@@ -364,7 +376,7 @@ void MeshTreeGenerator(int3 id : SV_DispatchThreadID)
 
 		//if (chance > 0)
 		{
-			//if ((i % 3) <= chance)
+//			if ((i % 3) <= chance)
 			{
 				uint blueColor = (color.z >= 1.0 ? 255 : color.z * 256.0);
 
@@ -398,15 +410,12 @@ void Cull(uint3 id : SV_DispatchThreadID)
 
 	if (IsInFrustum(pos.xyz, -5))
 	{
-		if (length(pos) > frustumPlanes[5].w / 4)
-		{
-			float dist = length(pos) - frustumPlanes[5].w / 4;
-			int t = index % (frustumPlanes[5].w - frustumPlanes[5].w / 4);
+		float dist = length(pos);
+		int t = index % frustumPlanes[5].w;
 
-			if (t < dist)
-			{
-				return;
-			}
+		if (t < dist)
+		{
+			return;
 		}
 		Output.Append(float4(pos.xyz, data.w));
 	}
@@ -424,17 +433,17 @@ void TreeCull(uint3 id : SV_DispatchThreadID)
 
 	float4 pos = mul(ObjToWorld, float4(data.xyz, 1));
 
-	if (IsInFrustum(pos.xyz, -20))
+	if (IsInFrustum(pos.xyz, -15))
 	{
-		Output.Append(float4(pos.xyz, data.w));
-		/*if (length(pos) > 250)
+		//Output.Append(float4(pos.xyz, data.w));
+		//if (length(pos) > 50)
 		{
 			Output.Append(float4(pos.xyz, data.w));
 		}
-		else
+		//if (length(pos) < 100)
 		{
 			closeBuffer.Append(float4(pos.xyz, data.w));
-		}*/
+		}
 	}
 }
 

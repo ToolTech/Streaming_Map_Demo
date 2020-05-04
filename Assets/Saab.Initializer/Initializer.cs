@@ -38,6 +38,7 @@ using GizmoSDK.GizmoDistribution;
 using UnityEngine;
 using System.Threading;
 using Saab.Foundation.Unity.MapStreamer;
+using Saab.Unity.Sandbox;
 
 namespace Saab.Unity.Initializer
 {

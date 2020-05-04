@@ -180,7 +180,7 @@ namespace GizmoSDK
                 return Image_getDepth(GetNativeReference());
             }
 
-            public bool GetImageArray(out byte[] image_data)
+            public bool GetImageArray(ref byte[] image_data)
             {
                 UInt32 size = 0;
 
@@ -188,14 +188,14 @@ namespace GizmoSDK
 
                 if (Image_getImageArray(GetNativeReference(), ref size, ref native_image_data))
                 {
-                    image_data = new byte[size];
-
+                    // Check alloc memory return
+                    if (image_data == null || image_data.Length != size)
+                        image_data = new byte[size];
+                    
                     Marshal.Copy(native_image_data, image_data, (int)0, (int)size);
 
                     return true;
                 }
-
-                image_data = null;
 
                 return false;
             }

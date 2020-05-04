@@ -54,6 +54,7 @@ namespace Saab.Unity.Sandbox
         // Textures           
         static public int splatMap = Shader.PropertyToID("splatMap");
         static public int nodeTexture = Shader.PropertyToID("NodeTexture");
+        static public int placementMap = Shader.PropertyToID("PlacementMap");
 
         // Scalars & vectors
         static public int objToWorld = Shader.PropertyToID("ObjToWorld");
@@ -87,6 +88,8 @@ namespace Saab.Unity.Sandbox
     {
         private void Start()
         {
+            OnlyCullOnce = false;
+
             if (PerlinNoise == null)
             {
                 PerlinNoise = Resources.Load("Textures/PerlinNoiseRGB") as Texture2D;
@@ -95,10 +98,11 @@ namespace Saab.Unity.Sandbox
             _grassTextures = Create2DArray(GrassTextures);
             _minMaxWidthHeight = GetMinMaxWidthHeight(GrassTextures);
 
-            _megaBuffer = new ComputeBuffer(2000000, sizeof(float) * 4, ComputeBufferType.Append);
+            _megaBuffer = new ComputeBuffer(1000000, sizeof(float) * 4, ComputeBufferType.Append);
             _inderectBuffer = new ComputeBuffer(4, sizeof(uint), ComputeBufferType.IndirectArguments);
             _inderectBuffer.SetData(new uint[] { 0, 1, 0, 0 });
 
+            GenerateFrustumPlane();
             // Initialize materials
             InitializeMaterial();
         }
@@ -219,6 +223,8 @@ namespace Saab.Unity.Sandbox
 
         private Texture2DArray _grassTextures;
         public Transform RoiTransform;
+        public bool DebugOn;
+        public bool OnlyCullOnce;
 
         // Compute kernel names
         private const string _indirectGrassKernelName = "IndirectGrass";
@@ -245,10 +251,11 @@ namespace Saab.Unity.Sandbox
                 }
             }
 
-            var textureArray = new Texture2DArray(textureResolution, textureResolution, textureCount, TextureFormat.DXT5, true)
+            var textureArray = new Texture2DArray(textureResolution, textureResolution, textureCount, TextureFormat.ARGB32, true)
             {
                 wrapMode = TextureWrapMode.Clamp
             };
+
 
             RenderTexture temporaryGrassRenderTexture = new RenderTexture(textureResolution, textureResolution, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default)
             {
@@ -265,8 +272,6 @@ namespace Saab.Unity.Sandbox
                 RenderTexture.active = null;
                 temporaryGrassTexture.Apply(true);
                 temporaryGrassTexture.Compress(true);
-
-                //TexToFile(temporaryGrassTexture, Application.dataPath + "/../grassTextureArraySaved_" + i + ".png");
 
                 Graphics.CopyTexture(temporaryGrassTexture, 0, textureArray, i);
                 Destroy(temporaryGrassTexture);
@@ -298,23 +303,6 @@ namespace Saab.Unity.Sandbox
 
             return MinMaxWidthHeight.ToArray();
         }
-        //private Transform FindFirstNodeParent(Transform child)
-        //{
-        //    var parent = child.parent;
-        //    if (parent == null)
-        //    {
-        //        return child;
-        //    }
-
-        //    var node = parent.GetComponent<NodeHandle>();
-
-        //    if (node == null)
-        //    {
-        //        return child;
-        //    }
-
-        //    return FindFirstNodeParent(parent);
-        //}
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -372,8 +360,13 @@ namespace Saab.Unity.Sandbox
 
         private void Render(List<Grass> grassList)
         {
+            if (!UpdateGrass) { return; }
+
             // Reset grass buffer and run generation
-            _megaBuffer.SetCounterValue(0);
+            if (!OnlyCullOnce)
+            {
+                _megaBuffer.SetCounterValue(0);
+            }
             _frustumPlanes = GenerateFrustumPlane();
 
             foreach (Grass grass in grassList)
@@ -385,7 +378,7 @@ namespace Saab.Unity.Sandbox
                 var longestSide = Mathf.Max(grass.SurfaceMesh.bounds.size.x, grass.SurfaceMesh.bounds.size.z, grass.SurfaceMesh.bounds.size.y);
                 _frustumPlanes[5].w = DrawDistance + longestSide * 0.75f;
 
-                if (!IsInFrustum(grass.GameObject.transform.position, -longestSide * 0.75f))
+                if (!IsInFrustum(grass.GameObject.transform.position, -longestSide * 1.75f))
                 {
                     continue;
                 }
@@ -394,12 +387,6 @@ namespace Saab.Unity.Sandbox
 
                 if (!grass.Initlized)
                 {
-                    //var node = grass.GameObject.GetComponent<NodeHandle>();
-                    //if (node.node.BoundaryRadius >= 190 || node.node.BoundaryRadius == 0)
-                    //{
-                    //    continue;
-                    //}
-
                     grass.MeshGrassGeneratorKernel.SetBuffer(ComputeShaderID.terrainBuffer, grass.GrassBuffer);                 // Grass generator output
                     grass.GrassBuffer.SetCounterValue(0);
                     var GenX = Mathf.CeilToInt(grass.SurfaceMesh.triangles.Length / 8.0f);
@@ -414,16 +401,19 @@ namespace Saab.Unity.Sandbox
                     grass.SurfaceUVs.SafeRelease();
                 }
 
-                _frustumPlanes[5].w = DrawDistance;
+                if (!OnlyCullOnce && grass.Initlized)
+                {
+                    _frustumPlanes[5].w = DrawDistance;
 
-                grass.ComputeShader.SetVectorArray(ComputeShaderID.frustumPlanes, _frustumPlanes);
+                    grass.ComputeShader.SetVectorArray(ComputeShaderID.frustumPlanes, _frustumPlanes);
 
-                // TODO: move entirely to GPU with DispatchIndirect 
-                grass.CullKernal.SetBuffer(ComputeShaderID.indirectBuffer, _inderectBuffer);
-                ComputeBuffer.CopyCount(grass.GrassBuffer, _inderectBuffer, 0);
+                    // TODO: move entirely to GPU with DispatchIndirect 
+                    grass.CullKernal.SetBuffer(ComputeShaderID.indirectBuffer, _inderectBuffer);
+                    ComputeBuffer.CopyCount(grass.GrassBuffer, _inderectBuffer, 0);
 
-                var x = Mathf.CeilToInt(grass.MaxGrass / 128.0f);
-                grass.CullKernal.Dispatch(x, 1, 1);
+                    var x = Mathf.CeilToInt(grass.MaxGrass / 128.0f);
+                    grass.CullKernal.Dispatch(x, 1, 1);
+                }
             }
 
             // ********* Update grassmaterial *********
@@ -436,7 +426,17 @@ namespace Saab.Unity.Sandbox
 
             // Culling      
             ComputeBuffer.CopyCount(_megaBuffer, _inderectBuffer, 0);
-            Graphics.DrawProceduralIndirect(_grassMaterial, new Bounds(Vector3.zero, new Vector3(RenderDistance, RenderDistance, RenderDistance)), MeshTopology.Points, _inderectBuffer, 0, null, null, DrawGrassShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
+
+            if (DebugOn)
+            {
+                DebugOn = false;
+                var array = new uint[] { 0, 0, 0, 0 };
+                _inderectBuffer.GetData(array);
+                Debug.Log(array[0]);
+            }
+
+            var bounds = new Bounds(Vector3.zero, new Vector3(1000, 1000, 1000));
+            Graphics.DrawProceduralIndirect(_grassMaterial, bounds, MeshTopology.Points, _inderectBuffer, 0, null, null, DrawGrassShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
             //Graphics.DrawMeshInstancedIndirect(_mesh, 0, grass.GrassMaterial, new Bounds(Vector3.zero, new Vector3(float.MaxValue, float.MaxValue, float.MaxValue)), grass.ArgsBufferGrass, 0, null, DrawGrassShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
         }
         private void UpdateShaderValues(Grass grass)
