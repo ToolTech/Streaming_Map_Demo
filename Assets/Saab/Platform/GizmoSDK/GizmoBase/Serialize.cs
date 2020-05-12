@@ -38,6 +38,7 @@
 using System.Runtime.InteropServices;
 using System;
 using System.IO;
+using System.Security.Cryptography.X509Certificates;
 
 namespace GizmoSDK
 {
@@ -61,11 +62,19 @@ namespace GizmoSDK
             }
 
             [Flags]
-            public enum AdapterFlags
+            public enum AdapterFlags : UInt64
             {
-               DEFAULT=0,
+                DEFAULT=0,
+
+                NO_ERROR_MSG                = (1 << 0),
+                WIDECHAR                    = (1 << 1),
+                BIG_ENDIAN                  = (1 << 2),
+                NO_PROGRESS_REPORT          = (1 << 3),
+                NO_ALTERNATE_SEARCH_PATH    = (1 << 4),
+
+                FLAG_MAX_SIZE = 5,
             }
-            
+
             public enum SeekOrigin
             {
                 Set,
@@ -319,11 +328,16 @@ namespace GizmoSDK
             public SerializeAdapterStream(string url, Mode mode = Mode.Read) : this(SerializeAdapter.GetURLAdapter(url, (SerializeAdapter.SerializeAction)(mode)), false)
             {
             }
+
             public SerializeAdapterStream(SerializeAdapter adapter, bool leaveOpen = false)
             {
+                if (!adapter.IsValid())
+                    throw new ArgumentException("Invalid SerializeAdapter");
+
                 _adapter = adapter;
                 _leaveOpen = leaveOpen;
             }
+
             public override bool CanRead => _adapter.CanRead();
 
             public override bool CanSeek => _adapter.CanSeek();

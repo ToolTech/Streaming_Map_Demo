@@ -84,6 +84,8 @@ namespace Saab.Foundation.Unity.MapStreamer
         UnityEngine.Camera Camera { get; }
         Vec3D Position { get; set; }
 
+        void MapChanged();                  // Executed when map is changed
+
         void PreTraverse();                 // Executed before scene is traversed and updated with new transform
 
         void PostTraverse();                // Executed after nodes are repositioned with new transforms
@@ -109,12 +111,14 @@ namespace Saab.Foundation.Unity.MapStreamer
         public string               MapUrl;
 
         public delegate void EventHandler_OnGameObject(GameObject o);
+        public delegate void EventHandler_OnNode(Node node);
 
         // Notifications for external users that wants to add components to created game objects. Be swift as we are in edit lock
-        public event EventHandler_OnGameObject OnNewGeometry;   // GameObject with mesh
-        public event EventHandler_OnGameObject OnNewLod;        // GameObject that toggles on off dep on distance
-        public event EventHandler_OnGameObject OnNewTransform;  // GameObject that has a specific parent transform
-        public event EventHandler_OnGameObject OnNewLoader;     // GameObject that works like a dynamic loader
+        public event EventHandler_OnGameObject  OnNewGeometry;   // GameObject with mesh
+        public event EventHandler_OnGameObject  OnNewLod;        // GameObject that toggles on off dep on distance
+        public event EventHandler_OnGameObject  OnNewTransform;  // GameObject that has a specific parent transform
+        public event EventHandler_OnGameObject  OnNewLoader;     // GameObject that works like a dynamic loader
+        public event EventHandler_OnNode        OnNewMap;        // On new map
 
         #region ------------- Privates ----------------
 
@@ -676,8 +680,9 @@ namespace Saab.Foundation.Unity.MapStreamer
                 //_test.transform.localPosition = mapPos.position.ToVector3();
                 //_test.transform.localScale = new Vector3(10, 10, 10);
 
-                //// ------------------------------------------------------------------------------------------
 
+                SceneManagerCamera.MapChanged();
+                OnNewMap?.Invoke(node);
             }
             finally
             {
@@ -969,7 +974,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
 #endregion
 
-#region Activate/Deactivate GameObjects based on scenegraph -----------------------------------------------------
+            #region Activate/Deactivate GameObjects based on scenegraph -----------------------------------------------------
 
             foreach (ActivationInfo activationInfo in pendingActivations)
             {
@@ -989,9 +994,8 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             pendingActivations.Clear();
 
-#endregion
-                       
-              
+            #endregion
+                                    
             #region Update slow loading assets ------------------------------------------------------------------------------
 
             while (pendingBuilds.Count > 0 && timer.Elapsed.TotalSeconds < Settings.MaxBuildTime)

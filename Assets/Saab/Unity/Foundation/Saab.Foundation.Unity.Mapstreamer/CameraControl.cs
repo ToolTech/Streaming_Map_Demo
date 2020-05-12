@@ -40,9 +40,10 @@
 //
 // *****************************************************************************
 
-#define TEST_ROTATION   // Just test some default rotation
+//#define TEST_ROTATION   // Just test some default rotation
 
 using GizmoSDK.GizmoBase;
+
 using Saab.Utility.Unity.NodeUtils;
 using System.Collections.Generic;
 using UnityEngine;
@@ -53,7 +54,7 @@ using Quaternion = UnityEngine.Quaternion;
 
 namespace Saab.Foundation.Unity.MapStreamer
 {
-    public class CameraControl : MonoBehaviour , ISceneManagerCamera
+    public class CameraControl : SceneManagerCamera
     {
 
         public float speed = 20f;
@@ -64,39 +65,14 @@ namespace Saab.Foundation.Unity.MapStreamer
         public double X = 0;
         public double Y = 0;
         public double Z = 0;
-
-        public Vec3D Coordinate
-        {
-            get
-            {
-                return new Vec3D(X, Y, Z);
-            }
-        }
-
-        public Camera Camera
-        {
-            get
-            {
-                return GetComponent<Camera>();
-            }
-        }
-
-        public Vec3D Position
-        {
-            get { return Coordinate; }
-            set
-            {
-                X = value.x;
-                Y = value.y;
-                Z = value.z;
-            }
-        }
-
+        
         private void MoveForward(float moveSpeed)
         {
             X = X + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.forward.x;
             Y = Y + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.forward.y;
             Z = Z + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.forward.z;
+
+            Position = new Vec3D(X, Y, Z);
         }
 
         private void MoveRight(float moveSpeed)
@@ -104,6 +80,8 @@ namespace Saab.Foundation.Unity.MapStreamer
             X = X + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.right.x;
             Y = Y + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.right.y;
             Z = Z + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.right.z;
+
+            Position = new Vec3D(X, Y, Z);
         }
 
         private Quaternion Tilt(float rotationSpeed)
@@ -225,15 +203,14 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         }
 
-        public void PreTraverse()
+        public override void MapChanged()
         {
-            // Called before traverser runs
+            base.MapChanged();
+
+            Position = new Vec3D(X, Y, Z);
         }
 
-        public void PostTraverse()
-        {
-            // Called after all nodes have updated their transforms
-        }
+
     }
 }
 

@@ -395,6 +395,8 @@ Shader "Terrain/DynamicTerrain/Grass"
 				inline void AppendVertex(inout TriangleStream<FramentInput> triStream, half4 worldPosition, half4 displacement, fixed3 uv)
 				{
 					FramentInput o;
+					UNITY_INITIALIZE_OUTPUT(FramentInput, o);
+					
 					o.texcoord = uv;
 					o.pos = mul(UNITY_MATRIX_VP, worldPosition + displacement);
 					triStream.Append(o);

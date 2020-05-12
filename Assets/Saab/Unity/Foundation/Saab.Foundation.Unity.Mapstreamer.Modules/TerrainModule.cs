@@ -98,7 +98,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 _grassModule.GrassDensity = TerrainSettings.GrassDensity;
                 _grassModule.PlacementMap = TerrainSettings.PlacementMap;
 
-               
+                _grassModule.UpdateSceneCamera(SceneManager.SceneManagerCamera as SceneManagerCamera);
             }
 
             if (EnableTrees)
@@ -128,18 +128,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 _treeModule.Density = TerrainSettings.TreeDensity;
                 _treeModule.PlacementMap = TerrainSettings.PlacementMap;
 
-                
+                _treeModule.UpdateSceneCamera(SceneManager.SceneManagerCamera as SceneManagerCamera);
             }
 
             if (EnableGrass || EnableTrees)
             {
                 SceneManager.OnNewGeometry += SceneManager_OnNewGeometry;
-
-                if(EnableTrees)
-                    _treeModule.UpdateSceneCamera(SceneManager.SceneManagerCamera as SceneManagerCamera);
-
-                if(EnableTrees)
-                    _grassModule.UpdateSceneCamera(SceneManager.SceneManagerCamera as SceneManagerCamera);
             }
         }
         private void SceneManager_OnNewGeometry(GameObject o)

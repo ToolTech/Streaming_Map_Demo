@@ -229,7 +229,7 @@ namespace Saab.Unity.Sandbox
                 }
             }
 
-            var textureArray = new Texture2DArray(textureResolution, textureResolution, textureCount, TextureFormat.ARGB32, true)
+            var textureArray = new Texture2DArray(textureResolution, textureResolution, textureCount, TextureFormat.DXT5, true)
             {
                 wrapMode = TextureWrapMode.Clamp
             };
@@ -489,7 +489,7 @@ namespace Saab.Unity.Sandbox
             var bounds = new Bounds(Vector3.zero, new Vector3(1000, 1000, 1000) * 1.5f);
 
             Graphics.DrawProceduralIndirect(_treeMaterial, bounds, MeshTopology.Points, _inderectBuffer, 0, null, null, DrawTreeShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);         
-            //Graphics.DrawMeshInstancedIndirect(TestMesh, 0, TestMat, bounds, _closeInderectBuffer, 0, null, DrawTreeShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
+            Graphics.DrawMeshInstancedIndirect(TestMesh, 0, TestMat, bounds, _closeInderectBuffer, 0, null, DrawTreeShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
         }
         private void UpdateShaderValues(Trees tree)
         {

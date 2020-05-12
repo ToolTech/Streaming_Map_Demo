@@ -69,21 +69,27 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                 // we perform this to get the map system to set the local_orientation...
                 LatPos latpos;
-                MapControl.SystemMap.GetLatPos(_position, out latpos);
-                MapControl.SystemMap.SetPosition(_position, latpos);
+
+                if(MapControl.SystemMap.GetLatPos(_position, out latpos))
+                    MapControl.SystemMap.SetPosition(_position, latpos);
             }
         }
 
-        void ISceneManagerCamera.PreTraverse()
+        public virtual void PreTraverse()
         {
             _position.Step(0, default(LocationOptions));
 
             OnPreTraverse?.Invoke();
         }
 
-        void ISceneManagerCamera.PostTraverse()
+        public virtual void PostTraverse()
         {
             OnPostTraverse?.Invoke();
+        }
+
+        public virtual void MapChanged()
+        {
+
         }
     }
 }

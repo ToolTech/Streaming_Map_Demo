@@ -124,8 +124,27 @@ namespace GizmoSDK
             BITMAP                      = Enums.GZ_BITMAP,
         };
 
+       
+
+
         public class Image : Object , INameInterface
         {
+
+            [Flags]
+            public enum AdapterFlags : UInt64
+            {
+                DEFAULT = 0,
+
+                FLIP_FLIPPED_IMAGES = 1 << (0 + (int)SerializeAdapter.AdapterFlags.FLAG_MAX_SIZE),
+                NO_CACHED_IMAGE = 1 << (1 + (int)SerializeAdapter.AdapterFlags.FLAG_MAX_SIZE),
+                NO_ALTERNATE_IMAGE_EXT = 1 << (2 + (int)SerializeAdapter.AdapterFlags.FLAG_MAX_SIZE),
+                IGNORE_IMAGE_MIPMAPS = 1 << (3 + (int)SerializeAdapter.AdapterFlags.FLAG_MAX_SIZE),
+                NO_DXT1_ALPHA = 1 << (4 + (int)SerializeAdapter.AdapterFlags.FLAG_MAX_SIZE),
+                NO_MISSING_REF_IMAGE_WARN = 1 << (5 + (int)SerializeAdapter.AdapterFlags.FLAG_MAX_SIZE),
+
+                FLAG_MAX_SIZE = 6,
+            }
+
             protected Image(IntPtr nativeReference) : base(nativeReference) { }
 
             public Image(string name) : base(Image_create(name)) { }

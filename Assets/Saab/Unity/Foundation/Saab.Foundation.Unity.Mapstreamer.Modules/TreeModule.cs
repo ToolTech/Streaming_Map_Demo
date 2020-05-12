@@ -424,7 +424,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                         }
 
                         //UpdatePlanePos(tree);
-                        //UpdateShaderValues(tree);
+                        UpdateShaderValues(tree);
 
                         if (!tree.Initlized)
                         {

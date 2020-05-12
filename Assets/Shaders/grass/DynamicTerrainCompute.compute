@@ -314,7 +314,7 @@ void MeshGrassGenerator(int3 id : SV_DispatchThreadID)
 					float3 HSV = RGBToHSV(nodeColor.xyz);
 
 					// TODO: only until we generate a proper splatmap
-					if (InRange(HSV, float3(22, 0.3, 0), float3(170, 1, 1)))
+					if (InRange(HSV, float3(22, 0.2, 0), float3(170, 1, 1)))
 					{
 						terrainPoints.Append(float4(finalPoint.xyz, valid));
 					}
@@ -372,11 +372,11 @@ void MeshTreeGenerator(int3 id : SV_DispatchThreadID)
 		// ****** 48 <=> 0.189 ******
 		// ****** 32 <=> 0.126 ******
 		// ****** 16 <=> 0.063 ******
-		//int chance = intToByte(float3(0.063, 0, 0), 4);
+		//int chance = inttobyte(float3(0.063, 0, 0), 4);
 
 		//if (chance > 0)
 		{
-//			if ((i % 3) <= chance)
+			//if ((i % 3) <= chance)
 			{
 				uint blueColor = (color.z >= 1.0 ? 255 : color.z * 256.0);
 
@@ -386,7 +386,7 @@ void MeshTreeGenerator(int3 id : SV_DispatchThreadID)
 					float3 HSV = RGBToHSV(nodeColor.xyz);
 
 					// TODO: only until we generate a proper splatmap
-					if (InRange(HSV, float3(80, 0.3, 0), float3(140, 1, 0.3)))
+					if (InRange(HSV, float3(80, 0.2, 0), float3(140, 1, 1)))
 					{
 						terrainPoints.Append(float4(finalPoint.xyz, valid));
 					}

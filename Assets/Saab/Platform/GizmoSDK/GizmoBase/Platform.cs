@@ -159,6 +159,11 @@ namespace GizmoSDK
                 return Platform_uninitialize(forceShutdown);
             }
 
+            public static string GetPlatformExtension()
+            {
+                return GizmoSDK.Platform.GZ_LIB_EXT;
+            }
+
 #if INTERNAL_LIB
             public const string BRIDGE = "__Internal";
 #else
