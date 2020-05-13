@@ -315,7 +315,7 @@ MonoBehaviour:
   speed: 200
   rotspeed: 20
   X: 1166.015796387307
-  Y: 200
+  Y: 100
   Z: 3288.2997620350284
 --- !u!114 &534669907
 MonoBehaviour:
