@@ -147,6 +147,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             static public int frustumPlanes = Shader.PropertyToID("_FrustumPlanes");
 
             static public int minMaxWidthHeight = Shader.PropertyToID("_MinMaxWidthHeight");
+            static public int quads = Shader.PropertyToID("_Quads");
 
             static public int viewDir = Shader.PropertyToID("_ViewDir");
             static public int FadeFar = Shader.PropertyToID("_FadeFar");
@@ -371,6 +372,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         // --- GrassComponent ---
         private void InitializeMaterial()
         {
+            string _QuadKernelName = "FindQuad";
             _treeMaterial = new Material(TreeShader);
 
             // ********************** Grass material **********************
@@ -382,6 +384,29 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _treeMaterial.SetTexture(ShaderID.colorVariance, PerlinNoise);
 
             _treeMaterial.SetVectorArray(ShaderID.minMaxWidthHeight, _minMaxWidthHeight);
+            List<Vector4> quads = new List<Vector4>();
+            ComputeBuffer smallestQuad = new ComputeBuffer(1, sizeof(float) * 4, ComputeBufferType.Append);
+            ComputeKernel findSmallestQuad = new ComputeKernel(_QuadKernelName, ComputeShader);
+
+            foreach (TerrainTextures terrain in TreeTextures)
+            {
+                var front = GetBillboardTexture(Sides.Front, terrain.FeatureTexture);
+                var side = GetBillboardTexture(Sides.Side, terrain.FeatureTexture);
+                var top = GetBillboardTexture(Sides.Top, terrain.FeatureTexture);
+
+
+                var frontXY = CalcSide(front, findSmallestQuad, smallestQuad);
+                var sideXY = CalcSide(side, findSmallestQuad, smallestQuad);
+                var topXY = CalcSide(top, findSmallestQuad, smallestQuad);
+
+                quads.Add(frontXY / front.width);
+                quads.Add(sideXY / side.width);
+                quads.Add(topXY / top.width);
+            }
+
+            smallestQuad.SafeRelease();
+            _treeMaterial.SetVectorArray(ShaderID.quads, quads.ToArray());
+            //Debug.LogFormat("Generated Mesh");
         }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -444,70 +469,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             }
         }
 
-        IEnumerator Rendering()
-        {
-            while (true)
-            {
-                if (Camera.main != null)
-                {
-                    _megaBuffer.SetCounterValue(0);
-                    _closeMegaBuffer.SetCounterValue(0);
-                    _frustumPlanes = GenerateFrustumPlane();
-
-                    for (int i = 0; i < _drawTree.Count; i++)
-                    {
-                        var tree = _drawTree[i];
-
-                        if (tree.GameObject == null)
-                        {
-                            RemoveTree(tree);
-                            continue;
-                        }
-
-                        if (!tree.GameObject.activeSelf) { continue; }
-                        var longestSide = Mathf.Max(tree.SurfaceSize.x, tree.SurfaceSize.z, tree.SurfaceSize.y);
-                        _frustumPlanes[5].w = DrawDistance + longestSide * 0.75f;
-
-                        if (!IsInFrustum(tree.GameObject.transform.position, -longestSide * 0.75f))
-                        {
-                            continue;
-                            RemoveTree(tree);
-                        }
-
-                        if (!UpdateTree)
-                        {
-                            continue;
-                        }
-
-                        UpdatePlanePos(tree);
-                        UpdateShaderValues(tree);
-
-
-
-                        //Debug.Log(Time.unscaledDeltaTime);
-
-                        if (tree.Initlized)
-                        {
-                            _frustumPlanes[5].w = DrawDistance;
-                            tree.ComputeShader.SetVectorArray(ComputeShaderID.frustumPlanes, _frustumPlanes);
-
-                            // TODO: move entirely to GPU with DispatchIndirect 
-                            tree.CullKernal.SetBuffer(ComputeShaderID.indirectBuffer, _inderectBuffer);
-                            ComputeBuffer.CopyCount(tree.TreeBuffer, _inderectBuffer, 0);
-
-                            var x = Mathf.CeilToInt(tree.MaxTree / 128.0f);
-                            tree.CullKernal.Dispatch(x, 1, 1);
-                        }
-                    }
-
-                    // Culling      
-                    ComputeBuffer.CopyCount(_megaBuffer, _inderectBuffer, 0);
-                    ComputeBuffer.CopyCount(_closeMegaBuffer, _closeInderectBuffer, 4 * 1);
-                }
-                yield return null;
-            }
-        }
-
         private void Render(List<Trees> treeList)
         {
             FadeFarAmount = DrawDistance / 3;
@@ -521,6 +482,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             if (Camera.main != null)
             {
                 _megaBuffer.SetCounterValue(0);
+                _closeMegaBuffer.SetCounterValue(0);
                 _frustumPlanes = GenerateFrustumPlane();
 
                 for (int i = 0; i < _drawTree.Count; i++)
@@ -568,6 +530,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
                 // Culling      
                 ComputeBuffer.CopyCount(_megaBuffer, _inderectBuffer, 0);
+                ComputeBuffer.CopyCount(_closeMegaBuffer, _closeInderectBuffer, 4 * 1);
             }
 
             // ********* Update grassmaterial *********
@@ -578,9 +541,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 //_treeMaterial.SetMatrix(ShaderID.worldToScreen, _sceneCamera.Camera.worldToCameraMatrix);
             }
             _treeMaterial.SetVector(ShaderID.viewDir, Camera.main.transform.forward);
-
-
-            //ComputeBuffer.CopyCount(_closeMegaBuffer, _closeInderectBuffer, 4*1);
 
             var bounds = new Bounds(Vector3.zero, new Vector3(DrawDistance + DrawDistance / 3, DrawDistance + DrawDistance / 3, DrawDistance + DrawDistance / 3) * 1.5f);
             Graphics.DrawProceduralIndirect(_treeMaterial, bounds, MeshTopology.Points, _inderectBuffer, 0, null, null, DrawTreeShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
@@ -602,6 +562,73 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private void UpdatePlanePos(Trees tree)
         {
             tree.ComputeShader.SetVectorArray(ComputeShaderID.frustumPlanes, _frustumPlanes);
+        }
+
+        enum Sides
+        {
+            Front = 1 << 0,
+            Side = 1 << 1,
+            Top = 1 << 2,
+        };
+
+        private Texture2D GetBillboardTexture(Sides side, Texture2D billboard)
+        {
+            Texture2D Image = new Texture2D(billboard.width / 2, billboard.height / 2);
+
+            int sx = 0;
+            int sy = 0;
+
+            switch (side)
+            {
+                case Sides.Front:
+                    sx = 0;
+                    sy = billboard.height / 2;
+                    break;
+                case Sides.Side:
+                    sx = 0;
+                    sy = 0;
+                    break;
+                case Sides.Top:
+                    sx = billboard.width / 2;
+                    sy = 0;
+                    break;
+            }
+
+            List<Color32> TestList = new List<Color32>();
+            Color32[] pix = billboard.GetPixels32();
+
+
+            for (int y = 0; y < billboard.height / 2; y++)
+            {
+                for (int x = 0; x < billboard.width / 2; x++)
+                {
+                    TestList.Add(pix[(x + sx) + ((y + sy) * billboard.height)]);
+                }
+            }
+
+
+            Image.SetPixels32(TestList.ToArray());
+            Image.Apply();
+
+            return Image;
+        }
+        private Vector4 CalcSide(Texture2D Side, ComputeKernel findSmallestQuad, ComputeBuffer smallestQuad)
+        {
+            smallestQuad.SetCounterValue(0);
+
+            findSmallestQuad.SetBuffer("SmallestQuad", smallestQuad);
+
+            findSmallestQuad.SetTexture("BillboardPlane", Side);
+            ComputeShader.SetInt("BillboardPlaneResolution", Side.width);
+
+            smallestQuad.SetCounterValue(0);
+
+            findSmallestQuad.Dispatch(1, 1, 1);
+
+            Vector4[] quad = new Vector4[1];
+            smallestQuad.GetData(quad);
+
+            return quad.First();
         }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

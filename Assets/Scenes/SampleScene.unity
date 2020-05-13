@@ -147,13 +147,13 @@ Light:
   m_GameObject: {fileID: 170076733}
   m_Enabled: 1
   serializedVersion: 10
-  m_Type: 1
+  m_Type: 0
   m_Shape: 0
   m_Color: {r: 1, g: 0.95686275, b: 0.8392157, a: 1}
   m_Intensity: 1
   m_Range: 10000000
-  m_SpotAngle: 30
-  m_InnerSpotAngle: 21.80208
+  m_SpotAngle: 146
+  m_InnerSpotAngle: 1
   m_CookieSize: 0
   m_Shadows:
     m_Type: 0
@@ -366,58 +366,58 @@ MonoBehaviour:
   UseETC2: 0
   TerrainSettings:
     GrassTextures:
-    - FeatureTexture: {fileID: 2800000, guid: be86975c653144c4781ceae3b543e59f, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
-    - FeatureTexture: {fileID: 2800000, guid: be86975c653144c4781ceae3b543e59f, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
-    - FeatureTexture: {fileID: 2800000, guid: be86975c653144c4781ceae3b543e59f, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
-    - FeatureTexture: {fileID: 2800000, guid: be86975c653144c4781ceae3b543e59f, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
-    - FeatureTexture: {fileID: 2800000, guid: be86975c653144c4781ceae3b543e59f, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
-    - FeatureTexture: {fileID: 2800000, guid: be86975c653144c4781ceae3b543e59f, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
-    - FeatureTexture: {fileID: 2800000, guid: be86975c653144c4781ceae3b543e59f, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
-    - FeatureTexture: {fileID: 2800000, guid: be86975c653144c4781ceae3b543e59f, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
     TreeTextures:
-    - FeatureTexture: {fileID: 2800000, guid: 2b9c25094dea4a449b7b2d6a1fe0f5bf, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
-    - FeatureTexture: {fileID: 2800000, guid: 2b9c25094dea4a449b7b2d6a1fe0f5bf, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
-    - FeatureTexture: {fileID: 2800000, guid: 2b9c25094dea4a449b7b2d6a1fe0f5bf, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
-    - FeatureTexture: {fileID: 2800000, guid: 2b9c25094dea4a449b7b2d6a1fe0f5bf, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
-    - FeatureTexture: {fileID: 2800000, guid: 2b9c25094dea4a449b7b2d6a1fe0f5bf, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
-    - FeatureTexture: {fileID: 2800000, guid: 2b9c25094dea4a449b7b2d6a1fe0f5bf, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
-    - FeatureTexture: {fileID: 2800000, guid: 2b9c25094dea4a449b7b2d6a1fe0f5bf, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
-    - FeatureTexture: {fileID: 2800000, guid: 2b9c25094dea4a449b7b2d6a1fe0f5bf, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
-    PerlinNoise: {fileID: 2800000, guid: 08ffa87f206b13341bb3c0ffb485837c, type: 3}
-    DefaultSplatMap: {fileID: 2800000, guid: f14011d6405471c479227563542fb335, type: 3}
-    PlacementMap: {fileID: 2800000, guid: f14011d6405471c479227563542fb335, type: 3}
+    PerlinNoise: {fileID: 2800000, guid: 7e19882b01255364e9c1cfbd084e8cd6, type: 3}
+    DefaultSplatMap: {fileID: 2800000, guid: 4ae789d2ed9128d4fb4f00384e672ce9, type: 3}
+    PlacementMap: {fileID: 2800000, guid: 0b35cd2ec975cae4297a5700bb887c3c, type: 3}
     wind: 0.02
     GrassDensity: 0.0912
     TreeDensity: 29.123
@@ -427,7 +427,7 @@ MonoBehaviour:
     TreeDrawDistance: 5000
     TreeTestMesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
     TreeTestMaterial: {fileID: 2100000, guid: 250724218cbc6e743b8c647cf0951eaf, type: 2}
-    ComputeTerrainShader: {fileID: 7200000, guid: 1b210afcf6f7f48469fb8cf2cca48cca,
+    ComputeTerrainShader: {fileID: 7200000, guid: 513988170bf57ee4487af2231d625bad,
       type: 3}
     GrassShader: {fileID: 4800000, guid: cd675d8109e34104fa2267afa707fa09, type: 3}
-    TreeShader: {fileID: 4800000, guid: 20303ea8db251714e88d9696b79fd3e5, type: 3}
+    TreeShader: {fileID: 4800000, guid: 124091d5347c85c408f244879bf65e3f, type: 3}
