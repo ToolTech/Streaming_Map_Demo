@@ -90,7 +90,7 @@ namespace Saab.Utility.Map
         Highest,
     }
     [Flags]
-    public enum RotationOptions : byte
+    public enum RotationOptions : sbyte
     {
         None = 0,
         AlignToSurface = 1 << 1,

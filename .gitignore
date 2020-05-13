@@ -42,3 +42,4 @@ Assets/Plugins/*
 
 # Builds 
 *.apk 
+Logs/

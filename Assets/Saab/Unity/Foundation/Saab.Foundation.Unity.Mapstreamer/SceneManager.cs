@@ -78,15 +78,16 @@ namespace Saab.Foundation.Unity.MapStreamer
 {
     // The SceneManager behaviour takes a unity camera and follows that to populate the current scene with GameObjects in a scenegraph hierarchy
 
-
     public interface ISceneManagerCamera
     {
         UnityEngine.Camera Camera { get; }
         Vec3D Position { get; set; }
 
-        void PreTraverse();                 // Executed before scene is traversed and updated with new transform
+        void PreTraverse();                         // Executed before scene is traversed and updated with new transform
 
-        void PostTraverse();                // Executed after nodes are repositioned with new transforms
+        void PostTraverse();                        // Executed after nodes are repositioned with new transforms
+
+        void MapChanged();                          // Executed when map is changed
     }
 
     [Serializable]
@@ -108,13 +109,23 @@ namespace Saab.Foundation.Unity.MapStreamer
         public ISceneManagerCamera  SceneManagerCamera;
         public string               MapUrl;
 
+        // Events ----------------------------------------------------------
+
         public delegate void EventHandler_OnGameObject(GameObject o);
+        public delegate void EventHandler_OnNode(Node node);
 
         // Notifications for external users that wants to add components to created game objects. Be swift as we are in edit lock
-        public event EventHandler_OnGameObject OnNewGeometry;   // GameObject with mesh
-        public event EventHandler_OnGameObject OnNewLod;        // GameObject that toggles on off dep on distance
-        public event EventHandler_OnGameObject OnNewTransform;  // GameObject that has a specific parent transform
-        public event EventHandler_OnGameObject OnNewLoader;     // GameObject that works like a dynamic loader
+
+        public event EventHandler_OnGameObject  OnNewGeometry;   // GameObject with mesh
+        public event EventHandler_OnGameObject  OnNewLod;        // GameObject that toggles on off dep on distance
+        public event EventHandler_OnGameObject  OnNewTransform;  // GameObject that has a specific parent transform
+        public event EventHandler_OnGameObject  OnNewLoader;     // GameObject that works like a dynamic loader
+
+        public delegate void EventHandler_Traverse();
+
+        public event EventHandler_Traverse      OnPreTraverse;
+        public event EventHandler_Traverse      OnPostTraverse;
+        public event EventHandler_OnNode        OnMapChanged;
 
         #region ------------- Privates ----------------
 
@@ -676,8 +687,10 @@ namespace Saab.Foundation.Unity.MapStreamer
                 //_test.transform.localPosition = mapPos.position.ToVector3();
                 //_test.transform.localScale = new Vector3(10, 10, 10);
 
-                //// ------------------------------------------------------------------------------------------
+                if (SceneManagerCamera != null)
+                    SceneManagerCamera.MapChanged();
 
+                OnMapChanged?.Invoke(node);
             }
             finally
             {
@@ -929,6 +942,8 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             #region Dynamic Loading/Add/Remove native handles ---------------------------------------------------------------
 
+            Performance.Enter("PendNative");
+
             foreach (NodeLoadInfo nodeLoadInfo in pendingLoaders)
             {
                 if (nodeLoadInfo.state == DynamicLoadingState.LOADED)   // We got a callback from dyn loader that we were loaded or unloaded
@@ -967,9 +982,13 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             pendingLoaders.Clear();
 
-#endregion
+            Performance.Leave();
 
-#region Activate/Deactivate GameObjects based on scenegraph -----------------------------------------------------
+            #endregion
+
+            #region Activate/Deactivate GameObjects based on scenegraph -----------------------------------------------------
+
+            Performance.Enter("PendActGO");
 
             foreach (ActivationInfo activationInfo in pendingActivations)
             {
@@ -989,10 +1008,13 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             pendingActivations.Clear();
 
-#endregion
-                       
-              
+            Performance.Leave();
+
+            #endregion
+
             #region Update slow loading assets ------------------------------------------------------------------------------
+
+            Performance.Enter("PendSlow");
 
             while (pendingBuilds.Count > 0 && timer.Elapsed.TotalSeconds < Settings.MaxBuildTime)
             {
@@ -1000,18 +1022,26 @@ namespace Saab.Foundation.Unity.MapStreamer
                 handle.BuildGameObject();
             }
 
-#endregion
+            Performance.Leave();
+
+            #endregion
 
             // Right now we use this as a dirty fix to handle unused shared materials
 
             _unusedCounter = (_unusedCounter + 1) % Settings.FrameCleanupInterval;
-            if(_unusedCounter==0)
+            if (_unusedCounter == 0)
+            {
+                Performance.Enter("PendCleanup");
                 Resources.UnloadUnusedAssets();
+                Performance.Leave();
+            }
         }
         
         private void UpdateNodeInternals()
         {
             // Only called if SceneManagerCamera is not null
+
+            Performance.Enter("UpdNodeInt");
 
             foreach (GameObject go in updateNodeObjects)
             {
@@ -1020,14 +1050,31 @@ namespace Saab.Foundation.Unity.MapStreamer
                 h.UpdateNodeInternals();
             }
 
-            SceneManagerCamera.PostTraverse();
+            Performance.Leave();
         }
 
         // Update is called once per frame
         private void Update()
         {
             if (!NodeLock.TryLockEdit(30))      // 30 msek allow latency of other pending editor
+            {
+                // We failed to refresh scene in reasonable time but we still need to issue updates;
+
+                if (SceneManagerCamera == null)
+                    return;
+
+                Performance.Enter("PreTraverse");
+                SceneManagerCamera.PreTraverse();
+                OnPreTraverse?.Invoke();
+                Performance.Leave();
+
+                Performance.Enter("PostTraverse");
+                SceneManagerCamera.PostTraverse();
+                OnPostTraverse?.Invoke();
+                Performance.Leave();
+
                 return;
+            }
             
             try // We are now locked in edit
             {
@@ -1041,9 +1088,17 @@ namespace Saab.Foundation.Unity.MapStreamer
             if (SceneManagerCamera == null)
                 return;
 
+            // Notify about we are starting to traverse -----------------------
+
+            Performance.Enter("PreTraverse");
             SceneManagerCamera.PreTraverse();
+            OnPreTraverse?.Invoke();
+            Performance.Leave();
+
+            // -------------------------------------------------------------
 
             var UnityCamera = SceneManagerCamera.Camera;
+
             if (UnityCamera == null)
                 return;
 
@@ -1085,6 +1140,15 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
 
             UpdateNodeInternals();
+
+            // Notify about we are ready in traverse -----------------------
+
+            Performance.Enter("PostTraverse");
+            SceneManagerCamera.PostTraverse();
+            OnPostTraverse?.Invoke();
+            Performance.Leave();
+
+            // -------------------------------------------------------------
         }
         
     }

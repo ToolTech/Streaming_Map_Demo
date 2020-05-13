@@ -63,6 +63,47 @@ namespace GizmoSDK
             public Time() : base(Time_create()) { }
             public Time(double seconds) : base(Time_create_seconds(seconds)) { }
 
+            public double Seconds
+            {
+                get { return Time_seconds(GetNativeReference()); }
+            }
+
+            public double DaySeconds
+            {
+                get { return Time_daySeconds(GetNativeReference()); }
+            }
+
+            public UInt16 Minute
+            {
+                get { return Time_minute(GetNativeReference()); }
+            }
+
+            public double MinuteSeconds
+            {
+                get { return Time_minuteSeconds(GetNativeReference()); }
+            }
+
+
+            public UInt16 Hour
+            {
+                get { return Time_hour(GetNativeReference()); }
+            }
+
+            public UInt16 Day
+            {
+                get { return Time_day(GetNativeReference()); }
+            }
+
+            public UInt16 Month
+            {
+                get { return Time_month(GetNativeReference()); }
+            }
+
+            public UInt32 Year
+            {
+                get { return Time_year(GetNativeReference()); }
+            }
+
             #region -------------- Native calls ------------------
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
@@ -80,6 +121,22 @@ namespace GizmoSDK
             private static extern IntPtr Time_create();
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr Time_create_seconds(double seconds);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern double Time_seconds(IntPtr time_reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern double Time_daySeconds(IntPtr time_reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern double Time_minuteSeconds(IntPtr time_reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern UInt16 Time_minute(IntPtr time_reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern UInt16 Time_hour(IntPtr time_reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern UInt16 Time_day(IntPtr time_reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern UInt16 Time_month(IntPtr time_reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern UInt32 Time_year(IntPtr time_reference);
 
             #endregion
         }

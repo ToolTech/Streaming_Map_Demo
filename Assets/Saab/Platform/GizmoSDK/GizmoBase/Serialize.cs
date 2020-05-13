@@ -37,6 +37,8 @@
 
 using System.Runtime.InteropServices;
 using System;
+using System.IO;
+using System.Security.Cryptography.X509Certificates;
 
 namespace GizmoSDK
 {
@@ -60,11 +62,26 @@ namespace GizmoSDK
             }
 
             [Flags]
-            public enum AdapterFlags
+            public enum AdapterFlags : UInt64
             {
-               DEFAULT=0,
+                DEFAULT=0,
+
+                NO_ERROR_MSG                = (1 << 0),
+                WIDECHAR                    = (1 << 1),
+                BIG_ENDIAN                  = (1 << 2),
+                NO_PROGRESS_REPORT          = (1 << 3),
+                NO_ALTERNATE_SEARCH_PATH    = (1 << 4),
+
+                FLAG_MAX_SIZE = 5,
             }
-                        
+
+            public enum SeekOrigin
+            {
+                Set,
+                Current,
+                End
+            }
+
             public SerializeAdapter(IntPtr nativeReference) : base(nativeReference) { }
 
             public static SerializeAdapter GetURLAdapter(string url, SerializeAction action=SerializeAction.INPUT, AdapterFlags flags=AdapterFlags.DEFAULT,string password="")
@@ -81,6 +98,11 @@ namespace GizmoSDK
             public UInt32 Length()
             {
                 return SerializeAdapter_length(GetNativeReference());
+            }
+
+            public bool IsActive()
+            {
+                return SerializeAdapter_isActive(GetNativeReference());
             }
 
             public void Write(ISerializeData data)
@@ -103,10 +125,14 @@ namespace GizmoSDK
                 IntPtr p = Marshal.AllocHGlobal(data.Length);
 
                 Marshal.Copy(data,0,p,data.Length); // Transfer to unmanaged memory
-
-                SerializeAdapter_write_count(GetNativeReference(), p,data.Length);
-
-                Marshal.FreeHGlobal(p);
+                try
+                {
+                    SerializeAdapter_write_buffer(GetNativeReference(), p, 0, (uint)data.Length, (uint)data.Length);
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(p);
+                }
             }
 
             public void Read(ISerializeData data)
@@ -123,14 +149,17 @@ namespace GizmoSDK
             public uint Read(ref byte[] data)
             {
                 IntPtr p = Marshal.AllocHGlobal(data.Length);
+                try
+                {
+                    UInt32 count = SerializeAdapter_read_buffer(GetNativeReference(), p, 0, (uint)data.Length, (uint)data.Length);
 
-                UInt32 count=SerializeAdapter_read_count(GetNativeReference(), p,data.Length);
-
-                Marshal.Copy(p, data, 0, (int)count); // Transfer to managed memory
-
-                Marshal.FreeHGlobal(p);
-
-                return count;
+                    Marshal.Copy(p, data, 0, (int)count); // Transfer to managed memory
+                    return count;
+                }
+                finally
+                { 
+                    Marshal.FreeHGlobal(p);
+                }
             }
 
             public void PushBack(ISerializeData data)
@@ -153,6 +182,77 @@ namespace GizmoSDK
                 return SerializeAdapter_SetAssetManagerHandle(JNIEnvHandle, assetManagerHandle);
             }
 
+            public bool CanRead()
+            {
+                return SerializeAdapter_supportAction(GetNativeReference(), SerializeAction.INPUT);
+            }
+
+            public bool CanWrite()
+            {
+                return SerializeAdapter_supportAction(GetNativeReference(), SerializeAction.OUTPUT);
+            }
+
+            public bool CanSeek()
+            {
+                return SerializeAdapter_canSeek(GetNativeReference());
+            }
+
+            public uint Seek(int offset, SeekOrigin origin)
+            {
+                if (!CanSeek())
+                    throw new NotSupportedException();
+
+                var result = SerializeAdapter_seek(GetNativeReference(), offset, origin);
+                if (result == uint.MaxValue)
+                    throw new InvalidOperationException();
+
+                return result;
+            }
+
+            public void Flush()
+            {
+                SerializeAdapter_flush(GetNativeReference());
+            }
+
+            public int Read(byte[] buffer, int offset, int count)
+            {
+                if (buffer == null || (offset + count) > buffer.Length)
+                    throw new ArgumentException();
+
+                IntPtr p = Marshal.AllocHGlobal(count);
+
+                try
+                {
+                    var bytesRead = (int)SerializeAdapter_read_buffer(GetNativeReference(), p, 0, (uint)count, (uint)count);
+
+                    Marshal.Copy(p, buffer, offset, bytesRead);
+                    return bytesRead;
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(p);
+                }
+            }
+
+            public void Write(byte[] buffer, int offset, int count)
+            {
+                if (buffer == null || (offset + count) > buffer.Length)
+                    throw new ArgumentException();
+
+                IntPtr p = Marshal.AllocHGlobal(count);
+                Marshal.Copy(buffer, offset, p, count);
+
+                try
+                {
+                    SerializeAdapter_write_buffer(GetNativeReference(), p, 0, (uint)count, (uint)count );
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(p);
+                }
+
+            }
+
             #region -------------- Native calls ------------------
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
@@ -162,11 +262,7 @@ namespace GizmoSDK
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void SerializeAdapter_write(IntPtr adapter_reference, byte value);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void SerializeAdapter_write_count(IntPtr adapter_reference, IntPtr byte_mem, int count);
-            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void SerializeAdapter_read(IntPtr adapter_reference, ref byte value);
-            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern UInt32 SerializeAdapter_read_count(IntPtr adapter_reference, IntPtr byte_mem,int count);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool SerializeAdapter_hasError(IntPtr adapter_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
@@ -176,8 +272,138 @@ namespace GizmoSDK
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern UInt32 SerializeAdapter_length(IntPtr adapter_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool SerializeAdapter_isActive(IntPtr adapter_reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool SerializeAdapter_SetAssetManagerHandle(IntPtr handle1, IntPtr handle2);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool SerializeAdapter_supportAction(IntPtr nativeRef, SerializeAction action);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool SerializeAdapter_canSeek(IntPtr nativeRef);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern uint SerializeAdapter_seek(IntPtr nativeRef, int offset, SeekOrigin origin );
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern uint SerializeAdapter_flush(IntPtr nativeRef);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern uint SerializeAdapter_read_buffer(IntPtr nativeRef, IntPtr buffer, uint offset, uint count, uint length);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern uint SerializeAdapter_write_buffer(IntPtr nativeRef, IntPtr buffer, uint offset, uint count, uint length);
             #endregion
+        }
+
+        public enum QueueMode
+        {
+            LIFO, 
+            FIFO
+        }
+
+        public class SerializeAdapterQueue : SerializeAdapter
+        {
+            public SerializeAdapterQueue(QueueMode mode = QueueMode.FIFO,UInt32 chunksize=100) : base(SerializeAdapterQueue_create(mode,chunksize))
+            {
+
+            }
+
+            #region -------------- Native calls ------------------
+
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr SerializeAdapterQueue_create(QueueMode mode,UInt32 chunksize);
+
+            #endregion
+        }
+
+
+
+        public class SerializeAdapterStream : Stream
+        {
+            private SerializeAdapter _adapter;
+            private bool _leaveOpen;
+
+            public enum Mode
+            {
+                Read = SerializeAdapter.SerializeAction.INPUT,
+                Write = SerializeAdapter.SerializeAction.OUTPUT,
+                ReadWrite = SerializeAdapter.SerializeAction.DUPLEX,
+            }
+
+            public SerializeAdapterStream(string url, Mode mode = Mode.Read) : this(SerializeAdapter.GetURLAdapter(url, (SerializeAdapter.SerializeAction)(mode)), false)
+            {
+            }
+
+            public SerializeAdapterStream(SerializeAdapter adapter, bool leaveOpen = false)
+            {
+                if (!adapter.IsValid())
+                    throw new ArgumentException("Invalid SerializeAdapter");
+
+                _adapter = adapter;
+                _leaveOpen = leaveOpen;
+            }
+
+            public override bool CanRead => _adapter.CanRead();
+
+            public override bool CanSeek => _adapter.CanSeek();
+
+            public override bool CanWrite => _adapter.CanWrite();
+
+            public override long Length => _adapter.Length();
+
+            public override long Position
+            {
+                get => _adapter.Seek(0, SerializeAdapter.SeekOrigin.Current);
+                set => _adapter.Seek((int)value, SerializeAdapter.SeekOrigin.Set);
+            }
+
+            public override void Flush()
+            {
+                _adapter.Flush();
+            }
+
+            public override int Read(byte[] buffer, int offset, int count)
+            {
+                return _adapter.Read(buffer, offset, count);
+            }
+
+            public override long Seek(long offset, SeekOrigin origin)
+            {
+                var adapterOrigin = default(SerializeAdapter.SeekOrigin);
+                switch (origin)
+                {
+                    case SeekOrigin.Begin:
+                        adapterOrigin = SerializeAdapter.SeekOrigin.Set;
+                        break;
+                    case SeekOrigin.Current:
+                        adapterOrigin = SerializeAdapter.SeekOrigin.Current;
+                        break;
+                    case SeekOrigin.End:
+                        adapterOrigin = SerializeAdapter.SeekOrigin.End;
+                        break;
+                }
+
+                return _adapter.Seek((int)offset, adapterOrigin);
+            }
+
+            public override void SetLength(long value)
+            {
+                throw new NotSupportedException();
+            }
+
+            public override void Write(byte[] buffer, int offset, int count)
+            {
+                _adapter.Write(buffer, offset, count);
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
+                {
+                    if (_adapter != null && !_leaveOpen)
+                    {
+                        _adapter.Dispose();
+                        _adapter = null;
+                    }
+                }
+
+                base.Dispose(disposing);
+            }
         }
     }
 }

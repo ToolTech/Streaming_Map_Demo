@@ -24,7 +24,7 @@
 //
 //			
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
-//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and Android for  
+//			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
 //			usage in Game or VisSim development.
 //
 //
@@ -33,6 +33,7 @@
 // Who	Date	Description						
 //									
 // AMO	180301	Created file 	
+// AMO  200505  Added some db flags for retry loading db        (2.10.5)
 //
 //******************************************************************************
 
@@ -49,22 +50,27 @@ namespace GizmoSDK
     {
         public class DbManager
         {
+           
             [Flags]
-            public enum AdapterFlags
+            public enum AdapterFlags : UInt64
             {
-                DEFAULT = SerializeAdapter.AdapterFlags.DEFAULT,
+                FLIP_FLIPPED_IMAGES     = Image.AdapterFlags.FLIP_FLIPPED_IMAGES,
 
+                USE_ANIMATION           = 1 << (0 + (int)SerializeAdapter.AdapterFlags.FLAG_MAX_SIZE + (int)Image.AdapterFlags.FLAG_MAX_SIZE),
+
+                RETRY_WAIT_LOAD         = 1 << (34 + (int)SerializeAdapter.AdapterFlags.FLAG_MAX_SIZE + (int)Image.AdapterFlags.FLAG_MAX_SIZE),
+                DYN_LOAD_RETRY_WAIT     = 1 << (35 + (int)SerializeAdapter.AdapterFlags.FLAG_MAX_SIZE + (int)Image.AdapterFlags.FLAG_MAX_SIZE),
+               
+
+                FLAG_MAX_SIZE = 36,
+
+                DEFAULT = DYN_LOAD_RETRY_WAIT,
             }
 
-           
-            static public Node LoadDB(string url, string extension="", AdapterFlags flags=0, UInt32 version=0, string password="", Reference associatedData=null)
+
+            static public Node LoadDB(string url, string extension="", AdapterFlags flags=AdapterFlags.DEFAULT, UInt32 version=0, string password="", Reference associatedData=null)
             {
-                IntPtr assos = IntPtr.Zero;
-
-                if (associatedData != null)
-                    assos = associatedData.GetNativeReference();
-
-                return Reference.CreateObject(DbManager_loadDB(url,extension,ref flags,version, password, assos)) as Node;
+                return Reference.CreateObject(DbManager_loadDB(url,extension,ref flags,version, password, associatedData?.GetNativeReference() ?? IntPtr.Zero)) as Node;
             }
             
             static public void Initialize()

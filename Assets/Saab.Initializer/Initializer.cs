@@ -34,10 +34,11 @@
 //
 //******************************************************************************
 using GizmoSDK.GizmoBase;
-using GizmoSDK.GizmoDistribution;
 using UnityEngine;
 using System.Threading;
 using Saab.Foundation.Unity.MapStreamer;
+using UnityEngine.Profiling;
+using System;
 
 namespace Saab.Unity.Initializer
 {
@@ -110,9 +111,13 @@ namespace Saab.Unity.Initializer
         {
             GizmoSDK.GizmoBase.Platform.Initialize();
               
-            Message.OnMessage += Message_OnMessage;           // Right now strings do not work with IL2CPP
+            Message.OnMessage += Message_OnMessage;
 
-            Message.SetMessageLevel(MessageLevel.DEBUG);
+            MemoryControl.DebugMem(true);   // Enable trace of allocated memory
+
+            GizmoSDK.GizmoBase.Monitor.InstallMonitor("udp::45454?nic=${wlan0}");
+
+            Message.SetMessageLevel(MessageLevel.PERF_DEBUG);
 
             // Initialize application ragistry
             KeyDatabase.SetDefaultRegistry($"/data/data/{Application.identifier}/files/gizmosdk.reg");
@@ -175,7 +180,29 @@ namespace Saab.Unity.Initializer
             }
         }
 
-     
+        public static int counter = 0;
+
+        private void Update()
+        {
+            counter++;
+
+            if (counter%30 == 0)
+            {
+                //System.GC.Collect();
+                //System.GC.WaitForPendingFinalizers();
+                
+                GizmoSDK.GizmoBase.Monitor.AddValue("mem", MemoryControl.GetAllocMem());
+
+                GizmoSDK.GizmoBase.Monitor.AddValue("internal", MemoryControl.GetAllocMem(0, 0, false, true));
+
+                GizmoSDK.GizmoBase.Monitor.AddValue("dyn", MemoryControl.GetAllocMem(66666));
+            }
+
+            if (counter % 1000 == 0)
+            {
+                Performance.DumpPerformanceInfo();
+            }
+        }
     }
 
 }

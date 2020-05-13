@@ -42,7 +42,45 @@ namespace GizmoSDK
 {
     namespace GizmoBase
     {
-             
+        public class Performance
+        {
+            [Flags]
+            public enum DumpFlags
+            {
+                RUNNING = (1 << 0),
+                STOPPED = (1 << 1),
+                ACCUMULATED_SECTIONS = (1 << 2),
+                HIERARCHICAL_SECTIONS = (1 << 3),
+                ALL = -1,
+            };
+
+            static public void Enter(string section)
+            {
+                Performance_enterPerformanceSection(section);
+            }
+
+            static public void Leave()
+            {
+                Performance_leavePerformanceSection();
+            }
+
+            static public void DumpPerformanceInfo(DumpFlags flags=DumpFlags.ALL)
+            {
+                Performance_dumpPerformanceInfo(flags);
+            }
+
+            #region -------------- Native calls ------------------
+
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Performance_dumpPerformanceInfo(DumpFlags flags);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Performance_enterPerformanceSection(string section);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Performance_leavePerformanceSection();
+
+            #endregion
+        }
+
         public class Monitor
         {
             static public void Enter(string monitor)
