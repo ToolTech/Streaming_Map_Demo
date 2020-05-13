@@ -12,15 +12,12 @@ using UnityEngine;
 
 namespace Saab.Foundation.Unity.MapStreamer
 {
-
-    public delegate void Traverse();
+       
 
     [RequireComponent(typeof(Camera))]
     public class SceneManagerCamera : MonoBehaviour, ISceneManagerCamera
     {
-        public event Traverse OnPreTraverse;
-        public event Traverse OnPostTraverse;
-
+        
         private MapPos _position = new MapPos();
 
         public LatPos Latpos
@@ -78,13 +75,10 @@ namespace Saab.Foundation.Unity.MapStreamer
         public virtual void PreTraverse()
         {
             _position.Step(0, default(LocationOptions));
-
-            OnPreTraverse?.Invoke();
         }
 
         public virtual void PostTraverse()
         {
-            OnPostTraverse?.Invoke();
         }
 
         public virtual void MapChanged()

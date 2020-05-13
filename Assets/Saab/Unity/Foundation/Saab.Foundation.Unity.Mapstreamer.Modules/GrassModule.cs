@@ -108,15 +108,10 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             InitializeMaterial();
         }
 
-        public void UpdateSceneCamera(SceneManagerCamera newCam)
+        public void UpdateSceneCamera(ISceneManagerCamera newCam)
         {
-            if (_sceneCamera != null)
-            {
-                _sceneCamera.OnPostTraverse -= Camera_OnPostTraverse;
-            }
             _sceneCamera = newCam;
             _frustumPlanes = GenerateFrustumPlane();
-            _sceneCamera.OnPostTraverse += Camera_OnPostTraverse;
         }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -221,7 +216,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public int DrawDistance = 250;
         private Vector4[] _frustumPlanes;
 
-        private SceneManagerCamera _sceneCamera;
+        private ISceneManagerCamera _sceneCamera;
 
         public bool UpdateGrass = true;
         public bool DrawGrassShadows = false;
@@ -505,7 +500,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        private void Camera_OnPostTraverse()
+        public void Camera_OnPostTraverse()
         {
             Render(_drawGrass);
         }

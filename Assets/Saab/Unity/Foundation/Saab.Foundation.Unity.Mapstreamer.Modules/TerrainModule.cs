@@ -51,25 +51,36 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _modulesParent = new GameObject("Terrain Modules");
 
             if (SceneManager == null) { return; }
-            SceneManager.OnNewGeometry += SceneManager_OnNewGeometry;
-            InitMapModules();
+
+            InitializeModule(SceneManager);
         }
         public void InitializeModule(SceneManager sceneManager)
         {
-            if (SceneManager != null) { return; }
-
             SceneManager = sceneManager;
-            InitMapModules();
+
+            if (SceneManager)
+            {
+                SceneManager.OnNewGeometry += SceneManager_OnNewGeometry;
+
+                InitMapModules();
+
+                if (_treeModule != null)
+                    SceneManager.OnPostTraverse += _treeModule.Camera_OnPostTraverse;
+
+                if (_grassModule != null)
+                    SceneManager.OnPostTraverse += _grassModule.Camera_OnPostTraverse;
+
+            }
         }
         public void SceneCameraUpdated()
         {
             if (_treeModule != null)
             {
-                _treeModule.UpdateSceneCamera(SceneManager.SceneManagerCamera as SceneManagerCamera);
+                _treeModule.UpdateSceneCamera(SceneManager.SceneManagerCamera);
             }
             if (_grassModule != null)
             {
-                _grassModule.UpdateSceneCamera(SceneManager.SceneManagerCamera as SceneManagerCamera);
+                _grassModule.UpdateSceneCamera(SceneManager.SceneManagerCamera);
             }
         }
         private void InitMapModules()

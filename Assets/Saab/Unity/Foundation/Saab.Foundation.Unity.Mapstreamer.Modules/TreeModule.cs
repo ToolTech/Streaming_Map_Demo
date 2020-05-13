@@ -68,15 +68,10 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             //StartCoroutine(Rendering());
         }
 
-        public void UpdateSceneCamera(SceneManagerCamera newCam)
+        public void UpdateSceneCamera(ISceneManagerCamera newCam)
         {
-            if (_sceneCamera != null)
-            {
-                _sceneCamera.OnPostTraverse -= Camera_OnPostTraverse;
-            }
             _sceneCamera = newCam;
             _frustumPlanes = GenerateFrustumPlane();
-            _sceneCamera.OnPostTraverse += Camera_OnPostTraverse;
         }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -185,7 +180,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         // TODO: replace with better solution
         //public CameraManager CameraManager;
-        private SceneManagerCamera _sceneCamera;
+        private ISceneManagerCamera _sceneCamera;
 
         public bool UpdateTree = true;
         public bool DrawTreeShadows = true;
@@ -611,7 +606,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        private void Camera_OnPostTraverse()
+        public void Camera_OnPostTraverse()
         {
             Render(_drawTree);
         }
