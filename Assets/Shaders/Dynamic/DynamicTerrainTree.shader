@@ -36,7 +36,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 		_MainTexGrass("Albedo (RGB)", 2DArray) = "white" {}
 		_Cutoff("Cutoff", float) = 0.52
 		_GrassTextureWaving("Grass Texture Waving ", float) = 0.01
-		_ColorIntensity("Color Intensity", Range(0, 1)) = 1.0
+		_ColorIntensity("Color Intensity", Range(0, 1)) = 1
 		_FadeNear("Fade Near value", float) = 100.0
 		_FadeFar("Fade Far value", float) = 500.0
 		_FadeNearAmount("Fade Near Amount", float) = 50
@@ -49,6 +49,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 			{
 				"Queue" = "AlphaTest"
 				"RenderType" = "Opaque"
+				"DisableBatching" = "True"
 			}
 
 			CGINCLUDE
@@ -150,9 +151,9 @@ Shader "Terrain/DynamicTerrain/Tree"
 				half2 _uv = objPos.xz;
 				half4 uv = half4(_uv.xy, 1, 1);
 
-				half4 colorVar = tex2Dlod(_ColorVariance, uv);
-				fixed offset = 0.75f;
-				colorVar = half4(colorVar.x + offset > 1 ? 1 : colorVar.x + offset, colorVar.y + offset > 1 ? 1 : colorVar.y + offset, colorVar.z + offset > 1 ? 1 : colorVar.z + offset, 0);
+				//half4 colorVar = tex2Dlod(_ColorVariance, uv);
+				//fixed offset = 0.75f;
+				//colorVar = half4(colorVar.x + offset > 1 ? 1 : colorVar.x + offset, colorVar.y + offset > 1 ? 1 : colorVar.y + offset, colorVar.z + offset > 1 ? 1 : colorVar.z + offset, 0);
 
 				// Sample perlin noise
 				fixed4 perlinNoise = tex2Dlod(_PerlinNoise, uv);
@@ -166,8 +167,8 @@ Shader "Terrain/DynamicTerrain/Tree"
 				index = (int)grassPosition.w;
 
 				// Grass color
-				fixed4 color = fixed4(colorVar.xyz, 1.0);
-				color = fixed4(1.0, 1.0, 1.0, 1.0) * fixed4(_LightColor0.rgb.xyz, 1.0);
+				//fixed4 color = fixed4(colorVar.xyz, 1.0);
+				//color = fixed4(1.0, 1.0, 1.0, 1.0) * fixed4(_LightColor0.rgb.xyz, 1.0);
 
 				// Grass size
 				half4 minMaxWidthHeight = _MinMaxWidthHeight[index];
@@ -183,7 +184,8 @@ Shader "Terrain/DynamicTerrain/Tree"
 				grassPosition = half4(grassPosition.xyz, 1.0f);
 
 				// Top vertices
-				topColor = color;
+				topColor = fixed4(1,1,1,1);
+				bottomColor = topColor;
 				half sin;
 				half cos;
 
@@ -205,7 +207,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 
 				//topColor.a = 1 - abs(tilt * 2);
 
-				bottomColor = topColor * fixed4(0.75f, 0.75f, 0.75f, 1.0f);
+				//bottomColor = topColor * fixed4(0.75f, 0.75f, 0.75f, 1.0f);
 				return true;
 			}
 
@@ -530,7 +532,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 					}
 
 					// Geometry shader
-					[maxvertexcount(4)]
+					[maxvertexcount(8)]
 					void geom(point uint p[1] : TEXCOORD, inout TriangleStream<FramentInput> triStream)
 					{
 						// Initialize fragment input
@@ -583,16 +585,16 @@ Shader "Terrain/DynamicTerrain/Tree"
 							}
 							else // ************ Front ************
 							{
-
+								//triStream.RestartStrip();
 								half4 front = _Quads[index * 3];
 
 								// Top vertices (crossed)
-								AppendVertex(triStream, grassPosition, displacementx * ((0.5 - front.x) * 2) + half4(0, size.y, 0, 0), upNormal, fixed3((front.x * 0.5) + textureWaving.x, 1, index), topColor);
-								AppendVertex(triStream, grassPosition, -displacementx * ((front.y - 0.5) * 2) + half4(0, size.y, 0, 0), upNormal, fixed3((front.y * 0.5) + textureWaving.y, 1, index), topColor);
+								AppendVertex(triStream, grassPosition, displacementx * ((0.5 - front.x) * 2) + half4(0, size.y, 0, 0), displacementx, fixed3((front.x * 0.5) + textureWaving.x, 1, index), topColor);
+								AppendVertex(triStream, grassPosition, -displacementx * ((front.y - 0.5) * 2) + half4(0, size.y, 0, 0), -displacementx, fixed3((front.y * 0.5) + textureWaving.y, 1, index), topColor);
 
 								// Bottom vertices (crossed)
-								AppendVertex(triStream, grassPosition, displacementx * ((0.5 - front.x) * 2), upNormal, fixed3((front.x * 0.5), 0.5, index), bottomColor);
-								AppendVertex(triStream, grassPosition, -displacementx * ((front.y - 0.5) * 2), upNormal, fixed3((front.y * 0.5), 0.5, index), bottomColor);
+								AppendVertex(triStream, grassPosition, displacementx * ((0.5 - front.x) * 2), displacementx, fixed3((front.x * 0.5), 0.5, index), bottomColor);
+								AppendVertex(triStream, grassPosition, -displacementx * ((front.y - 0.5) * 2), -displacementx, fixed3((front.y * 0.5), 0.5, index), bottomColor);
 							}
 
 						}

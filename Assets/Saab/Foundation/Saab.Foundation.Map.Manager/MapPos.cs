@@ -171,6 +171,9 @@ namespace Saab.Foundation.Map
         private Vec3 _vel;
         private Vec3 _acc;
         private double _time;
+        public double Timestamp => _time;
+        public Vec3 Velocity => _vel;
+        public Vec3 Acceleration => _acc;
 
         public void SetKinematicParams(double posX, double posY, double posZ, Vector3 vel, Vector3 acc, double t)
         {

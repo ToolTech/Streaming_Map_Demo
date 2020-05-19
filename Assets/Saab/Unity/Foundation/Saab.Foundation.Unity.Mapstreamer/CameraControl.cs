@@ -19,10 +19,10 @@
 // Module		:
 // Description	: manages camera updates
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.10.1
+// Product		: GizmoBase 2.10.5
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
-//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and IRIX® for  
+//			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
 //			usage in Game or VisSim development.
 //
 //
@@ -40,7 +40,7 @@
 //
 // *****************************************************************************
 
-#define TEST_ROTATION   // Just test some default rotation
+//#define TEST_ROTATION   // Just test some default rotation
 
 using GizmoSDK.GizmoBase;
 using Saab.Utility.Unity.NodeUtils;
@@ -92,6 +92,11 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
         }
 
+        public Vector3 Up
+        {
+            get { return Vector3.up; }
+        }
+
         private void MoveForward(float moveSpeed)
         {
             X = X + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.forward.x;
@@ -120,109 +125,116 @@ namespace Saab.Foundation.Unity.MapStreamer
             // Update is called once per frame
         void Update()
         {
-            // Check mouse click
-
-            if(Input.GetButtonDown("Fire1"))
+            try
             {
-                Map.MapPos mapPos;
+                Performance.Enter("CameraControl.Update");
+                // Check mouse click
 
-                if(Map.MapControl.SystemMap.GetScreenGroundPosition((int)Input.mousePosition.x, (int)(Screen.height-Input.mousePosition.y), (uint)Screen.width, (uint)Screen.height, out mapPos, Map.ClampFlags.DEFAULT))
+                if (Input.GetButtonDown("Fire1"))
                 {
-                    List<GameObject> list;
+                    Map.MapPos mapPos;
 
-                    if(NodeUtils.FindGameObjects(mapPos.node.GetNativeReference(),out list))
+                    if (Map.MapControl.SystemMap.GetScreenGroundPosition((int)Input.mousePosition.x, (int)(Screen.height - Input.mousePosition.y), (uint)Screen.width, (uint)Screen.height, out mapPos, Map.ClampFlags.DEFAULT))
                     {
-                        foreach(GameObject o in list)
-                        {
-                            GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                        List<GameObject> list;
 
-                            sphere.transform.parent = o.transform;
-                            sphere.transform.transform.localPosition =  new Vector3((float)mapPos.position.x, (float)mapPos.position.y, (float)mapPos.position.z);
-                            sphere.transform.localScale = new Vector3(10,10,10);
+                        if (NodeUtils.FindGameObjects(mapPos.node.GetNativeReference(), out list))
+                        {
+                            foreach (GameObject o in list)
+                            {
+                                GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+
+                                sphere.transform.parent = o.transform;
+                                sphere.transform.transform.localPosition = new Vector3((float)mapPos.position.x, (float)mapPos.position.y, (float)mapPos.position.z);
+                                sphere.transform.localScale = new Vector3(10, 10, 10);
+                            }
                         }
                     }
+
+
+                }
+
+                if (Input.GetButtonDown("Fire2"))
+                {
+                    //GizmoSDK.Coordinate.LatPos latpos = new GizmoSDK.Coordinate.LatPos
+                    //{
+                    //    Altitude = 245.52585220821,
+                    //    Latitude = 1.00778345058085,
+                    //    Longitude = 0.251106492463706
+
+                    //};
+
+                    //Map.MapPos mappos;
+
+                    //if (Map.MapControl.SystemMap.GetPosition(latpos, out mappos, Map.GroundClampType.GROUND, Map.ClampFlags.WAIT_FOR_DATA))
+                    //{
+                    //    Debug.Log("Hit Ground ok");
+                    //}
+
+                    Performance.DumpPerformanceInfo();
+                }
+
+                //transform.position;
+
+                if (Input.GetKey("w"))
+                {
+                    MoveForward(speed);
+                }
+                if (Input.GetKey("s"))
+                {
+                    MoveForward(-speed);
                 }
 
 
-            }
 
-            if (Input.GetButtonDown("Fire2"))
-            {
-                GizmoSDK.Coordinate.LatPos latpos = new GizmoSDK.Coordinate.LatPos
+                if (Input.GetKey("d"))
                 {
-                    Altitude = 245.52585220821,
-                    Latitude = 1.00778345058085,
-                    Longitude = 0.251106492463706
+                    MoveRight(speed);
+                }
 
-                };
-
-                Map.MapPos mappos;
-
-                if (Map.MapControl.SystemMap.GetPosition(latpos,out mappos,Map.GroundClampType.GROUND,Map.ClampFlags.WAIT_FOR_DATA))
+                if (Input.GetKey("a"))
                 {
-                    Debug.Log("Hit Ground ok");
+                    MoveRight(-speed);
                 }
 
 
-            }
-
-            //transform.position;
-
-            if (Input.GetKey("w"))
-            {
-                MoveForward(speed);
-            }
-            if (Input.GetKey("s"))
-            {
-                MoveForward(-speed);
-            }
-
-            
-
-            if (Input.GetKey("d"))
-            {
-                MoveRight(speed);
-            }
-
-            if (Input.GetKey("a"))
-            {
-                MoveRight(-speed);
-            }
-
-           
 
 
-            //transform.position = pos;
+                //transform.position = pos;
 
-            Quaternion rot = transform.rotation;
+                Quaternion rot = transform.rotation;
 
-            if (Input.GetKey(KeyCode.UpArrow))
-            {
-                rot = rot * Tilt(rotspeed);
-            }
+                if (Input.GetKey(KeyCode.UpArrow))
+                {
+                    rot = rot * Tilt(rotspeed);
+                }
 
-            if (Input.GetKey(KeyCode.DownArrow))
-            {
-                rot = rot * Tilt(-rotspeed);
-            }
+                if (Input.GetKey(KeyCode.DownArrow))
+                {
+                    rot = rot * Tilt(-rotspeed);
+                }
 
-            if (Input.GetKey(KeyCode.LeftArrow))
-            {
-                rot = Pan(-rotspeed) * rot;
-            }
+                if (Input.GetKey(KeyCode.LeftArrow))
+                {
+                    rot = Pan(-rotspeed) * rot;
+                }
 
-            if (Input.GetKey(KeyCode.RightArrow))
-            {
-                rot = Pan(rotspeed) * rot;
-            }
+                if (Input.GetKey(KeyCode.RightArrow))
+                {
+                    rot = Pan(rotspeed) * rot;
+                }
 
 #if TEST_ROTATION
-            rot = Pan(-rotspeed) * rot;
+                rot = Pan(-rotspeed) * rot;
 #endif
 
-            transform.rotation = rot;
+                transform.rotation = rot;
 
-
+            }
+            finally
+            {
+                Performance.Leave();
+            }
         }
 
         public void PreTraverse()

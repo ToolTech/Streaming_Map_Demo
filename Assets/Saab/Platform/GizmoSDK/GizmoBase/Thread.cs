@@ -44,8 +44,26 @@ namespace GizmoSDK
     {
         public interface IThread
         {
-            bool IsRunning();
-            bool IsStopping();
+            bool IsRunning(bool tick=false);
+            bool IsStopping(bool tick = false);
+
+            bool Run(bool waitForRunning = false);
+            void Stop(bool waitForStopping = false);
+        }
+
+        public class Thread
+        {
+            public static UInt32 GetThreadID()
+            {
+                return Thread_getThreadID();
+            }
+
+            #region -------------- Native calls ------------------
+
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern UInt32 Thread_getThreadID();
+
+            #endregion
         }
     }
 }

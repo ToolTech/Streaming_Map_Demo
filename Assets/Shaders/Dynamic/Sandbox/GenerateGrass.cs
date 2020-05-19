@@ -251,7 +251,7 @@ namespace Saab.Unity.Sandbox
                 }
             }
 
-            var textureArray = new Texture2DArray(textureResolution, textureResolution, textureCount, TextureFormat.ARGB32, true)
+            var textureArray = new Texture2DArray(textureResolution, textureResolution, textureCount, TextureFormat.DXT5, true)
             {
                 wrapMode = TextureWrapMode.Clamp
             };

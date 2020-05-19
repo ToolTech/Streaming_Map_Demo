@@ -19,10 +19,10 @@
 // Module		:
 // Description	: Extensions to convert between GizmoSDK and Unity3D
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.9.1
+// Product		: GizmoBase 2.10.5
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
-//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and IRIX® for  
+//			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
 //			usage in Game or VisSim development.
 //
 //

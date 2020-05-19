@@ -121,6 +121,6 @@ namespace Saab.Utility.Map
 
     public interface IMapLocationProvider<TLocation,TContext> where TLocation : ILocation<TContext>
     {
-        bool CreateLocation(LocationOptions options, out TLocation location);
+        bool CreateLocation(out TLocation location);
     }
 }

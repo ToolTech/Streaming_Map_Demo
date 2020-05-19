@@ -19,10 +19,10 @@
 // Module		:
 // Description	: Bindings stub for Gizmo Messages
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.9.1
+// Product		: GizmoBase 2.10.5
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
-//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and IRIX® for  
+//			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
 //			usage in Game or VisSim development.
 //
 //
@@ -103,7 +103,7 @@ namespace Saab.Unity.Initializer
         private void WorkThreadFunction()
         {
             while (station != null && station.Exec())
-                Thread.Sleep(10);
+                System.Threading.Thread.Sleep(10);
         }
                 
 
@@ -113,9 +113,14 @@ namespace Saab.Unity.Initializer
               
             Message.OnMessage += Message_OnMessage;
 
-            MemoryControl.DebugMem(true);   // Enable trace of allocated memory
+            // Set to tru to enable memory tracing. Heavy load
+            MemoryControl.DebugMem(false);   // Enable trace of allocated memory
 
+#if UNITY_ANDROID
             GizmoSDK.GizmoBase.Monitor.InstallMonitor("udp::45454?nic=${wlan0}");
+#else
+            GizmoSDK.GizmoBase.Monitor.InstallMonitor();
+#endif
 
             Message.SetMessageLevel(MessageLevel.PERF_DEBUG);
 
@@ -130,13 +135,13 @@ namespace Saab.Unity.Initializer
             EnableMulticastState();
                         
 
-            #region -------- Test Related stuff in init --------------------
+#region -------- Test Related stuff in init --------------------
 
             //SetupJavaBindings();
 
             //test();
 
-            #endregion
+#endregion
 
             // Set up scene manager camera
 
@@ -144,10 +149,12 @@ namespace Saab.Unity.Initializer
             CameraControl cameracontrol = GetComponent<CameraControl>();
 
             scenemanager.SceneManagerCamera = cameracontrol;
+
         }
 
         private void Message_OnMessage(string sender, MessageLevel level, string message)
         {
+            // Just to route some messages from Gizmo to managed unity
 
             switch (level & MessageLevel.LEVEL_MASK)
             {
@@ -180,27 +187,48 @@ namespace Saab.Unity.Initializer
             }
         }
 
-        public static int counter = 0;
+        public int counter = 0;
+
+        public PerformanceTracer tracer;
 
         private void Update()
         {
-            counter++;
-
-            if (counter%30 == 0)
+            try
             {
-                //System.GC.Collect();
-                //System.GC.WaitForPendingFinalizers();
-                
-                GizmoSDK.GizmoBase.Monitor.AddValue("mem", MemoryControl.GetAllocMem());
 
-                GizmoSDK.GizmoBase.Monitor.AddValue("internal", MemoryControl.GetAllocMem(0, 0, false, true));
+                // Example of getting performance graphical output
 
-                GizmoSDK.GizmoBase.Monitor.AddValue("dyn", MemoryControl.GetAllocMem(66666));
+                //if(counter==10)
+                //{
+                //    tracer = new PerformanceTracer();
+
+                //    tracer.AddAll();
+
+                //    tracer.Run();
+                //}
+
+                Performance.Enter("Initializer.Update");
+
+                counter++;
+
+                // Exemple of getting allocate dmemory in native parts
+
+                //if (counter % 30 == 0)
+                //{
+                //    //System.GC.Collect();
+                //    //System.GC.WaitForPendingFinalizers();
+
+                //    GizmoSDK.GizmoBase.Monitor.AddValue("mem", MemoryControl.GetAllocMem());
+
+                //    GizmoSDK.GizmoBase.Monitor.AddValue("internal", MemoryControl.GetAllocMem(0, 0, false, true));
+
+                //    GizmoSDK.GizmoBase.Monitor.AddValue("dyn", MemoryControl.GetAllocMem(66666));
+                //}
+
             }
-
-            if (counter % 1000 == 0)
+            finally
             {
-                Performance.DumpPerformanceInfo();
+                Performance.Leave();
             }
         }
     }

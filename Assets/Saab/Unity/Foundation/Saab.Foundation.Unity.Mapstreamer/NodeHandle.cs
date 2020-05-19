@@ -19,10 +19,10 @@
 // Module		:
 // Description	: Handle to native Gizmo3D nodes
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.10.1
+// Product		: GizmoBase 2.10.5
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
-//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and IRIX® for  
+//			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
 //			usage in Game or VisSim development.
 //
 //
@@ -126,261 +126,270 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         public bool BuildGameObject()
         {
-            if (node == null)
-                return false;
-
-            if (!node.IsValid())
-                return false;
-
-            // ---------------------------- Crossboard check -----------------------------------
-
-            Crossboard cb = node as Crossboard;
-
-            if (cb != null)
+            try
             {
-                if (currentMaterial == null)    // No available material
-                {
-                    Message.Send(ID, MessageLevel.WARNING, $"Missing material in {node.GetName()}");
+                Performance.Enter("NodeHandle.BuildGameObject");
+
+                if (node == null)
                     return false;
+
+                if (!node.IsValid())
+                    return false;
+
+                // ---------------------------- Crossboard check -----------------------------------
+
+                Crossboard cb = node as Crossboard;
+
+                if (cb != null)
+                {
+                    if (currentMaterial == null)    // No available material
+                    {
+                        Message.Send(ID, MessageLevel.WARNING, $"Missing material in {node.GetName()}");
+                        return false;
+                    }
+
+                    float[] position_data;
+                    float[] object_data;
+
+                    if (cb.GetObjectPositions(out position_data) && cb.GetObjectData(out object_data))
+                    {
+                        int objects = position_data.Length / 3; // Number of objects
+
+                        CrossboardDataset dataset = new CrossboardDataset();
+                        dataset.POSITION = new Vector3[objects];
+                        dataset.UV0ListComp = new List<Vector4>(objects);
+                        dataset.UV1ListComp = new List<Vector4>(objects);
+                        dataset.COLOR = new Color[objects];
+
+                        CrossboardRenderer_ComputeShader Renderer = gameObject.AddComponent<CrossboardRenderer_ComputeShader>();
+                        Renderer.OpaqueCrossboardCompute = true;
+
+                        Renderer._computeShader = Instantiate(ComputeShader);
+
+                        //Message.Send("NodeHandle", MessageLevel.DEBUG, "Instantiate ComputeShader");
+
+                        int float3_index = 0;
+                        int float4_index = 0;
+
+                        for (int i = 0; i < objects; i++)
+                        {
+                            dataset.POSITION[i] = new Vector3(position_data[float3_index], position_data[float3_index + 1], position_data[float3_index + 2]);
+
+                            // size, heading, pitch, roll 
+                            dataset.UV0ListComp.Add(new Vector4(object_data[float4_index] * 2f, object_data[float4_index + 1], object_data[float4_index + 2], object_data[float4_index + 3]));
+                            // postion offset (x - its up normal), planes offset ( xyz - in there normal direction)
+                            dataset.UV1ListComp.Add(new Vector4(-0.02f, 0, 0, 0));
+
+                            float3_index += 3;
+                            float4_index += 4;
+                        }
+
+                        if (cb.UseColors)
+                        {
+                            float[] color_data;
+
+                            if (cb.GetColorData(out color_data))
+                            {
+                                float4_index = 0;
+
+                                Color[] colors = new Color[objects];
+
+                                for (int i = 0; i < objects; i++)
+                                {
+                                    colors[i] = new Color(color_data[float4_index], color_data[float4_index + 1], color_data[float4_index + 2], color_data[float4_index + 3]);
+                                    float4_index += 4;
+                                }
+
+                                dataset.COLOR = colors;
+                            }
+                        }
+
+                        //Debug.Log("Instantiate mat");
+
+                        Renderer.Material = Instantiate(currentMaterial);
+                        Renderer.SetCrossboardDataset(dataset);
+                    }
+
+                    return true;
+
                 }
 
-                float[] position_data;
-                float[] object_data;
 
-                if (cb.GetObjectPositions(out position_data) && cb.GetObjectData(out object_data))
+                // ---------------------------- Geometry check -------------------------------------
+
+                Geometry geom = node as Geometry;
+
+                if (geom != null)
                 {
-                    int objects = position_data.Length / 3; // Number of objects
+                    float[] float_data;
+                    int[] indices;
 
-                    CrossboardDataset dataset = new CrossboardDataset();
-                    dataset.POSITION = new Vector3[objects];
-                    dataset.UV0ListComp = new List<Vector4>(objects);
-                    dataset.UV1ListComp = new List<Vector4>(objects);
-                    dataset.COLOR = new Color[objects];
-
-                    CrossboardRenderer_ComputeShader Renderer = gameObject.AddComponent<CrossboardRenderer_ComputeShader>();
-                    Renderer.OpaqueCrossboardCompute = true;
-
-                    Renderer._computeShader = Instantiate(ComputeShader);
-
-                    //Message.Send("NodeHandle", MessageLevel.DEBUG, "Instantiate ComputeShader");
-
-                    int float3_index = 0;
-                    int float4_index = 0;
-
-                    for (int i = 0; i < objects; i++)
+                    if (geom.GetVertexData(out float_data, out indices))
                     {
-                        dataset.POSITION[i] = new Vector3(position_data[float3_index], position_data[float3_index + 1], position_data[float3_index + 2]);
+                        MeshFilter filter = gameObject.AddComponent<MeshFilter>();
+                        MeshRenderer renderer = gameObject.AddComponent<MeshRenderer>();
 
-                        // size, heading, pitch, roll 
-                        dataset.UV0ListComp.Add(new Vector4(object_data[float4_index] * 2f, object_data[float4_index + 1], object_data[float4_index + 2], object_data[float4_index + 3]));
-                        // postion offset (x - its up normal), planes offset ( xyz - in there normal direction)
-                        dataset.UV1ListComp.Add(new Vector4(-0.02f, 0, 0, 0));
+                        Mesh mesh = new Mesh();
 
-                        float3_index += 3;
-                        float4_index += 4;
-                    }
+                        Vector3[] vertices = new Vector3[float_data.Length / 3];
 
-                    if (cb.UseColors)
-                    {
-                        float[] color_data;
+                        int float_index = 0;
 
-                        if (cb.GetColorData(out color_data))
+                        for (int i = 0; i < vertices.Length; i++)
                         {
-                            float4_index = 0;
+                            vertices[i] = new Vector3(float_data[float_index], float_data[float_index + 1], float_data[float_index + 2]);
 
-                            Color[] colors = new Color[objects];
-
-                            for (int i = 0; i < objects; i++)
-                            {
-                                colors[i] = new Color(color_data[float4_index], color_data[float4_index + 1], color_data[float4_index + 2], color_data[float4_index + 3]);
-                                float4_index += 4;
-                            }
-
-                            dataset.COLOR = colors;
+                            float_index += 3;
                         }
-                    }
 
-                    //Debug.Log("Instantiate mat");
-
-                    Renderer.Material = Instantiate(currentMaterial);
-                    Renderer.SetCrossboardDataset(dataset);
-                }
-
-                return true;
-
-            }
+                        mesh.vertices = vertices;
+                        mesh.triangles = indices;
 
 
-            // ---------------------------- Geometry check -------------------------------------
-
-            Geometry geom = node as Geometry;
-
-            if (geom != null)
-            {
-                float[] float_data;
-                int[] indices;
-
-                if (geom.GetVertexData(out float_data, out indices))
-                {
-                    MeshFilter filter = gameObject.AddComponent<MeshFilter>();
-                    MeshRenderer renderer = gameObject.AddComponent<MeshRenderer>();
-
-                    Mesh mesh = new Mesh();
-
-                    Vector3[] vertices = new Vector3[float_data.Length / 3];
-
-                    int float_index = 0;
-
-                    for (int i = 0; i < vertices.Length; i++)
-                    {
-                        vertices[i] = new Vector3(float_data[float_index], float_data[float_index + 1], float_data[float_index + 2]);
-
-                        float_index += 3;
-                    }
-
-                    mesh.vertices = vertices;
-                    mesh.triangles = indices;
-
-
-                    if (geom.GetColorData(out float_data))
-                    {
-                        if (float_data.Length / 4 == vertices.Length)
+                        if (geom.GetColorData(out float_data))
                         {
-                            float_index = 0;
-
-                            Color[] cols = new Color[vertices.Length];
-
-                            for (int i = 0; i < vertices.Length; i++)
+                            if (float_data.Length / 4 == vertices.Length)
                             {
-                                cols[i] = new Color(float_data[float_index], float_data[float_index + 1], float_data[float_index + 2], float_data[float_index + 3]);
-                                float_index += 4;
+                                float_index = 0;
+
+                                Color[] cols = new Color[vertices.Length];
+
+                                for (int i = 0; i < vertices.Length; i++)
+                                {
+                                    cols[i] = new Color(float_data[float_index], float_data[float_index + 1], float_data[float_index + 2], float_data[float_index + 3]);
+                                    float_index += 4;
+                                }
+
+                                mesh.colors = cols;
                             }
-
-                            mesh.colors = cols;
                         }
-                    }
 
-                    if (geom.GetNormalData(out float_data))
-                    {
-                        if (float_data.Length / 3 == vertices.Length)
+                        if (geom.GetNormalData(out float_data))
                         {
-                            float_index = 0;
+                            if (float_data.Length / 3 == vertices.Length)
+                            {
+                                float_index = 0;
+
+                                Vector3[] normals = new Vector3[vertices.Length];
+
+                                for (int i = 0; i < vertices.Length; i++)
+                                {
+                                    normals[i] = new Vector3(float_data[float_index], float_data[float_index + 1], float_data[float_index + 2]);
+                                    float_index += 3;
+                                }
+
+                                mesh.normals = normals;
+                            }
+                        }
+                        else
+                        {
+                            //mesh.RecalculateNormals();
 
                             Vector3[] normals = new Vector3[vertices.Length];
 
                             for (int i = 0; i < vertices.Length; i++)
                             {
-                                normals[i] = new Vector3(float_data[float_index], float_data[float_index + 1], float_data[float_index + 2]);
-                                float_index += 3;
+                                normals[i] = new Vector3(0, 1, 0);
                             }
 
                             mesh.normals = normals;
+
+                            //Vector3[] normals = new Vector3[1];       // Obviously this doesnt work. Shame!
+
+                            //normals[0] = new Vector3(0, 1, 0);
+
+                            //mesh.normals = normals;
+
                         }
+
+                        uint texture_units = geom.GetTextureUnits();
+
+                        if (texture_units > 0)
+                        {
+                            if (geom.GetTexCoordData(out float_data, 0))
+                            {
+                                if (float_data.Length / 2 == vertices.Length)
+                                {
+                                    float_index = 0;
+
+                                    Vector2[] tex_coords = new Vector2[vertices.Length];
+
+                                    for (int i = 0; i < vertices.Length; i++)
+                                    {
+                                        tex_coords[i] = new Vector2(float_data[float_index], float_data[float_index + 1]);
+                                        float_index += 2;
+                                    }
+
+                                    mesh.uv = tex_coords;
+                                }
+                            }
+
+                            if ((texture_units > 1) && geom.GetTexCoordData(out float_data, 1))
+                            {
+                                if (float_data.Length / 2 == vertices.Length)
+                                {
+                                    float_index = 0;
+
+                                    Vector2[] tex_coords = new Vector2[vertices.Length];
+
+                                    for (int i = 0; i < vertices.Length; i++)
+                                    {
+                                        tex_coords[i] = new Vector2(float_data[float_index], float_data[float_index + 1]);
+                                        float_index += 2;
+                                    }
+
+                                    mesh.uv2 = tex_coords;
+                                }
+                            }
+
+                            if ((texture_units > 2) && geom.GetTexCoordData(out float_data, 2))
+                            {
+                                if (float_data.Length / 2 == vertices.Length)
+                                {
+                                    float_index = 0;
+
+                                    Vector2[] tex_coords = new Vector2[vertices.Length];
+
+                                    for (int i = 0; i < vertices.Length; i++)
+                                    {
+                                        tex_coords[i] = new Vector2(float_data[float_index], float_data[float_index + 1]);
+                                        float_index += 2;
+                                    }
+
+                                    mesh.uv3 = tex_coords;
+                                }
+                            }
+
+                            if ((texture_units > 3) && geom.GetTexCoordData(out float_data, 3))
+                            {
+                                if (float_data.Length / 2 == vertices.Length)
+                                {
+                                    float_index = 0;
+
+                                    Vector2[] tex_coords = new Vector2[vertices.Length];
+
+                                    for (int i = 0; i < vertices.Length; i++)
+                                    {
+                                        tex_coords[i] = new Vector2(float_data[float_index], float_data[float_index + 1]);
+                                        float_index += 2;
+                                    }
+
+                                    mesh.uv4 = tex_coords;
+                                }
+                            }
+                        }
+
+                        filter.sharedMesh = mesh;
+                        renderer.sharedMaterial = currentMaterial;
                     }
-                    else
-                    {
-                        //mesh.RecalculateNormals();
-
-                        Vector3[] normals = new Vector3[vertices.Length];
-
-                        for (int i = 0; i < vertices.Length; i++)
-                        {
-                            normals[i] = new Vector3(0, 1, 0);
-                        }
-
-                        mesh.normals = normals;
-
-                        //Vector3[] normals = new Vector3[1];       // Obviously this doesnt work. Shame!
-
-                        //normals[0] = new Vector3(0, 1, 0);
-
-                        //mesh.normals = normals;
-
-                    }
-
-                    uint texture_units = geom.GetTextureUnits();
-
-                    if (texture_units > 0)
-                    {
-                        if (geom.GetTexCoordData(out float_data, 0))
-                        {
-                            if (float_data.Length / 2 == vertices.Length)
-                            {
-                                float_index = 0;
-
-                                Vector2[] tex_coords = new Vector2[vertices.Length];
-
-                                for (int i = 0; i < vertices.Length; i++)
-                                {
-                                    tex_coords[i] = new Vector2(float_data[float_index], float_data[float_index + 1]);
-                                    float_index += 2;
-                                }
-
-                                mesh.uv = tex_coords;
-                            }
-                        }
-
-                        if ((texture_units > 1) && geom.GetTexCoordData(out float_data, 1))
-                        {
-                            if (float_data.Length / 2 == vertices.Length)
-                            {
-                                float_index = 0;
-
-                                Vector2[] tex_coords = new Vector2[vertices.Length];
-
-                                for (int i = 0; i < vertices.Length; i++)
-                                {
-                                    tex_coords[i] = new Vector2(float_data[float_index], float_data[float_index + 1]);
-                                    float_index += 2;
-                                }
-
-                                mesh.uv2 = tex_coords;
-                            }
-                        }
-
-                        if ((texture_units > 2) && geom.GetTexCoordData(out float_data, 2))
-                        {
-                            if (float_data.Length / 2 == vertices.Length)
-                            {
-                                float_index = 0;
-
-                                Vector2[] tex_coords = new Vector2[vertices.Length];
-
-                                for (int i = 0; i < vertices.Length; i++)
-                                {
-                                    tex_coords[i] = new Vector2(float_data[float_index], float_data[float_index + 1]);
-                                    float_index += 2;
-                                }
-
-                                mesh.uv3 = tex_coords;
-                            }
-                        }
-
-                        if ((texture_units > 3) && geom.GetTexCoordData(out float_data, 3))
-                        {
-                            if (float_data.Length / 2 == vertices.Length)
-                            {
-                                float_index = 0;
-
-                                Vector2[] tex_coords = new Vector2[vertices.Length];
-
-                                for (int i = 0; i < vertices.Length; i++)
-                                {
-                                    tex_coords[i] = new Vector2(float_data[float_index], float_data[float_index + 1]);
-                                    float_index += 2;
-                                }
-
-                                mesh.uv4 = tex_coords;
-                            }
-                        }
-                    }
-                    
-                    filter.sharedMesh = mesh;
-                    renderer.sharedMaterial = currentMaterial;
+                    return true;
                 }
                 return true;
             }
-            return true;
+            finally
+            {
+                Performance.Leave();
+            }
         }
 
         public void UpdateNodeInternals()

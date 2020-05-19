@@ -19,10 +19,10 @@
 // Module		:
 // Description	: Management of dynamic asset loader from GizmoSDK
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.10.1
+// Product		: GizmoBase 2.10.5
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
-//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and IRIX® for  
+//			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
 //			usage in Game or VisSim development.
 //
 //
@@ -82,6 +82,7 @@ namespace Saab.Foundation.Unity.MapStreamer
     {
         UnityEngine.Camera Camera { get; }
         Vec3D Position { get; set; }
+        Vector3 Up { get; }
 
         void PreTraverse();                         // Executed before scene is traversed and updated with new transform
 
@@ -242,163 +243,174 @@ namespace Saab.Foundation.Unity.MapStreamer
             nodeHandle.currentMaterial = currentMaterial;
             nodeHandle.ComputeShader = Settings.ComputeShader;
 
+
             // ---------------------------- Check material state ----------------------------------
 
             if (n.HasState())
             {
-                State state = n.State;
-
-                if (state.HasTexture(0) && state.GetMode(StateMode.TEXTURE) == StateModeActivation.ON)
+                try
                 {
-                    gzTexture texture = state.GetTexture(0);
+                    Performance.Enter("SM.Traverse.State");
 
-                    if (!textureMaterialStorage.TryGetValue(texture.GetNativeReference(), out currentMaterial))
+                    State state = n.State;
+
+                    if (state.HasTexture(0) && state.GetMode(StateMode.TEXTURE) == StateModeActivation.ON)
                     {
-                        if (texture.HasImage())
+                        gzTexture texture = state.GetTexture(0);
+
+                        if (!textureMaterialStorage.TryGetValue(texture.GetNativeReference(), out currentMaterial))
                         {
-
-                            ImageFormat     image_format;
-                            ComponentType   comp_type;
-                            uint            components;
-
-                            uint depth; 
-                            uint width; 
-                            uint height;
-
-                            uint size;
-
-                            bool uncompress = false;
-
-                            Image image = texture.GetImage();
-
-                            image_format = image.GetFormat();
-
-                            image.Dispose();
-
-                            switch (image_format)      // Not yet
+                            if (texture.HasImage())
                             {
-                                case ImageFormat.COMPRESSED_RGBA8_ETC2:
-                                    if(!SystemInfo.SupportsTextureFormat(TextureFormat.ETC2_RGBA8))
-                                        uncompress = true;
-                                    break;
 
-                                case ImageFormat.COMPRESSED_RGB8_ETC2:
-                                    if (!SystemInfo.SupportsTextureFormat(TextureFormat.ETC2_RGB))
-                                        uncompress = true;
-                                    break;
+                                ImageFormat image_format;
+                                ComponentType comp_type;
+                                uint components;
 
-                                case ImageFormat.COMPRESSED_RGBA_S3TC_DXT1:
-                                case ImageFormat.COMPRESSED_RGB_S3TC_DXT1:
-                                    if (!SystemInfo.SupportsTextureFormat(TextureFormat.DXT1))
-                                        uncompress = true;
-                                    break;
+                                uint depth;
+                                uint width;
+                                uint height;
 
-                                case ImageFormat.COMPRESSED_RGBA_S3TC_DXT5:
-                                    if (!SystemInfo.SupportsTextureFormat(TextureFormat.DXT5))
-                                        uncompress = true;
-                                    break;
-                            }
+                                uint size;
 
+                                bool uncompress = false;
 
-                            if (texture.GetMipMapImageArray(ref _image_texture_data, out size,out image_format,out comp_type,out components, out width, out height, out depth, true, uncompress))
-                            {
-                                if (depth == 1)
+                                Image image = texture.GetImage();
+
+                                image_format = image.GetFormat();
+
+                                image.Dispose();
+
+                                switch (image_format)      // Not yet
                                 {
-                                    if (n is Crossboard)
-                                        currentMaterial = new Material(Settings.CrossboardShader);
-                                    else
-                                        currentMaterial = new Material(Settings.DefaultShader);
+                                    case ImageFormat.COMPRESSED_RGBA8_ETC2:
+                                        if (!SystemInfo.SupportsTextureFormat(TextureFormat.ETC2_RGBA8))
+                                            uncompress = true;
+                                        break;
 
-                                    TextureFormat format = TextureFormat.ARGB32;
+                                    case ImageFormat.COMPRESSED_RGB8_ETC2:
+                                        if (!SystemInfo.SupportsTextureFormat(TextureFormat.ETC2_RGB))
+                                            uncompress = true;
+                                        break;
 
-                                    switch(comp_type)
+                                    case ImageFormat.COMPRESSED_RGBA_S3TC_DXT1:
+                                    case ImageFormat.COMPRESSED_RGB_S3TC_DXT1:
+                                        if (!SystemInfo.SupportsTextureFormat(TextureFormat.DXT1))
+                                            uncompress = true;
+                                        break;
+
+                                    case ImageFormat.COMPRESSED_RGBA_S3TC_DXT5:
+                                        if (!SystemInfo.SupportsTextureFormat(TextureFormat.DXT5))
+                                            uncompress = true;
+                                        break;
+                                }
+
+
+                                if (texture.GetMipMapImageArray(ref _image_texture_data, out size, out image_format, out comp_type, out components, out width, out height, out depth, true, uncompress))
+                                {
+                                    if (depth == 1)
                                     {
-                                        case ComponentType.UNSIGNED_BYTE:
-                                            {
-                                                switch (image_format)
+                                        if (n is Crossboard)
+                                            currentMaterial = new Material(Settings.CrossboardShader);
+                                        else
+                                            currentMaterial = new Material(Settings.DefaultShader);
+
+                                        TextureFormat format = TextureFormat.ARGB32;
+
+                                        switch (comp_type)
+                                        {
+                                            case ComponentType.UNSIGNED_BYTE:
                                                 {
-                                                    case ImageFormat.RGBA:
-                                                        format = TextureFormat.RGBA32;
-                                                        break;
+                                                    switch (image_format)
+                                                    {
+                                                        case ImageFormat.RGBA:
+                                                            format = TextureFormat.RGBA32;
+                                                            break;
 
-                                                    case ImageFormat.RGB:
-                                                        format = TextureFormat.RGB24;
-                                                        break;
+                                                        case ImageFormat.RGB:
+                                                            format = TextureFormat.RGB24;
+                                                            break;
 
-                                                    case ImageFormat.COMPRESSED_RGBA_S3TC_DXT1:
-                                                    case ImageFormat.COMPRESSED_RGB_S3TC_DXT1:
-                                                        format = TextureFormat.DXT1;
-                                                        break;
+                                                        case ImageFormat.COMPRESSED_RGBA_S3TC_DXT1:
+                                                        case ImageFormat.COMPRESSED_RGB_S3TC_DXT1:
+                                                            format = TextureFormat.DXT1;
+                                                            break;
 
-                                                    case ImageFormat.COMPRESSED_RGBA_S3TC_DXT5:
-                                                        format = TextureFormat.DXT5;
-                                                        break;
+                                                        case ImageFormat.COMPRESSED_RGBA_S3TC_DXT5:
+                                                            format = TextureFormat.DXT5;
+                                                            break;
 
-                                                    case ImageFormat.COMPRESSED_RGB8_ETC2:
-                                                        format = TextureFormat.ETC2_RGB;
-                                                        break;
+                                                        case ImageFormat.COMPRESSED_RGB8_ETC2:
+                                                            format = TextureFormat.ETC2_RGB;
+                                                            break;
 
-                                                    case ImageFormat.COMPRESSED_RGBA8_ETC2:
-                                                        format = TextureFormat.ETC2_RGBA8;
-                                                        break;
+                                                        case ImageFormat.COMPRESSED_RGBA8_ETC2:
+                                                            format = TextureFormat.ETC2_RGBA8;
+                                                            break;
 
 
-                                                    default:
-                                                        // Issue your own error here because we can not use this texture yet
-                                                        return null;
+                                                        default:
+                                                            // Issue your own error here because we can not use this texture yet
+                                                            return null;
+                                                    }
                                                 }
-                                            }
-                                            break;
+                                                break;
 
-                                        default:
-                                            // Issue your own error here because we can not use this texture yet
-                                            return null;
+                                            default:
+                                                // Issue your own error here because we can not use this texture yet
+                                                return null;
+
+                                        }
+
+
+                                        Texture2D tex = new Texture2D((int)width, (int)height, format, true);
+
+                                        tex.LoadRawTextureData(_image_texture_data);
+
+
+                                        switch (texture.MinFilter)
+                                        {
+                                            default:
+                                                tex.filterMode = FilterMode.Point;
+                                                break;
+
+                                            case gzTexture.TextureMinFilter.LINEAR:
+                                            case gzTexture.TextureMinFilter.LINEAR_MIPMAP_NEAREST:
+                                                tex.filterMode = FilterMode.Bilinear;
+                                                break;
+
+                                            case gzTexture.TextureMinFilter.LINEAR_MIPMAP_LINEAR:
+                                                tex.filterMode = FilterMode.Trilinear;
+                                                break;
+                                        }
+
+                                        tex.Apply(texture.UseMipMaps, true);
+
+                                        currentMaterial.mainTexture = tex;
 
                                     }
-
-
-                                    Texture2D tex = new Texture2D((int)width, (int)height, format, true);
-
-                                    tex.LoadRawTextureData(_image_texture_data);
-
-
-                                    switch (texture.MinFilter)
-                                    {
-                                        default:
-                                            tex.filterMode = FilterMode.Point;
-                                            break;
-
-                                        case gzTexture.TextureMinFilter.LINEAR:
-                                        case gzTexture.TextureMinFilter.LINEAR_MIPMAP_NEAREST:
-                                            tex.filterMode = FilterMode.Bilinear;
-                                            break;
-
-                                        case gzTexture.TextureMinFilter.LINEAR_MIPMAP_LINEAR:
-                                            tex.filterMode = FilterMode.Trilinear;
-                                            break;
-                                    }
-
-                                    tex.Apply(texture.UseMipMaps, true);
-
-                                    currentMaterial.mainTexture = tex;
-
                                 }
                             }
+
+                            // Add some kind of check for textures shared by many
+                            // Right now only for crossboards
+
+                            if (n is Crossboard)
+                                textureMaterialStorage.Add(texture.GetNativeReference(), currentMaterial);
+
                         }
 
-                        // Add some kind of check for textures shared by many
-                        // Right now only for crossboards
-
-                        if (n is Crossboard)
-                            textureMaterialStorage.Add(texture.GetNativeReference(), currentMaterial);
-
+                        nodeHandle.currentMaterial = currentMaterial;
+                        texture.Dispose();
                     }
 
-                    nodeHandle.currentMaterial = currentMaterial;
-                    texture.Dispose();
+                    state.Dispose();
+
                 }
-                
-                state.Dispose();
+                finally
+                {
+                    Performance.Leave();
+                }
             }
 
             // ---------------------------- Transform check -------------------------------------
@@ -407,16 +419,25 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             if (tr != null)
             {
-                Vec3 translation;
-
-                if (tr.GetTranslation(out translation))
+                try
                 {
-                    Vector3 trans = new Vector3(translation.x, translation.y, translation.z);
-                    gameObject.transform.localPosition = trans;
-                }
+                    Performance.Enter("SM.Traverse.Transform");
 
-                // Notify subscribers of new Transform
-                OnNewTransform?.Invoke(gameObject);
+                    Vec3 translation;
+
+                    if (tr.GetTranslation(out translation))
+                    {
+                        Vector3 trans = new Vector3(translation.x, translation.y, translation.z);
+                        gameObject.transform.localPosition = trans;
+                    }
+
+                    // Notify subscribers of new Transform
+                    OnNewTransform?.Invoke(gameObject);
+                }
+                finally
+                {
+                    Performance.Leave();
+                }
             }
 
             // ---------------------------- DynamicLoader check -------------------------------------
@@ -425,23 +446,32 @@ namespace Saab.Foundation.Unity.MapStreamer
                                                         // so other dynamic loaded data can parent them as child to loader
             if (dl != null)
             {
-                List<GameObject> list;
-
-                if (!NodeUtils.FindGameObjects(dl.GetNativeReference(), out list))     // We are not registered
+                try
                 {
-                    NodeUtils.AddGameObjectReference(dl.GetNativeReference(), gameObject);
+                    Performance.Enter("SM.Traverse.Loader");
 
-                    nodeHandle.inNodeUtilsRegistry = true;  // Added to registry
+                    List<GameObject> list;
 
-                    // We shall continue to iterate as a group to see if we already have loaded children
+                    if (!NodeUtils.FindGameObjects(dl.GetNativeReference(), out list))     // We are not registered
+                    {
+                        NodeUtils.AddGameObjectReference(dl.GetNativeReference(), gameObject);
+
+                        nodeHandle.inNodeUtilsRegistry = true;  // Added to registry
+
+                        // We shall continue to iterate as a group to see if we already have loaded children
+                    }
+                    else  // We are already in list
+                    {
+                        return list[0];     // Lets return first object wich is our main registered node
+                    }
+
+                    // Notify subscribers of new Loader
+                    OnNewLoader?.Invoke(gameObject);
                 }
-                else  // We are already in list
+                finally
                 {
-                    return list[0];     // Lets return first object wich is our main registered node
+                    Performance.Leave();
                 }
-
-                // Notify subscribers of new Loader
-                OnNewLoader?.Invoke(gameObject);
             }
 
             // ---------------------------- Lod check -------------------------------------
@@ -461,7 +491,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                     if (h != null)
                     {
-                        if(!NodeUtils.HasGameObjects(h.node.GetNativeReference()))
+                        if (!NodeUtils.HasGameObjects(h.node.GetNativeReference()))
                         {
                             NodeUtils.AddGameObjectReference(h.node.GetNativeReference(), go_child);
 
@@ -488,6 +518,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             if (roi != null)
             {
+
                 nodeHandle.updateTransform = true;
                 nodeHandle.inNodeUpdateList = true;
                 updateNodeObjects.AddLast(gameObject);
@@ -519,6 +550,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                 // Dont process group
                 return gameObject;
+
             }
 
             // ---------------------------- RoiNode check -------------------------------------
@@ -579,17 +611,27 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             if (geom != null)
             {
-                nodeHandle.BuildGameObject();
+                try
+                {
+                    Performance.Enter("SM.Traverse.Geometry");
 
-                // Notify subscribers of new Geometry
-                OnNewGeometry?.Invoke(gameObject);
+                    nodeHandle.BuildGameObject();
 
-                // Later on we will identify types of geoemtry that will be scheduled later if they are extensive and not ground that covers other geometry
-                // and build them in a later pass distributed over time
-                // pendingBuilds.Enqueue(nodeHandle);
+                    // Notify subscribers of new Geometry
+                    OnNewGeometry?.Invoke(gameObject);
+
+                    // Later on we will identify types of geoemtry that will be scheduled later if they are extensive and not ground that covers other geometry
+                    // and build them in a later pass distributed over time
+                    // pendingBuilds.Enqueue(nodeHandle);
+                }
+                finally
+                {
+                    Performance.Leave();
+                }
             }
 
             return gameObject;
+
         }
 
         private IEnumerator AssetLoader()
@@ -942,7 +984,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             #region Dynamic Loading/Add/Remove native handles ---------------------------------------------------------------
 
-            Performance.Enter("PendNative");
+            Performance.Enter("SM.ProcessPendingUpdates.BuildGO");
 
             foreach (NodeLoadInfo nodeLoadInfo in pendingLoaders)
             {
@@ -988,7 +1030,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             #region Activate/Deactivate GameObjects based on scenegraph -----------------------------------------------------
 
-            Performance.Enter("PendActGO");
+            Performance.Enter("SM.ProcessPendingUpdates.ActivateGO");
 
             foreach (ActivationInfo activationInfo in pendingActivations)
             {
@@ -1014,7 +1056,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             #region Update slow loading assets ------------------------------------------------------------------------------
 
-            Performance.Enter("PendSlow");
+            Performance.Enter("SM.ProcessPendingUpdates.DequeBuildGO");
 
             while (pendingBuilds.Count > 0 && timer.Elapsed.TotalSeconds < Settings.MaxBuildTime)
             {
@@ -1031,7 +1073,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             _unusedCounter = (_unusedCounter + 1) % Settings.FrameCleanupInterval;
             if (_unusedCounter == 0)
             {
-                Performance.Enter("PendCleanup");
+                Performance.Enter("SM.ProcessPendingUpdates.Cleanup");
                 Resources.UnloadUnusedAssets();
                 Performance.Leave();
             }
@@ -1041,7 +1083,7 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             // Only called if SceneManagerCamera is not null
 
-            Performance.Enter("UpdNodeInt");
+            Performance.Enter("SM.UpdateNodeInternals");
 
             foreach (GameObject go in updateNodeObjects)
             {
@@ -1056,99 +1098,107 @@ namespace Saab.Foundation.Unity.MapStreamer
         // Update is called once per frame
         private void Update()
         {
-            if (!NodeLock.TryLockEdit(30))      // 30 msek allow latency of other pending editor
+            try
             {
-                // We failed to refresh scene in reasonable time but we still need to issue updates;
+                Performance.Enter("SM.Update");
 
-                if (SceneManagerCamera == null)
+                if (!NodeLock.TryLockEdit(30))      // 30 msek allow latency of other pending editor
+                {
+                    // We failed to refresh scene in reasonable time but we still need to issue updates;
+                    
+                    Performance.Enter("SM.Update.PreTraverse");
+                    if(SceneManagerCamera!=null)
+                        SceneManagerCamera.PreTraverse();
+                    OnPreTraverse?.Invoke();
+                    Performance.Leave();
+
                     return;
+                }
 
-                Performance.Enter("PreTraverse");
-                SceneManagerCamera.PreTraverse();
+                try // We are now locked in edit
+                {
+                    ProcessPendingUpdates();
+                }
+                finally
+                {
+                    NodeLock.UnLock();
+                }
+
+                // Notify about we are starting to traverse -----------------------
+
+                Performance.Enter("SM.Update.PreTraverse");
+                if (SceneManagerCamera != null)
+                    SceneManagerCamera.PreTraverse();
                 OnPreTraverse?.Invoke();
                 Performance.Leave();
 
-                Performance.Enter("PostTraverse");
-                SceneManagerCamera.PostTraverse();
-                OnPostTraverse?.Invoke();
-                Performance.Leave();
+                // Check if camera present ---------------------------------------
 
-                return;
-            }
-            
-            try // We are now locked in edit
-            {
-                ProcessPendingUpdates();
-            }
-            finally
-            {
-                NodeLock.UnLock();
-            }
+                if (SceneManagerCamera == null)
+                    return;
+                              
 
-            if (SceneManagerCamera == null)
-                return;
+                // ---------------------------------------------------------------
 
-            // Notify about we are starting to traverse -----------------------
+                var UnityCamera = SceneManagerCamera.Camera;
 
-            Performance.Enter("PreTraverse");
-            SceneManagerCamera.PreTraverse();
-            OnPreTraverse?.Invoke();
-            Performance.Leave();
+                if (UnityCamera == null)
+                    return;
 
-            // -------------------------------------------------------------
+                if (!NodeLock.TryLockRender(30))    // 30 millisek latency allowed
+                    return;
 
-            var UnityCamera = SceneManagerCamera.Camera;
-
-            if (UnityCamera == null)
-                return;
-
-            if (!NodeLock.TryLockRender(30))    // 30 millisek latency allowed
-                return;
-
-            try // We are now locked in read
-            {
-                // Transfer camera parameters
-
-                PerspCamera perspCamera = _native_camera as PerspCamera;
-
-                if (perspCamera != null)
+                try // We are now locked in read
                 {
-                    perspCamera.VerticalFOV = UnityCamera.fieldOfView;
-                    perspCamera.HorizontalFOV = 2 * Mathf.Atan(Mathf.Tan(UnityCamera.fieldOfView * Mathf.Deg2Rad / 2) * UnityCamera.aspect) * Mathf.Rad2Deg; ;
-                    perspCamera.NearClipPlane = UnityCamera.nearClipPlane;
-                    perspCamera.FarClipPlane = UnityCamera.farClipPlane;
-                }
+                    // Transfer camera parameters
 
-                Matrix4x4 unity_camera_transform = UnityCamera.transform.worldToLocalMatrix;
+                    PerspCamera perspCamera = _native_camera as PerspCamera;
 
-                Matrix4x4 gz_transform = _zflipMatrix * unity_camera_transform * _zflipMatrix;
+                    if (perspCamera != null)
+                    {
+                        perspCamera.VerticalFOV = UnityCamera.fieldOfView;
+                        perspCamera.HorizontalFOV = 2 * Mathf.Atan(Mathf.Tan(UnityCamera.fieldOfView * Mathf.Deg2Rad / 2) * UnityCamera.aspect) * Mathf.Rad2Deg; ;
+                        perspCamera.NearClipPlane = UnityCamera.nearClipPlane;
+                        perspCamera.FarClipPlane = UnityCamera.farClipPlane;
+                    }
 
-                _native_camera.Transform = gz_transform.ToMatrix4();
+                    Matrix4x4 unity_camera_transform = UnityCamera.transform.worldToLocalMatrix;
 
-                var p = SceneManagerCamera.Position;
-                _native_camera.Position = new Vec3D(p.x, p.y, -p.z);
+                    Matrix4x4 gz_transform = _zflipMatrix * unity_camera_transform * _zflipMatrix;
 
-                _native_camera.Render(_native_context, 1000, 1000, 1000, _native_traverse_action);
+                    _native_camera.Transform = gz_transform.ToMatrix4();
+
+                    var p = SceneManagerCamera.Position;
+                    _native_camera.Position = new Vec3D(p.x, p.y, -p.z);
+
+                    _native_camera.Render(_native_context, 1000, 1000, 1000, _native_traverse_action);
 
 #if DEBUG_CAMERA
                 _native_camera.DebugRefresh();
 #endif
+                }
+                finally
+                {
+                    NodeLock.UnLock();
+                }
+
+                UpdateNodeInternals();
+
+                // -------------------------------------------------------------
             }
             finally
             {
-                NodeLock.UnLock();
+                // Notify about we are ready in traverse -----------------------
+
+                Performance.Enter("SM.Update.PostTraverse");
+                if(SceneManagerCamera!=null)
+                    SceneManagerCamera.PostTraverse();
+                OnPostTraverse?.Invoke();
+                Performance.Leave();
+
+                // Leave Scm update -------------------------------------------
+                Performance.Leave();
             }
-
-            UpdateNodeInternals();
-
-            // Notify about we are ready in traverse -----------------------
-
-            Performance.Enter("PostTraverse");
-            SceneManagerCamera.PostTraverse();
-            OnPostTraverse?.Invoke();
-            Performance.Leave();
-
-            // -------------------------------------------------------------
         }
         
     }

@@ -446,7 +446,7 @@ void TreeCull(uint3 id : SV_DispatchThreadID)
 		{
 			Output.Append(float4(pos.xyz, data.w));
 		}
-		//if (length(pos) < 200)
+		if (length(pos) < 200)
 		{
 			closeBuffer.Append(float4(pos.xyz, data.w));
 		}

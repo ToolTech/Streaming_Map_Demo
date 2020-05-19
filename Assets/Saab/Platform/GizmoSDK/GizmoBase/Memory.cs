@@ -74,9 +74,9 @@ namespace GizmoSDK
                 return MemoryControl_getState(pid);
             }
 
-            public static UInt64 GetAllocMem(UInt32 state = 0, UInt32 pid = 0,bool user_memory=true,bool internal_memory=false)
+            public static UInt64 GetAllocMem(UInt32 state = 0, UInt32 pid = 0,bool user_memory=true,bool internal_memory=false,bool deltaAlloc=false)
             {
-                return MemoryControl_getAllocMem(state, pid,user_memory,internal_memory);
+                return MemoryControl_getAllocMem(state, pid,user_memory,internal_memory,deltaAlloc);
             }
 
             public static void CleanAllocMem()
@@ -97,15 +97,15 @@ namespace GizmoSDK
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void MemoryControl_debugMem(bool on);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void MemoryControl_resetDebugMem(UInt32 state = 0, UInt32 pid = 0, bool resetInternalGizmoMem = false);
+            private static extern void MemoryControl_resetDebugMem(UInt32 state, UInt32 pid, bool resetInternalGizmoMem);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void MemoryControl_dumpAllocMem(bool deltaAlloc,UInt32 state = 0, UInt32 pid = 0, bool dumpInternalGizmoMem = false);
+            private static extern void MemoryControl_dumpAllocMem(bool deltaAlloc,UInt32 state, UInt32 pid, bool dumpInternalGizmoMem);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern UInt32 MemoryControl_updateState(UInt32 state = 0, UInt32 pid = 0);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern UInt32 MemoryControl_getState(UInt32 pid = 0);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern UInt64 MemoryControl_getAllocMem(UInt32 state = 0, UInt32 pid = 0,bool user_memory=true,bool internal_memory=false);
+            private static extern UInt64 MemoryControl_getAllocMem(UInt32 state, UInt32 pid,bool user_memory,bool internal_memory,bool deltaAlloc);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void MemoryControl_cleanAllocMem();
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
