@@ -44,13 +44,13 @@ namespace Saab.Unity.Initializer
 {
     public class Initializer : MonoBehaviour
     {
-        private DebugCommandStation station=null;
+        //private DebugCommandStation station=null;
 
 #if UNITY_ANDROID
 
         private AndroidJavaObject multicastLock;
 
-#endif
+#endif //UNITY_ANDROID
 
         void SetupJavaBindings()
         {
@@ -74,7 +74,7 @@ namespace Saab.Unity.Initializer
             Message.Send("GizmoSDK", MessageLevel.DEBUG, $"assetManager {assetManager}");
 
             SerializeAdapter.SetAssetManagerHandle(System.IntPtr.Zero, assetManager.GetRawObject());
-#endif
+#endif //UNITY_ANDROID
         }
 
         void EnableMulticastState()
@@ -97,14 +97,14 @@ namespace Saab.Unity.Initializer
 
             Thread thread = new Thread(new ThreadStart(WorkThreadFunction));
             thread.Start();
-#endif
+#endif //UNITY_ANDROID
         }
 
-        private void WorkThreadFunction()
-        {
-            while (station != null && station.Exec())
-                System.Threading.Thread.Sleep(10);
-        }
+        //private void WorkThreadFunction()
+        //{
+        //    while (station != null && station.Exec())
+        //        System.Threading.Thread.Sleep(10);
+        //}
                 
 
         private void Awake()
@@ -120,7 +120,7 @@ namespace Saab.Unity.Initializer
             GizmoSDK.GizmoBase.Monitor.InstallMonitor("udp::45454?nic=${wlan0}");
 #else
             GizmoSDK.GizmoBase.Monitor.InstallMonitor();
-#endif
+#endif //UNITY_ANDROID
 
             Message.SetMessageLevel(MessageLevel.PERF_DEBUG);
 
@@ -195,35 +195,41 @@ namespace Saab.Unity.Initializer
         {
             try
             {
+                Performance.Enter("Initializer.Update");
 
                 // Example of getting performance graphical output
 
-                //if(counter==10)
-                //{
-                //    tracer = new PerformanceTracer();
+#if SHOW_TRACERS
 
-                //    tracer.AddAll();
+                if (counter == 10)
+                {
+                    tracer = new PerformanceTracer();
 
-                //    tracer.Run();
-                //}
+                    tracer.AddAll();
 
-                Performance.Enter("Initializer.Update");
+                    tracer.Run();
+                }
+
+#endif // SHOW_TRACERS
+
 
                 counter++;
 
                 // Exemple of getting allocate dmemory in native parts
 
-                //if (counter % 30 == 0)
-                //{
-                //    //System.GC.Collect();
-                //    //System.GC.WaitForPendingFinalizers();
+#if SHOW_MEMORY
+                if (counter % 30 == 0)
+                {
+                    //System.GC.Collect();
+                    //System.GC.WaitForPendingFinalizers();
 
-                //    GizmoSDK.GizmoBase.Monitor.AddValue("mem", MemoryControl.GetAllocMem());
+                    GizmoSDK.GizmoBase.Monitor.AddValue("mem", MemoryControl.GetAllocMem());
 
-                //    GizmoSDK.GizmoBase.Monitor.AddValue("internal", MemoryControl.GetAllocMem(0, 0, false, true));
+                    GizmoSDK.GizmoBase.Monitor.AddValue("internal", MemoryControl.GetAllocMem(0, 0, false, true));
 
-                //    GizmoSDK.GizmoBase.Monitor.AddValue("dyn", MemoryControl.GetAllocMem(66666));
-                //}
+                    GizmoSDK.GizmoBase.Monitor.AddValue("dyn", MemoryControl.GetAllocMem(66666));
+                }
+#endif //SHOW_MEMORY
 
             }
             finally

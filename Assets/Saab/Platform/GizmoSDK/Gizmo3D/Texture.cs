@@ -209,6 +209,21 @@ namespace GizmoSDK
                 return false;
             }
 
+            public bool GetMipMapImageArray(ref IntPtr native_image_data, out UInt32 size, out ImageFormat format, out ComponentType componentType, out UInt32 components, out UInt32 width, out UInt32 height, out UInt32 depth, bool useMipMaps, bool uncompress)
+            {
+                size = 0;
+
+                width = 0;
+                height = 0;
+                depth = 0;
+
+                format = ImageFormat.RGBA;
+                componentType = ComponentType.BYTE;
+                components = 4;
+
+                return Texture_getMipMapImageArray(GetNativeReference(), useMipMaps, uncompress, ref size, ref native_image_data, ref format, ref componentType, ref components, ref width, ref height, ref depth);
+            }
+
             #region Native dll interface ----------------------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr Texture_create();

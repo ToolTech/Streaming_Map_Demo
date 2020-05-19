@@ -305,8 +305,10 @@ namespace Saab.Foundation.Unity.MapStreamer
                                         break;
                                 }
 
+                                IntPtr native_memory = IntPtr.Zero;
 
-                                if (texture.GetMipMapImageArray(ref _image_texture_data, out size, out image_format, out comp_type, out components, out width, out height, out depth, true, uncompress))
+                                if (texture.GetMipMapImageArray(ref native_memory, out size, out image_format, out comp_type, out components, out width, out height, out depth, true, uncompress))
+                                //if (texture.GetMipMapImageArray(ref _image_texture_data, out size, out image_format, out comp_type, out components, out width, out height, out depth, true, uncompress))
                                 {
                                     if (depth == 1)
                                     {
@@ -365,7 +367,9 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                                         Texture2D tex = new Texture2D((int)width, (int)height, format, true);
 
-                                        tex.LoadRawTextureData(_image_texture_data);
+                                        //tex.LoadRawTextureData(_image_texture_data);
+
+                                        tex.LoadRawTextureData(native_memory,(int)size);
 
 
                                         switch (texture.MinFilter)
@@ -431,8 +435,10 @@ namespace Saab.Foundation.Unity.MapStreamer
                         gameObject.transform.localPosition = trans;
                     }
 
+                    Performance.Enter("SM.Traverse.OnNewTransform");
                     // Notify subscribers of new Transform
                     OnNewTransform?.Invoke(gameObject);
+                    Performance.Leave();
                 }
                 finally
                 {
@@ -465,8 +471,10 @@ namespace Saab.Foundation.Unity.MapStreamer
                         return list[0];     // Lets return first object wich is our main registered node
                     }
 
+                    Performance.Enter("SM.Traverse.OnNewLoader");
                     // Notify subscribers of new Loader
                     OnNewLoader?.Invoke(gameObject);
+                    Performance.Leave();
                 }
                 finally
                 {
@@ -505,8 +513,10 @@ namespace Saab.Foundation.Unity.MapStreamer
                     go_child.transform.SetParent(gameObject.transform, false);
                 }
 
+                Performance.Enter("SM.Traverse.OnNewLod");
                 // Notify subscribers of new Lod
                 OnNewLod?.Invoke(gameObject);
+                Performance.Leave();
 
                 // Dont process group as group is already processed
                 return gameObject;
@@ -617,8 +627,10 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                     nodeHandle.BuildGameObject();
 
+                    Performance.Enter("SM.Traverse.OnNewGeometry");
                     // Notify subscribers of new Geometry
                     OnNewGeometry?.Invoke(gameObject);
+                    Performance.Leave();
 
                     // Later on we will identify types of geoemtry that will be scheduled later if they are extensive and not ground that covers other geometry
                     // and build them in a later pass distributed over time

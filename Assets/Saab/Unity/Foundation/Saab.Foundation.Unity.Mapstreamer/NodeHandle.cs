@@ -100,6 +100,11 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         private readonly string ID = "Saab.Foundation.Unity.MapStreamer.NodeHandle";
 
+        [System.ThreadStatic] private static float[] _float_data;
+        [System.ThreadStatic] private static int[] _indices;
+        [System.ThreadStatic] private static Vector3[] _vertices;
+        [System.ThreadStatic] private static Color[] _cols;
+        [System.ThreadStatic] private static Vector2[] _tex_coords;
 
         // We need to release all existing objects in a locked mode
         void OnDestroy()
@@ -124,6 +129,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
         }
 
+        // Only called from one thread
         public bool BuildGameObject()
         {
             try
@@ -221,78 +227,96 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                 if (geom != null)
                 {
-                    float[] float_data;
-                    int[] indices;
+                    uint len=0;
 
-                    if (geom.GetVertexData(out float_data, out indices))
+                    uint tris = 0;
+
+                    uint indice_len=0;
+
+                    //TODO: Lets try to get native data directly in the future
+                    //      Try NativeArray<> ??
+                    // NativeArray<T> ConvertExistingDataToNativeArray(void* dataPointer, int length, Unity.Collections.Allocator allocator); 
+
+                    if (geom.GetVertexData(ref _float_data, ref len, ref _indices,ref indice_len))
                     {
                         MeshFilter filter = gameObject.AddComponent<MeshFilter>();
                         MeshRenderer renderer = gameObject.AddComponent<MeshRenderer>();
 
                         Mesh mesh = new Mesh();
 
-                        Vector3[] vertices = new Vector3[float_data.Length / 3];
+                        if (_vertices == null || _vertices.Length < len)
+                            _vertices = new Vector3[len];
 
                         int float_index = 0;
 
-                        for (int i = 0; i < vertices.Length; i++)
+                        for (int i = 0; i < len; i++)
                         {
-                            vertices[i] = new Vector3(float_data[float_index], float_data[float_index + 1], float_data[float_index + 2]);
-
-                            float_index += 3;
+                            _vertices[i].x = _float_data[float_index++];
+                            _vertices[i].y = _float_data[float_index++];
+                            _vertices[i].z = _float_data[float_index++];
                         }
 
-                        mesh.vertices = vertices;
-                        mesh.triangles = indices;
+                        mesh.SetVertices(_vertices, 0, (int)len);
 
+                        mesh.SetTriangles(_indices, 0, (int)indice_len,0);
 
-                        if (geom.GetColorData(out float_data))
+                        tris = len;
+
+                        if (geom.GetColorData(ref _float_data,ref len))
                         {
-                            if (float_data.Length / 4 == vertices.Length)
+                            if (len == tris)
                             {
                                 float_index = 0;
 
-                                Color[] cols = new Color[vertices.Length];
+                                if (_cols == null || _cols.Length < len)
+                                    _cols = new Color[len];
 
-                                for (int i = 0; i < vertices.Length; i++)
+                                for (int i = 0; i < len; i++)
                                 {
-                                    cols[i] = new Color(float_data[float_index], float_data[float_index + 1], float_data[float_index + 2], float_data[float_index + 3]);
-                                    float_index += 4;
+                                    _cols[i].r = _float_data[float_index++];
+                                    _cols[i].g = _float_data[float_index++];
+                                    _cols[i].b = _float_data[float_index++];
+                                    _cols[i].a = _float_data[float_index++];
                                 }
 
-                                mesh.colors = cols;
+                                mesh.SetColors(_cols, 0, (int)len);
                             }
                         }
 
-                        if (geom.GetNormalData(out float_data))
+                        if (geom.GetNormalData(ref _float_data,ref len))
                         {
-                            if (float_data.Length / 3 == vertices.Length)
+                            if (len == tris)
                             {
                                 float_index = 0;
 
-                                Vector3[] normals = new Vector3[vertices.Length];
+                                if (_vertices == null || _vertices.Length < len)
+                                    _vertices = new Vector3[len];
 
-                                for (int i = 0; i < vertices.Length; i++)
+                                for (int i = 0; i < len; i++)
                                 {
-                                    normals[i] = new Vector3(float_data[float_index], float_data[float_index + 1], float_data[float_index + 2]);
-                                    float_index += 3;
+                                    _vertices[i].x = _float_data[float_index++];
+                                    _vertices[i].y = _float_data[float_index++];
+                                    _vertices[i].z = _float_data[float_index++];
                                 }
 
-                                mesh.normals = normals;
+                                mesh.SetNormals(_vertices, 0, (int)len);
                             }
                         }
                         else
                         {
                             //mesh.RecalculateNormals();
 
-                            Vector3[] normals = new Vector3[vertices.Length];
+                            if (_vertices == null || _vertices.Length < tris)
+                                _vertices = new Vector3[tris];
 
-                            for (int i = 0; i < vertices.Length; i++)
+                            for (int i = 0; i < tris; i++)
                             {
-                                normals[i] = new Vector3(0, 1, 0);
+                                _vertices[i].x = 0;
+                                _vertices[i].y = 1;
+                                _vertices[i].z = 0;
                             }
 
-                            mesh.normals = normals;
+                            mesh.SetNormals(_vertices, 0, (int)tris);
 
                             //Vector3[] normals = new Vector3[1];       // Obviously this doesnt work. Shame!
 
@@ -306,75 +330,84 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                         if (texture_units > 0)
                         {
-                            if (geom.GetTexCoordData(out float_data, 0))
+                            if (geom.GetTexCoordData(ref _float_data, ref len, 0))
                             {
-                                if (float_data.Length / 2 == vertices.Length)
+                                if (len == tris)
                                 {
                                     float_index = 0;
 
-                                    Vector2[] tex_coords = new Vector2[vertices.Length];
+                                    if (_tex_coords == null || _tex_coords.Length < len)
+                                        _tex_coords = new Vector2[len];
 
-                                    for (int i = 0; i < vertices.Length; i++)
+                                    for (int i = 0; i < len; i++)
                                     {
-                                        tex_coords[i] = new Vector2(float_data[float_index], float_data[float_index + 1]);
-                                        float_index += 2;
+                                        _tex_coords[i].x = _float_data[float_index++];
+                                        _tex_coords[i].y = _float_data[float_index++];
                                     }
 
-                                    mesh.uv = tex_coords;
+                                    mesh.SetUVs(0, _tex_coords, 0, (int)len);
                                 }
                             }
 
-                            if ((texture_units > 1) && geom.GetTexCoordData(out float_data, 1))
+                            if ((texture_units > 1) && geom.GetTexCoordData(ref _float_data, ref len,1))
                             {
-                                if (float_data.Length / 2 == vertices.Length)
+                                if (len == tris)
                                 {
                                     float_index = 0;
 
-                                    Vector2[] tex_coords = new Vector2[vertices.Length];
+                                    if (_tex_coords == null || _tex_coords.Length < len)
+                                        _tex_coords = new Vector2[len];
 
-                                    for (int i = 0; i < vertices.Length; i++)
+
+                                    for (int i = 0; i < len; i++)
                                     {
-                                        tex_coords[i] = new Vector2(float_data[float_index], float_data[float_index + 1]);
-                                        float_index += 2;
+                                        _tex_coords[i].x = _float_data[float_index++];
+                                        _tex_coords[i].y = _float_data[float_index++];
                                     }
 
-                                    mesh.uv2 = tex_coords;
+                                    mesh.SetUVs(1, _tex_coords, 0, (int)len);
                                 }
                             }
 
-                            if ((texture_units > 2) && geom.GetTexCoordData(out float_data, 2))
+                            if ((texture_units > 2) && geom.GetTexCoordData(ref _float_data, ref len,2))
                             {
-                                if (float_data.Length / 2 == vertices.Length)
+                                if (len == tris)
                                 {
                                     float_index = 0;
 
-                                    Vector2[] tex_coords = new Vector2[vertices.Length];
+                                    if (_tex_coords == null || _tex_coords.Length < len)
+                                        _tex_coords = new Vector2[len];
 
-                                    for (int i = 0; i < vertices.Length; i++)
+
+                                    for (int i = 0; i < len; i++)
                                     {
-                                        tex_coords[i] = new Vector2(float_data[float_index], float_data[float_index + 1]);
-                                        float_index += 2;
+                                        _tex_coords[i].x = _float_data[float_index++];
+                                        _tex_coords[i].y = _float_data[float_index++];
                                     }
 
-                                    mesh.uv3 = tex_coords;
+                                    mesh.SetUVs(2, _tex_coords, 0, (int)len);
+
                                 }
                             }
 
-                            if ((texture_units > 3) && geom.GetTexCoordData(out float_data, 3))
+                            if ((texture_units > 3) && geom.GetTexCoordData(ref _float_data, ref len ,3))
                             {
-                                if (float_data.Length / 2 == vertices.Length)
+                                if (len == tris)
                                 {
                                     float_index = 0;
 
-                                    Vector2[] tex_coords = new Vector2[vertices.Length];
+                                    if (_tex_coords == null || _tex_coords.Length < len)
+                                        _tex_coords = new Vector2[len];
 
-                                    for (int i = 0; i < vertices.Length; i++)
+
+                                    for (int i = 0; i < len; i++)
                                     {
-                                        tex_coords[i] = new Vector2(float_data[float_index], float_data[float_index + 1]);
-                                        float_index += 2;
+                                        _tex_coords[i].x = _float_data[float_index++];
+                                        _tex_coords[i].y = _float_data[float_index++];
                                     }
 
-                                    mesh.uv4 = tex_coords;
+                                    mesh.SetUVs(3, _tex_coords, 0, (int)len);
+
                                 }
                             }
                         }

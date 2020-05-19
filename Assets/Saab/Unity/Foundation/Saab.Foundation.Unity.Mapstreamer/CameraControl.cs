@@ -40,7 +40,7 @@
 //
 // *****************************************************************************
 
-//#define TEST_ROTATION   // Just test some default rotation
+#define TEST_ROTATION   // Just test some default rotation
 
 using GizmoSDK.GizmoBase;
 using Saab.Utility.Unity.NodeUtils;
