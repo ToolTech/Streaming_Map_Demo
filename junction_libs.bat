@@ -4,6 +4,9 @@ rem ---- Set up all paths in the project as relative paths - Saab Dev Only ---
 rmdir /S /Q Assets\Saab
 mkdir Assets\Saab
 
+rmdir /S /Q Tools
+mkdir Tools
+
 rem ------------- GizmoSDK dependencies --------------------------------------
 
 if not defined GIZMOSDK (
@@ -48,6 +51,14 @@ rem ---------------- Shaders -------------------------------------------------
 
 rmdir /S / Q Assets\Shaders
 mklink /J Assets\Shaders 							..\BTA_Dev\BTA\resources\shaders
+
+
+rem ---------------- Tools --------------------------------------------------
+
+mklink /J Tools\SceneBuilder 							..\BTA_Dev\BTA\ws\vs16\foundation\Saab.Foundation.Map.Native\SceneBuilder\x64\Release
+mklink /J Tools\SceneBuilderClient						..\BTA_Dev\GizmoSDK\utilities\SceneBuilderClient\x64\Release
+
+
 
 exit
 

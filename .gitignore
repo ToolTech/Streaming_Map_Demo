@@ -26,6 +26,8 @@ ExportedObj/
 *.svd 
 *.pdb 
 *.opendb 
+*.log
+*.tlog
 
 
 # Unity3D generated meta files 
@@ -43,3 +45,9 @@ Assets/Plugins/*
 # Builds 
 *.apk 
 Logs/
+*.obj
+*.exp
+*.iobj
+*.ipdb
+[Tt]ools/*/*.lib
+[Tt]ools/*/*.txt
