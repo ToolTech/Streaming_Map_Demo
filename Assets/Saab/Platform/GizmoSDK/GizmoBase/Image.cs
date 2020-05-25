@@ -219,6 +219,11 @@ namespace GizmoSDK
                 return false;
             }
 
+            public static UInt64 GetRegisteredImageData()
+            {
+                return Image_getRegisteredImageData();
+            }
+
             #region -------------- Native calls ------------------
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
@@ -239,6 +244,8 @@ namespace GizmoSDK
             private static extern UInt32 Image_getDepth(IntPtr image_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool Image_getImageArray(IntPtr image_reference, ref UInt32 size, ref IntPtr native_image_data);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern UInt64 Image_getRegisteredImageData();
 
 
             #endregion

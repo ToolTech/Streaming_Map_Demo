@@ -33,6 +33,13 @@
 // AMO	180607	Created file        (2.9.1)
 //
 //******************************************************************************
+
+// ----------- Some defines ---------------------------------
+
+#define SHOW_MEMORY     // Show memory used in PlotViz
+
+// ------------------------ Code ----------------------------
+
 using GizmoSDK.GizmoBase;
 using UnityEngine;
 using System.Threading;
@@ -113,8 +120,10 @@ namespace Saab.Unity.Initializer
               
             Message.OnMessage += Message_OnMessage;
 
+#if SHOW_MEMORY
             // Set to tru to enable memory tracing. Heavy load
-            MemoryControl.DebugMem(false);   // Enable trace of allocated memory
+            MemoryControl.DebugMem(true);   // Enable trace of allocated memory
+#endif
 
 #if UNITY_ANDROID
             GizmoSDK.GizmoBase.Monitor.InstallMonitor("udp::45454?nic=${wlan0}");
@@ -228,6 +237,8 @@ namespace Saab.Unity.Initializer
                     GizmoSDK.GizmoBase.Monitor.AddValue("internal", MemoryControl.GetAllocMem(0, 0, false, true));
 
                     GizmoSDK.GizmoBase.Monitor.AddValue("dyn", MemoryControl.GetAllocMem(66666));
+
+                    GizmoSDK.GizmoBase.Monitor.AddValue("tex", Image.GetRegisteredImageData());
                 }
 #endif //SHOW_MEMORY
 

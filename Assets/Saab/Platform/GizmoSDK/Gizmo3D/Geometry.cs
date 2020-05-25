@@ -90,6 +90,11 @@ namespace GizmoSDK
                 return false;
             }
 
+            public bool GetVertexData(ref IntPtr native_vertice_data, ref UInt32 vertices, ref IntPtr native_indice_data, ref UInt32 indices)
+            {
+                return Geometry_getVertexData(GetNativeReference(), ref vertices, ref native_vertice_data, ref indices, ref native_indice_data);
+            }
+
             public bool GetColorData(ref float[] color_data,ref UInt32 colors)
             {
                 IntPtr native_color_data = IntPtr.Zero;

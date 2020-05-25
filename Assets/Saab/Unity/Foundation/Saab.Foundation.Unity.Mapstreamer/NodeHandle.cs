@@ -43,6 +43,8 @@
 
 // Unity Managed classes
 using UnityEngine;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 
 // Gizmo Managed classes
 using GizmoSDK.GizmoBase;
@@ -53,6 +55,7 @@ using gzTransform = GizmoSDK.Gizmo3D.Transform;
 using System.Collections.Generic;
 using Saab.Utility.Unity.NodeUtils;
 using Assets.Crossboard;
+using System;
 
 public struct CrossboardDataset
 {
@@ -236,6 +239,18 @@ namespace Saab.Foundation.Unity.MapStreamer
                     //TODO: Lets try to get native data directly in the future
                     //      Try NativeArray<> ??
                     // NativeArray<T> ConvertExistingDataToNativeArray(void* dataPointer, int length, Unity.Collections.Allocator allocator); 
+
+                    //IntPtr native_vertice_data=IntPtr.Zero;
+                    //IntPtr native_indice_data=IntPtr.Zero;
+
+                    //if (geom.GetVertexData(ref native_vertice_data, ref len, ref native_indice_data, ref indice_len))
+                    //{
+                    //    unsafe
+                    //    {
+                    //        NativeArray<Vector3> _vec3 = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<Vector3>(native_vertice_data.ToPointer(), (int)len, Allocator.None);
+                    //    }
+                
+                    //}
 
                     if (geom.GetVertexData(ref _float_data, ref len, ref _indices,ref indice_len))
                     {
