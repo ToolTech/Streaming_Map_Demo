@@ -49,6 +49,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             _treeTextures = Create2DArray(TreeTextures, UseETC2);
             _minMaxWidthHeight = GetMinMaxWidthHeight(TreeTextures);
+            _offsetArray = GetOffset(TreeTextures);
 
             _megaBuffer = new ComputeBuffer(2500000, sizeof(float) * 4, ComputeBufferType.Append);
             _closeMegaBuffer = new ComputeBuffer(2000000, sizeof(float) * 4, ComputeBufferType.Append);
@@ -143,6 +144,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             // wind
             static public int Wind = Shader.PropertyToID("_GrassTextureWaving");
+            static public int Yoffset = Shader.PropertyToID("_Yoffset");
 
             static public int frustumPlanes = Shader.PropertyToID("_FrustumPlanes");
 
@@ -162,6 +164,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         public TerrainTextures[] TreeTextures;
         private Vector4[] _minMaxWidthHeight;
+        private float[] _offsetArray;
 
         public Texture2D PerlinNoise;
         public Texture2D DefaultSplatMap;
@@ -209,6 +212,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         public Mesh TestMesh;
         public Material TestMat;
+        private bool _hasRendered;
 
         // Compute kernel names
         private const string _indirectTreeKernelName = "IndirectGrass";
@@ -300,6 +304,17 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             return MinMaxWidthHeight.ToArray();
         }
+        private float[] GetOffset(TerrainTextures[] textures)
+        {
+            List<float> offset = new List<float>();
+
+            foreach (TerrainTextures item in textures)
+            {
+                offset.Add(item.Yoffset);
+            }
+
+            return offset.ToArray();
+        }
         private Transform FindFirstNodeParent(Transform child)
         {
             var parent = child.parent;
@@ -384,6 +399,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _treeMaterial.SetTexture(ShaderID.colorVariance, PerlinNoise);
 
             _treeMaterial.SetVectorArray(ShaderID.minMaxWidthHeight, _minMaxWidthHeight);
+            _treeMaterial.SetFloatArray(ShaderID.Yoffset, _offsetArray);
             List<Vector4> quads = new List<Vector4>();
             ComputeBuffer smallestQuad = new ComputeBuffer(1, sizeof(float) * 4, ComputeBufferType.Append);
             ComputeKernel findSmallestQuad = new ComputeKernel(_QuadKernelName, ComputeShader);
@@ -393,7 +409,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 var front = GetBillboardTexture(Sides.Front, terrain.FeatureTexture);
                 var side = GetBillboardTexture(Sides.Side, terrain.FeatureTexture);
                 var top = GetBillboardTexture(Sides.Top, terrain.FeatureTexture);
-
 
                 var frontXY = CalcSide(front, findSmallestQuad, smallestQuad);
                 var sideXY = CalcSide(side, findSmallestQuad, smallestQuad);
@@ -471,16 +486,17 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         private void Render(List<Trees> treeList)
         {
-            FadeFarAmount = DrawDistance / 3;
-            FadeFarValue = DrawDistance - FadeFarAmount;
-
-            _treeMaterial.SetFloat(ShaderID.FadeFar, FadeFarValue);
-            _treeMaterial.SetFloat(ShaderID.FadeNear, FadeNearValue);
-            _treeMaterial.SetFloat(ShaderID.FadeNearAmount, FadeNearAmount);
-            _treeMaterial.SetFloat(ShaderID.FadeFarAmount, FadeFarAmount);
-
             if (Camera.main != null)
             {
+                FadeFarAmount = DrawDistance / 3;
+                FadeFarValue = DrawDistance - FadeFarAmount;
+
+                _treeMaterial.SetFloat(ShaderID.FadeFar, FadeFarValue);
+                _treeMaterial.SetFloat(ShaderID.FadeNear, FadeNearValue);
+                _treeMaterial.SetFloat(ShaderID.FadeNearAmount, FadeNearAmount);
+                _treeMaterial.SetFloat(ShaderID.FadeFarAmount, FadeFarAmount);
+
+
                 _megaBuffer.SetCounterValue(0);
                 _closeMegaBuffer.SetCounterValue(0);
                 _frustumPlanes = GenerateFrustumPlane();
@@ -531,21 +547,22 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 // Culling      
                 ComputeBuffer.CopyCount(_megaBuffer, _inderectBuffer, 0);
                 ComputeBuffer.CopyCount(_closeMegaBuffer, _closeInderectBuffer, 4 * 1);
-            }
 
-            // ********* Update grassmaterial *********
-            _treeMaterial.SetFloat(ShaderID.Wind, Wind);
-            if (_roiTransform != null)
-            {
-                _treeMaterial.SetMatrix(ShaderID.worldToObj, _roiTransform.worldToLocalMatrix);
-                //_treeMaterial.SetMatrix(ShaderID.worldToScreen, _sceneCamera.Camera.worldToCameraMatrix);
-            }
-            _treeMaterial.SetVector(ShaderID.viewDir, Camera.main.transform.forward);
+                // ********* Update grassmaterial *********
+                _treeMaterial.SetFloat(ShaderID.Wind, Wind);
+                if (_roiTransform != null)
+                {
+                    _treeMaterial.SetMatrix(ShaderID.worldToObj, _roiTransform.worldToLocalMatrix);
+                    //_treeMaterial.SetMatrix(ShaderID.worldToScreen, _sceneCamera.Camera.worldToCameraMatrix);
+                }
+                _treeMaterial.SetVector(ShaderID.viewDir, Camera.main.transform.forward);
 
-            var bounds = new Bounds(Vector3.zero, new Vector3(DrawDistance + DrawDistance / 3, DrawDistance + DrawDistance / 3, DrawDistance + DrawDistance / 3) * 1.5f);
-            Graphics.DrawProceduralIndirect(_treeMaterial, bounds, MeshTopology.Points, _inderectBuffer, 0, null, null, DrawTreeShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
-            //Graphics.DrawMeshInstancedIndirect(TestMesh, 0, TestMat, bounds, _closeInderectBuffer, 0, null, DrawTreeShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
+                var bounds = new Bounds(Vector3.zero, new Vector3(DrawDistance + DrawDistance / 3, DrawDistance + DrawDistance / 3, DrawDistance + DrawDistance / 3) * 1.5f);
+                Graphics.DrawProceduralIndirect(_treeMaterial, bounds, MeshTopology.Points, _inderectBuffer, 0, null, null, DrawTreeShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
+                //Graphics.DrawMeshInstancedIndirect(TestMesh, 0, TestMat, bounds, _closeInderectBuffer, 0, null, DrawTreeShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
+            }
         }
+
         private void UpdateShaderValues(Trees tree)
         {
             tree.ComputeShader.SetInt(ComputeShaderID.terrainResolution, tree.SplatMap.height);
@@ -635,7 +652,20 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         public void Camera_OnPostTraverse()
         {
-            Render(_drawTree);
+            if (!_hasRendered)
+            {
+                Render(_drawTree);
+            }
+            _hasRendered = true;
+        }
+
+        public void LateUpdate()
+        {
+            if (!_hasRendered)
+            {
+                Render(_drawTree);
+            }
+            _hasRendered = false;
         }
 
         private void OnDestroy()

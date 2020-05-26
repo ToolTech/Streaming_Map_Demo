@@ -61,7 +61,7 @@
 				/*float rotation = data.w * data.w * _Time.x * 0.5f;
 				rotate2D(data.xz, rotation);*/
 
-				float3 localPosition = v.vertex.xyz * 0.5f;
+				float3 localPosition = v.vertex.xyz;
 				float3 worldPosition = data.xyz + localPosition;
 				float3 worldNormal = v.normal;
 

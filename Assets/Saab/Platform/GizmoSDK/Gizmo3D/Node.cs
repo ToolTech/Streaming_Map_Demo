@@ -156,6 +156,19 @@ namespace GizmoSDK
                 return IsCulled(mask_iface.GetCullMask());
             }
 
+            public bool ForceLocalIncludeBoundary
+            {
+                get
+                {
+                    return Node_getForceLocalIncludeBoundary(GetNativeReference());
+                }
+
+                set
+                {
+                    Node_setForceLocalIncludeBoundary(GetNativeReference(), value);
+                }
+            }
+
             #region Native dll interface ----------------------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr Node_create(string name);
@@ -187,6 +200,11 @@ namespace GizmoSDK
             private static extern CullMaskValue Node_getCullMask(IntPtr node_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool Node_isCulled(IntPtr node_reference,CullMaskValue mask);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool Node_getForceLocalIncludeBoundary(IntPtr node_reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Node_setForceLocalIncludeBoundary(IntPtr node_reference,bool on);
+
             #endregion
         }
     }

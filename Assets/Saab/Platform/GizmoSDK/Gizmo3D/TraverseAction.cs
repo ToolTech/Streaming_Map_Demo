@@ -37,8 +37,6 @@
 //******************************************************************************
 
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using GizmoSDK.GizmoBase;
 
@@ -115,10 +113,17 @@ namespace GizmoSDK
                 return new CullTraverseAction(nativeReference) as Reference;
             }
 
+            public void SetOmniTraverser(bool omni)
+            {
+                CullTraverseAction_setOmniTraverser(GetNativeReference(), omni);
+            }
+
 
             #region Native dll interface ----------------------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr CullTraverseAction_create();
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void CullTraverseAction_setOmniTraverser(IntPtr traverse_ref,bool omni);
             #endregion
         }
     }

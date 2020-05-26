@@ -34,7 +34,8 @@ Shader "Terrain/DynamicTerrain/Tree"
 	Properties
 	{
 		_MainTexGrass("Albedo (RGB)", 2DArray) = "white" {}
-		_Cutoff("Cutoff", float) = 0.52
+		_NormalTex("Normal", 2DArray) = "bump" {}
+		_Cutoff("Cutoff", float) = 0.62
 		_GrassTextureWaving("Grass Texture Waving ", float) = 0.01
 		_ColorIntensity("Color Intensity", Range(0, 1)) = 1
 		_FadeNear("Fade Near value", float) = 100.0
@@ -65,6 +66,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 
 			// ****** Textures ******
 			UNITY_DECLARE_TEX2DARRAY(_MainTexGrass);
+			UNITY_DECLARE_TEX2DARRAY(_NormalTex);
 			sampler2D _PerlinNoise;
 			sampler2D _ColorVariance;
 
@@ -77,6 +79,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 			half _FadeFar;
 			half _FadeNearAmount;
 			half _FadeFarAmount;
+			half _Yoffset[16];
 
 			fixed3 _ViewDir;
 			half3 _TerrainSize;
@@ -307,7 +310,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 						half fade = _FadeNear;
 						half transparency = 0;
 
-						grassPosition.y -= 0.18 * size.y;
+						grassPosition.y -= _Yoffset[index] * size.y;
 
 						fixed yaw = dot(normalize(grassPosition + size.y / 2), upNormal);
 
@@ -399,6 +402,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 				{
 					// Sample texture and multiply color
 					fixed4 c = UNITY_SAMPLE_TEX2DARRAY(_MainTexGrass, IN.texcoord);
+					fixed3 n = UNITY_SAMPLE_TEX2DARRAY(_NormalTex, IN.texcoord);
 
 					const half4x4 thresholdMatrix =
 					{
@@ -437,6 +441,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 					o.Occlusion = 1.0f;
 					o.Smoothness = 0.0f;
 					o.Specular = 0.0f;
+					//o.Normal = n;
 					o.Normal = IN.worldNormal; // This is used only for ambient occlusion
 
 					// Setup lighting environment
@@ -532,7 +537,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 					}
 
 					// Geometry shader
-					[maxvertexcount(8)]
+					[maxvertexcount(4)]
 					void geom(point uint p[1] : TEXCOORD, inout TriangleStream<FramentInput> triStream)
 					{
 						// Initialize fragment input
@@ -566,7 +571,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 						if (GemerateGeometry(p[0], grassPosition, displacement, displacementx, size, tilt, tiltx, bottomColor, topColor, uvDistortion, textureWaving, index))
 						{
 							half dist = distance(grassPosition.xyz, fixed3(0, 0, 0));
-							grassPosition.y -= 0.18 * size.y;
+							grassPosition.y -= _Yoffset[index] * size.y;
 
 							half yaw = dot(normalize(grassPosition + size.y / 2), upNormal);
 

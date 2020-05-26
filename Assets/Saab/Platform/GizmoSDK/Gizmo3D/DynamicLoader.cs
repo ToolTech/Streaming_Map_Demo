@@ -37,8 +37,6 @@
 //******************************************************************************
 
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using GizmoSDK.GizmoBase;
 
@@ -95,6 +93,11 @@ namespace GizmoSDK
                 {
                     DynamicLoader_setNodeURL(GetNativeReference(), value);
                 }
+            }
+
+            public UInt64 GetLastAccessRenderCount()
+            {
+                return DynamicLoader_getLastAccessRenderCount(GetNativeReference());
             }
 
             public static void UsePreCache(bool on)
@@ -163,6 +166,8 @@ namespace GizmoSDK
             private static extern void DynamicLoader_setNodeURL(IntPtr loader_reference,string url);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void DynamicLoader_usePreCache(bool on);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern UInt64 DynamicLoader_getLastAccessRenderCount(IntPtr loader_reference);
             #endregion
 
             #endregion

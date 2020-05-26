@@ -34,6 +34,7 @@ namespace Saab.Unity.Sandbox
             {
                 GenerateTree.FadeFarValue = FadeFarBillboard;
                 GenerateTree.FadeNearValue = FadeNearBillboard;
+                GenerateTree.FadeNearAmount = FadeDistance;
             }
         }
     }

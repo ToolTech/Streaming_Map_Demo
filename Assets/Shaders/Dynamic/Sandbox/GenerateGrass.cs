@@ -71,6 +71,7 @@ namespace Saab.Unity.Sandbox
     public struct TerrainTextures
     {
         public Texture2D FeatureTexture;
+        public Texture2D NormalTexture;
 
         public Vector2 Height;
         public Vector2 Width;

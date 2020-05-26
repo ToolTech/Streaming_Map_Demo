@@ -78,6 +78,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         public Vector2 Height;
         public Vector2 Width;
+        public float Yoffset;
 
         public Vector4 GetMinMaxWidthHeight
         {
@@ -235,6 +236,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private Texture2DArray _grassTextures;
         private Transform _roiTransform;
         public bool UseETC2 = false;
+        private bool _hasRendered;
 
         // Compute kernel names
         private const string _indirectGrassKernelName = "IndirectGrass";
@@ -406,80 +408,83 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         private void Render(List<Grass> grassList)
         {
-            // Reset grass buffer and run generation
-            _megaBuffer.SetCounterValue(0);
-            _frustumPlanes = GenerateFrustumPlane();
-
-            for (int i = 0; i < grassList.Count; i++)
+            if (Camera.main != null)
             {
-                var grass = grassList[i];
+                // Reset grass buffer and run generation
+                _megaBuffer.SetCounterValue(0);
+                _frustumPlanes = GenerateFrustumPlane();
 
-                if (grass.GameObject == null)
+                for (int i = 0; i < grassList.Count; i++)
                 {
-                    RemoveGrass(grass);
-                    continue;
+                    var grass = grassList[i];
+
+                    if (grass.GameObject == null)
+                    {
+                        RemoveGrass(grass);
+                        continue;
+                    }
+                    if (!grass.GameObject.activeSelf) { continue; }
+
+                    UpdatePlanePos(grass);
+
+                    var longestSide = Mathf.Max(grass.SurfaceSize.x, grass.SurfaceSize.z, grass.SurfaceSize.y);
+                    _frustumPlanes[5].w = DrawDistance + longestSide * 0.75f;
+
+                    if (!IsInFrustum(grass.GameObject.transform.position, -longestSide * 0.75f))
+                    {
+                        continue;
+                    }
+
+                    UpdateShaderValues(grass);
+
+                    if (!grass.Initlized)
+                    {
+                        //var node = grass.GameObject.GetComponent<NodeHandle>();
+                        //if (node.node.BoundaryRadius >= 190 || node.node.BoundaryRadius == 0)
+                        //{
+                        //    continue;
+                        //}
+
+                        grass.MeshGrassGeneratorKernel.SetBuffer(ComputeShaderID.terrainBuffer, grass.GrassBuffer);                 // Grass generator output
+                        grass.GrassBuffer.SetCounterValue(0);
+                        var GenX = Mathf.CeilToInt(grass.SurfaceTriangles / 8.0f);
+
+                        grass.MeshGrassGeneratorKernel.Dispatch(GenX, 1, 1);
+                        grass.Initlized = true;
+
+                        grass.CullKernal.SetBuffer(ComputeShaderID.cullInBuffer, grass.GrassBuffer);
+
+                        grass.SurfaceVertices.SafeRelease();
+                        grass.SurfaceIndices.SafeRelease();
+                        grass.SurfaceUVs.SafeRelease();
+                        _roiTransform = FindFirstNodeParent(grass.GameObject.transform);
+                    }
+
+                    _frustumPlanes[5].w = DrawDistance;
+
+                    grass.ComputeShader.SetVectorArray(ComputeShaderID.frustumPlanes, _frustumPlanes);
+
+                    // TODO: move entirely to GPU with DispatchIndirect 
+                    grass.CullKernal.SetBuffer(ComputeShaderID.indirectBuffer, _inderectBuffer);
+                    ComputeBuffer.CopyCount(grass.GrassBuffer, _inderectBuffer, 0);
+
+                    var x = Mathf.CeilToInt(grass.MaxGrass / 128.0f);
+                    grass.CullKernal.Dispatch(x, 1, 1);
                 }
-                if (!grass.GameObject.activeSelf) { continue; }
 
-                UpdatePlanePos(grass);
-
-                var longestSide = Mathf.Max(grass.SurfaceSize.x, grass.SurfaceSize.z, grass.SurfaceSize.y);
-                _frustumPlanes[5].w = DrawDistance + longestSide * 0.75f;
-
-                if (!IsInFrustum(grass.GameObject.transform.position, -longestSide * 0.75f))
+                // ********* Update grassmaterial *********
+                _grassMaterial.SetFloat(ShaderID.grassWind, GrassWind);
+                if (_roiTransform != null)
                 {
-                    continue;
+                    _grassMaterial.SetMatrix(ShaderID.worldToObj, _roiTransform.worldToLocalMatrix);
                 }
+                _grassMaterial.SetVector(ShaderID.viewDir, Camera.main.transform.forward);
 
-                UpdateShaderValues(grass);
-
-                if (!grass.Initlized)
-                {
-                    //var node = grass.GameObject.GetComponent<NodeHandle>();
-                    //if (node.node.BoundaryRadius >= 190 || node.node.BoundaryRadius == 0)
-                    //{
-                    //    continue;
-                    //}
-
-                    grass.MeshGrassGeneratorKernel.SetBuffer(ComputeShaderID.terrainBuffer, grass.GrassBuffer);                 // Grass generator output
-                    grass.GrassBuffer.SetCounterValue(0);
-                    var GenX = Mathf.CeilToInt(grass.SurfaceTriangles / 8.0f);
-
-                    grass.MeshGrassGeneratorKernel.Dispatch(GenX, 1, 1);
-                    grass.Initlized = true;
-
-                    grass.CullKernal.SetBuffer(ComputeShaderID.cullInBuffer, grass.GrassBuffer);
-
-                    grass.SurfaceVertices.SafeRelease();
-                    grass.SurfaceIndices.SafeRelease();
-                    grass.SurfaceUVs.SafeRelease();
-                    _roiTransform = FindFirstNodeParent(grass.GameObject.transform);
-                }
-
-                _frustumPlanes[5].w = DrawDistance;
-
-                grass.ComputeShader.SetVectorArray(ComputeShaderID.frustumPlanes, _frustumPlanes);
-
-                // TODO: move entirely to GPU with DispatchIndirect 
-                grass.CullKernal.SetBuffer(ComputeShaderID.indirectBuffer, _inderectBuffer);
-                ComputeBuffer.CopyCount(grass.GrassBuffer, _inderectBuffer, 0);
-
-                var x = Mathf.CeilToInt(grass.MaxGrass / 128.0f);
-                grass.CullKernal.Dispatch(x, 1, 1);
+                // Culling      
+                ComputeBuffer.CopyCount(_megaBuffer, _inderectBuffer, 0);
+                Graphics.DrawProceduralIndirect(_grassMaterial, new Bounds(Vector3.zero, new Vector3(DrawDistance, DrawDistance, DrawDistance)), MeshTopology.Points, _inderectBuffer, 0, null, null, DrawGrassShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
+                //Graphics.DrawMeshInstancedIndirect(_mesh, 0, grass.GrassMaterial, new Bounds(Vector3.zero, new Vector3(float.MaxValue, float.MaxValue, float.MaxValue)), grass.ArgsBufferGrass, 0, null, DrawGrassShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
             }
-
-            // ********* Update grassmaterial *********
-            _grassMaterial.SetFloat(ShaderID.grassWind, GrassWind);
-            if (_roiTransform != null)
-            {
-                _grassMaterial.SetMatrix(ShaderID.worldToObj, _roiTransform.worldToLocalMatrix);
-            }
-            _grassMaterial.SetVector(ShaderID.viewDir, Camera.main.transform.forward);
-
-            // Culling      
-            ComputeBuffer.CopyCount(_megaBuffer, _inderectBuffer, 0);
-            Graphics.DrawProceduralIndirect(_grassMaterial, new Bounds(Vector3.zero, new Vector3(DrawDistance, DrawDistance, DrawDistance)), MeshTopology.Points, _inderectBuffer, 0, null, null, DrawGrassShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
-            //Graphics.DrawMeshInstancedIndirect(_mesh, 0, grass.GrassMaterial, new Bounds(Vector3.zero, new Vector3(float.MaxValue, float.MaxValue, float.MaxValue)), grass.ArgsBufferGrass, 0, null, DrawGrassShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
         }
         private void UpdateShaderValues(Grass grass)
         {
@@ -502,7 +507,19 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         public void Camera_OnPostTraverse()
         {
-            Render(_drawGrass);
+            if (!_hasRendered)
+            {
+                Render(_drawGrass);
+            }
+            _hasRendered = true;
+        }
+        public void LateUpdate()
+        {
+            if (!_hasRendered)
+            {
+                Render(_drawGrass);
+            }
+            _hasRendered = false;
         }
 
         private void OnDestroy()

@@ -46,6 +46,7 @@ namespace Saab.Unity.Sandbox
             }
 
             _treeTextures = Create2DArray(TreeTextures);
+            _treeNormal = Create2DArray(TreeTextures, true);
             _minMaxWidthHeight = GetMinMaxWidthHeight(TreeTextures);
             //SceneManager.
 
@@ -130,6 +131,7 @@ namespace Saab.Unity.Sandbox
             // Textures
             static public int nodeTexture = Shader.PropertyToID("_NodeTexture");
             static public int treeTexture = Shader.PropertyToID("_MainTexGrass");
+            static public int normalTexture = Shader.PropertyToID("_NormalTex");
             static public int perlinNoise = Shader.PropertyToID("_PerlinNoise");
             static public int colorVariance = Shader.PropertyToID("_ColorVariance");
 
@@ -187,7 +189,7 @@ namespace Saab.Unity.Sandbox
         public Shader TreeShader;
         public float FadeFarValue = 3000;
         public float FadeNearValue = 5;
-        public float FadeNearAmount = 5;
+        public float FadeNearAmount = 50;
         public float FadeFarAmount = 1000;
 
         private Material _treeMaterial;
@@ -198,6 +200,7 @@ namespace Saab.Unity.Sandbox
         private ComputeBuffer _closeInderectBuffer;
 
         private Texture2DArray _treeTextures;
+        private Texture2DArray _treeNormal;
         public Transform RoiTransform;
 
         public Mesh TestMesh;
@@ -212,11 +215,19 @@ namespace Saab.Unity.Sandbox
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        private static Texture2DArray Create2DArray(TerrainTextures[] texture)
+        private static Texture2DArray Create2DArray(TerrainTextures[] texture, bool IsNormal = false)
         {
             var textureCount = texture.Length;
+            int textureResolution;
 
-            var textureResolution = Math.Max(texture.Max(item => item.FeatureTexture.width), texture.Max(item => item.FeatureTexture.height));
+            if (IsNormal)
+            {
+                textureResolution = Math.Max(texture.Max(item => item.NormalTexture.width), texture.Max(item => item.NormalTexture.height));
+            }
+            else
+            {
+                textureResolution = Math.Max(texture.Max(item => item.FeatureTexture.width), texture.Max(item => item.FeatureTexture.height));
+            }
 
             int[] availableResolutions = new int[] { 64, 128, 256, 512, 1024, 2048, 4096 };
 
@@ -243,7 +254,15 @@ namespace Saab.Unity.Sandbox
 
             for (int i = 0; i < textureCount; i++)
             {
-                Graphics.Blit(texture[i].FeatureTexture, temporaryTreeRenderTexture);
+                if(IsNormal)
+                {
+                    Graphics.Blit(texture[i].NormalTexture, temporaryTreeRenderTexture);
+                }
+                else
+                {
+                    Graphics.Blit(texture[i].FeatureTexture, temporaryTreeRenderTexture);
+                }
+               
                 Texture2D temporaryTreeTexture = new Texture2D(textureResolution, textureResolution, TextureFormat.ARGB32, true);
                 RenderTexture.active = temporaryTreeRenderTexture;
                 temporaryTreeTexture.ReadPixels(new Rect(0, 0, temporaryTreeTexture.width, temporaryTreeTexture.height), 0, 0);
@@ -341,6 +360,7 @@ namespace Saab.Unity.Sandbox
             TestMat.SetBuffer("_Buffer", _closeMegaBuffer);
 
             _treeMaterial.SetTexture(ShaderID.treeTexture, _treeTextures);
+            _treeMaterial.SetTexture(ShaderID.normalTexture, _treeNormal);
             _treeMaterial.SetTexture(ShaderID.nodeTexture, PerlinNoise);
             _treeMaterial.SetTexture(ShaderID.perlinNoise, PerlinNoise);
             _treeMaterial.SetTexture(ShaderID.colorVariance, PerlinNoise);

@@ -143,8 +143,7 @@ namespace Saab.Foundation.Unity.MapStreamer
   
         private readonly string ID = "Saab.Foundation.Unity.MapStreamer.SceneManager";
 
-        private byte[] _image_texture_data;
-
+ 
         //#pragma warning disable 414
         //private UnityPluginInitializer _plugin_initializer;
         //#pragma warning restore 414
@@ -308,7 +307,6 @@ namespace Saab.Foundation.Unity.MapStreamer
                                 IntPtr native_memory = IntPtr.Zero;
 
                                 if (texture.GetMipMapImageArray(ref native_memory, out size, out image_format, out comp_type, out components, out width, out height, out depth, true, uncompress))
-                                //if (texture.GetMipMapImageArray(ref _image_texture_data, out size, out image_format, out comp_type, out components, out width, out height, out depth, true, uncompress))
                                 {
                                     if (depth == 1)
                                     {
@@ -366,8 +364,6 @@ namespace Saab.Foundation.Unity.MapStreamer
 
 
                                         Texture2D tex = new Texture2D((int)width, (int)height, format, true);
-
-                                        //tex.LoadRawTextureData(_image_texture_data);
 
                                         tex.LoadRawTextureData(native_memory,(int)size);
 
@@ -821,6 +817,8 @@ namespace Saab.Foundation.Unity.MapStreamer
 #endif // DEBUG_CAMERA
 
                 _native_traverse_action = new CullTraverseAction();
+
+                // _native_traverse_action.SetOmniTraverser(true);  // To skip camera cull and use LOD in omni directions
 
                 DynamicLoader.OnDynamicLoad += DynamicLoader_OnDynamicLoad;
 
