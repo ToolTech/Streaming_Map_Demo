@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Adds PropertyAttributes to GizmoSDK NodeHandler
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.9.1
+// Product		: Gizmo3D 2.10.6
 //
 //
 //
@@ -35,6 +35,12 @@
 // AMO	180607	Created file                        (2.9.1)
 //
 //******************************************************************************
+
+// ************************** NOTE *********************************************
+//
+//      Stand alone from BTA !!! No BTA code in this !!!
+//
+// *****************************************************************************
 
 #if UNITY_EDITOR // Only active in unity editor
 

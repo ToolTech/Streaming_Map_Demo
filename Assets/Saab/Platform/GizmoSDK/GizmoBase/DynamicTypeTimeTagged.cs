@@ -19,7 +19,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge to gzDynamicTypeTimeTagged class
 // Author		: Anders Modén		
-// Product		: GizmoBase 2.10.5
+// Product		: GizmoBase 2.10.6
 //		
 //
 //			

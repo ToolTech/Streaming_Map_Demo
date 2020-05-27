@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Management of dynamic asset loader from GizmoSDK
 // Author		: Anders Modén
-// Product		: GizmoBase 2.10.5
+// Product		: Gizmo3D 2.10.6
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  

@@ -19,14 +19,26 @@
 // Module		: Saab.Foundation.Map.Manager
 // Description	: Definition of the MapPos map position structure
 // Author		: Anders Modén		
-//		
-// Revision History...							
+// Product		: Gizmo3D 2.10.6
+//
+// NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
+//			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
+//			usage in Game or VisSim development.
+//
+//
+// Revision History...						
 //									
 // Who	Date	Description						
 //									
 // AMO	180301	Created file 	
 //
 //******************************************************************************
+
+// ************************** NOTE *********************************************
+//
+//      Stand alone from BTA !!! No BTA code in this !!!
+//
+// *****************************************************************************
 
 
 using GizmoSDK.Coordinate;

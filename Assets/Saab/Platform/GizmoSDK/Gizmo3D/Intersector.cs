@@ -19,7 +19,7 @@
 // Module		: Gizmo3D C#
 // Description	: C# Bridge to gzIntersector class
 // Author		: Anders Modén		
-// Product		: Gizmo3D 2.10.5
+// Product		: Gizmo3D 2.10.6
 //		
 //
 //			

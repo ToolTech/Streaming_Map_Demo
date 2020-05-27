@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Manage selected capabilities of Graphics Performance
 // Author		: Anders Modén
-// Product		: GizmoBase 2.10.5
+// Product		: GizmoBase 2.10.6
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -33,6 +33,13 @@
 // AMO	191205	Created file                                        (2.10.1)
 //
 //******************************************************************************
+
+// ************************** NOTE *********************************************
+//
+//      Stand alone from BTA !!! No BTA code in this !!!
+//
+// *****************************************************************************
+
 using System;
 using GizmoSDK.GizmoBase;
 

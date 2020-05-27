@@ -36,7 +36,9 @@
 
 // ----------- Some defines ---------------------------------
 
-#define SHOW_MEMORY     // Show memory used in PlotViz
+//#define SHOW_MEMORY       // Show memory used in PlotViz
+#define SHOW_FPS            // Show FPS in PlotViz
+//#define SHOW_TRACERS
 
 // ------------------------ Code ----------------------------
 
@@ -196,12 +198,24 @@ namespace Saab.Unity.Initializer
             }
         }
 
-        public int counter = 0;
+        private int _counter = 0;
 
-        public PerformanceTracer tracer;
+        private PerformanceTracer _tracer;
+
+        private double _frameDurationTime = 0;
+
+        private double _frameTime = 0;
 
         private void Update()
         {
+            double time = GizmoSDK.GizmoBase.Time.SystemSeconds;
+
+            if (_frameTime>0)
+                _frameDurationTime = 0.999 * _frameDurationTime + 0.001 * (time - _frameTime);
+
+            _frameTime = time;
+
+
             try
             {
                 Performance.Enter("Initializer.Update");
@@ -210,7 +224,7 @@ namespace Saab.Unity.Initializer
 
 #if SHOW_TRACERS
 
-                if (counter == 10)
+                if (_counter == 10)
                 {
                     tracer = new PerformanceTracer();
 
@@ -222,12 +236,12 @@ namespace Saab.Unity.Initializer
 #endif // SHOW_TRACERS
 
 
-                counter++;
+                _counter++;
 
                 // Exemple of getting allocate dmemory in native parts
 
 #if SHOW_MEMORY
-                if (counter % 30 == 0)
+                if (_counter % 30 == 0)
                 {
                     //System.GC.Collect();
                     //System.GC.WaitForPendingFinalizers();
@@ -241,6 +255,13 @@ namespace Saab.Unity.Initializer
                     GizmoSDK.GizmoBase.Monitor.AddValue("tex", Image.GetRegisteredImageData());
                 }
 #endif //SHOW_MEMORY
+
+#if SHOW_FPS
+                if (_counter % 30 == 0)
+                {
+                    GizmoSDK.GizmoBase.Monitor.AddValue("fps", 1 / _frameDurationTime);
+                }
+#endif //SHOW_FPS
 
             }
             finally

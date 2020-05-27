@@ -19,7 +19,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge Platform
 // Author		: Anders Modén		
-// Product		: Gizmo3D 2.10.5
+// Product		: Gizmo3D 2.10.6
 //		
 //
 //			
