@@ -64,7 +64,7 @@ namespace GizmoSDK
 
             private readonly HashSet<Type> _typeRegistry = new HashSet<Type>();
 
-            public event EventHandler OnPostProcess;
+            public event EventHandler<bool> OnPostProcess;
 
             public DistManager(IntPtr nativeReference) : base(nativeReference)
             {
@@ -284,10 +284,7 @@ namespace GizmoSDK
             public bool ProcessCustomThreadClients(bool waitForTrigger = false)
             {
                 var res = DistManager_processCustomThreadClients(GetNativeReference(), waitForTrigger);
-                if (res)
-                {
-                    OnPostProcess?.Invoke(this, EventArgs.Empty);
-                }
+                OnPostProcess?.Invoke(this, res);
 
                 return res;
             }
