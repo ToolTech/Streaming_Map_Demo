@@ -62,7 +62,7 @@ namespace Saab.Utility.Map
     public interface ILocation<TContext> : ILocationMethods
     {
         TContext Context { get; }
-        Vector3 Position { get; }
+        Vector3 LocalPosition { get; }
         Quaternion Rotation { get; }
     }
 

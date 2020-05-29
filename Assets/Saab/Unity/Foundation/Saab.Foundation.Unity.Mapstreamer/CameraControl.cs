@@ -43,6 +43,8 @@
 //#define TEST_ROTATION   // Just test some default rotation
 
 using GizmoSDK.GizmoBase;
+using Saab.Foundation.Map;
+using Saab.Unity.Extensions;
 using Saab.Utility.Unity.NodeUtils;
 using System.Collections.Generic;
 using UnityEngine;
@@ -65,14 +67,7 @@ namespace Saab.Foundation.Unity.MapStreamer
         public double Y = 0;
         public double Z = 0;
                 
-        public Vec3D Coordinate
-        {
-            get
-            {
-                return new Vec3D(X, Y, Z);
-            }
-        }
-
+        
         public Camera Camera
         {
             get
@@ -81,9 +76,10 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
         }
 
-        public Vec3D Position
+        public Vec3D GlobalPosition
         {
-            get { return Coordinate; }
+            get { return new Vec3D(X, Y, Z); }
+
             set
             {
                 X = value.x;
@@ -94,21 +90,25 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         public Vector3 Up
         {
-            get { return Vector3.up; }
+            get { return MapControl.SystemMap.GetLocalOrientation(GlobalPosition).GetCol(2).ToVector3(); }
         }
 
         private void MoveForward(float moveSpeed)
         {
             X = X + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.forward.x;
             Y = Y + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.forward.y;
-            Z = Z + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.forward.z;
+
+            // As we have a Right Handed ON system and unitys Z into the screen we apply a negative direction
+            Z = Z - moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.forward.z;
         }
 
         private void MoveRight(float moveSpeed)
         {
             X = X + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.right.x;
             Y = Y + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.right.y;
-            Z = Z + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.right.z;
+
+            // As we have a Right Handed ON system and unitys Z points into the screen we apply a negative direction
+            Z = Z - moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.right.z;
         }
 
         private Quaternion Tilt(float rotationSpeed)

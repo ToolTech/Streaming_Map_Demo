@@ -53,20 +53,66 @@ using System;
 
 namespace Saab.Foundation.Map
 {
+    //------------------ Coordinates -------------------------------------------------------------------------------------------------------------
+    //
+    // The map exposes three coordinate systems
+    //
+    // 1.   The World Coordinate System. All coodinates are in LatPos or CartPos double precision   (LatPos, CartPos)
+    //      Always a geocentric system
+    //
+    // 2.   The Global coordinate system. All coordnates are in X,Y,Z RightON Handed                (MapPos Global)
+    //      The interior database is stored in this level or transformed here                      
+    //      Can be flat UTM, Flat Projected or Spherical Cartesian (or other) (uses _origin)
+    //
+    // 3.   The Local coordnate system.                                                             (MapPos Local)
+    //      Has a local origin and local normals ENU (East, North,Up)
+    //      In UTM its aligned with X to the east, Y up and Z to the south
+    //      In Sperical its aligned with XYZ to Cartesian Coordnates
+    //
+    //  In Unity you have a Left ON system and with a Z into the screen so be careful using Unitys quarternios etc.
+    //  Positioning is made under the Top RoiNode and it has a fliped Z transform so in under this node you dont need to take the flip into account
+    //
+    //-----------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
     public class MapPos : IMapLocation<Node>
     {
-        public Node     node;                   // Local Context
-        public Vec3D    position;               // Relative position to context
+        public Node     node;                   // Local Context, Can be null for Global context
+        public Vec3D    position;               // Relative position to context in double precision
         public bool     clamped;                // true if this position is clamped
-        public Vec3     normal;                 // Normal i local coordinate system
+        public Vec3     normal;                 // Normal in local coordinate system
         public Matrix3  local_orientation;      // East North Up
 
-        public Node Context { get { return node; } }
-        public Vector3 Position
+        public bool IsLocal()
+        {
+            return node != null;
+        }
+
+        public bool IsGlobal()
+        {
+            return node == null;
+        }
+
+        public Node Context
         {
             get
             {
-                return new Vector3((float)position.x, (float)position.y, (float)position.z);
+                return node;
+            }
+        }
+
+        /// <summary>
+        /// This position is a relative local position to the parent context (RoiNode etc) in float
+        /// </summary>
+        public Vector3 LocalPosition
+        {
+            get
+            {
+                if (IsLocal())
+                    return new Vector3((float)position.x, (float)position.y, (float)position.z);
+                else
+                    throw new SystemException("Not a local position");
             }
         }
 
@@ -80,6 +126,7 @@ namespace Saab.Foundation.Map
         public void SetLatPos(double lat, double lon, double alt)
         {
             var mapControl = MapControl.SystemMap;
+
             if (mapControl == null)
             {
                 return;

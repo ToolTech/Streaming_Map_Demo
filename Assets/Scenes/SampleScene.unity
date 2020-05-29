@@ -316,7 +316,7 @@ MonoBehaviour:
   rotspeed: 10
   X: 7026.984477070621
   Y: 16.08311892804426
-  Z: 21668.31506414408
+  Z: -21668.3150641441
 --- !u!114 &534669907
 MonoBehaviour:
   m_ObjectHideFlags: 0

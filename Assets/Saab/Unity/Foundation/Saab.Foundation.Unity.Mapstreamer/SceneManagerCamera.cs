@@ -98,20 +98,14 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
         }
 
-        public Vec3D Position
+        public Vec3D GlobalPosition
         {
-            get { return MapControl.SystemMap.LocalToWorld(_position); }
+            get { return MapControl.SystemMap.LocalToGlobal(_position); }
+
             set
             {
                 // only calling this function does not create the map pos correctly... local_orientation is not set
-                _position = MapControl.SystemMap.WorldToLocal(value);
-
-
-                // we perform this to get the map system to set the local_orientation...
-                LatPos latpos;
-
-                if(MapControl.SystemMap.GetLatPos(_position, out latpos))
-                    MapControl.SystemMap.SetPosition(_position, latpos);
+                _position = MapControl.SystemMap.GlobalToLocal(value);
             }
         }
 

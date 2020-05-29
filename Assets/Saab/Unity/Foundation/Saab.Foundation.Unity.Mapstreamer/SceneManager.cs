@@ -81,8 +81,9 @@ namespace Saab.Foundation.Unity.MapStreamer
     public interface ISceneManagerCamera
     {
         UnityEngine.Camera Camera { get; }
-        Vec3D Position { get; set; }
-        Vector3 Up { get; }
+        Vec3D GlobalPosition { get; set; }           // Position in Global coordinate system
+
+        Vector3 Up { get; }                         // Get up vector in global coordinate system for current position                  
 
         void PreTraverse();                         // Executed before scene is traversed and updated with new transform
 
@@ -877,15 +878,23 @@ namespace Saab.Foundation.Unity.MapStreamer
             return true;
         }
 
-        internal void Init()
+        internal bool Init()
         {
             if (_initialized)
-                return;
+                return true;
+
 
             _initialized = true;
 
             StartCoroutine(AssetLoader());
-            InitMap();
+
+            if (!InitMap())
+            {
+                _initialized = false;
+                return false;
+            }
+
+            return true;
         }
 
 
@@ -923,19 +932,24 @@ namespace Saab.Foundation.Unity.MapStreamer
             // We add Unitialize and shut down threads here as this routine gets called by an edit in code
             Uninitialize();
         }
-        private void InitMap()
+        private bool InitMap()
         {
             //_plugin_initializer = new UnityPluginInitializer();  // in case we need it our own
-            GizmoSDK.Gizmo3D.Platform.Initialize();
+            if (!GizmoSDK.Gizmo3D.Platform.Initialize())
+                return false;
 
             // Initialize formats
             DbManager.Initialize();
 
             // Initialize this manager
-            InitializeInternal();
+            if (!InitializeInternal())
+                return false;
 
             // Load the map
-            LoadMap(MapUrl);
+            if (!LoadMap(MapUrl))
+                return false;
+
+            return true;
         }
 
        
@@ -1178,8 +1192,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                     _native_camera.Transform = gz_transform.ToMatrix4();
 
-                    var p = SceneManagerCamera.Position;
-                    _native_camera.Position = new Vec3D(p.x, p.y, -p.z);
+                    _native_camera.Position = SceneManagerCamera.GlobalPosition;
 
                     _native_camera.Render(_native_context, 1000, 1000, 1000, _native_traverse_action);
 

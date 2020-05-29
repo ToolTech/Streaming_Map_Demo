@@ -109,8 +109,15 @@ namespace Saab.Foundation.Map
             return true;
         }
 
-
-        public bool GetGroundPosition(Vec3D position, Vec3 direction, out MapPos result, ClampFlags flags = ClampFlags.DEFAULT)
+        /// <summary>
+        /// Get Local mappos
+        /// </summary>
+        /// <param name="global_position"></param>
+        /// <param name="direction"></param>
+        /// <param name="result"></param>
+        /// <param name="flags"></param>
+        /// <returns></returns>
+        public bool GetGroundPosition(Vec3D global_position, Vec3 direction, out MapPos result, ClampFlags flags = ClampFlags.DEFAULT)
         {
             result = new MapPos();
 
@@ -131,9 +138,9 @@ namespace Saab.Foundation.Map
             }
 
             // Adjust intersector to use origo as center
-            position = position - origo;
+            global_position = global_position - origo;
 
-            isect.SetStartPosition((Vec3)position);
+            isect.SetStartPosition((Vec3)global_position);
             isect.SetDirection(direction);
 
             if (isect.Intersect(_currentMap, IntersectQuery.NEAREST_POINT | IntersectQuery.NORMAL | ((flags & ClampFlags.WAIT_FOR_DATA) != 0 ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0), 1, true, origo))
@@ -151,19 +158,9 @@ namespace Saab.Foundation.Map
 
             isect.Dispose();   // Drop handle and ignore GC
 
-            if (_topRoi != null)
-            {
-                RoiNode roi = _topRoi.GetClosestRoiNode(result.position);
-                result.node = roi;
+            result.local_orientation = GetLocalOrientation(result.position);
 
-                // Remove roiNode position as offset - Go to local RoiNode based coordinate system
-
-                if (roi != null && roi.IsValid())
-                    result.position -= roi.Position;
-            }
-
-            return true;
-
+            return ToLocal(result);
         }
 
 
@@ -182,29 +179,31 @@ namespace Saab.Foundation.Map
             return GetGroundPosition(position, direction, out result, flags);
         }
 
-        public Vec3D LocalToWorld(MapPos mappos)
+        public Vec3D LocalToGlobal(MapPos mappos)
         {
             Vec3D result = mappos.position;
 
             RoiNode roi = mappos.node as RoiNode;
 
+            // If we are a roi node based position we add roi position as local origin
+
             if (roi != null && roi.IsValid())
             {
-                result += roi.Position;
+                result += roi.Position;             
             }
 
-            return new Vec3D(result.x, result.y, -result.z);
+            return result;
         }
 
-        public MapPos WorldToLocal(Vec3D position)
+        public MapPos GlobalToLocal(Vec3D global_position)
         {
-            position.z = -position.z;
-
             MapPos result = new MapPos();
 
-            result.position = position/* - _origin*/;
+            result.position = global_position;
 
-            MapToRoi(result);
+            result.local_orientation = GetLocalOrientation(global_position);
+
+            ToLocal(result);
 
             return result;
         }
@@ -296,14 +295,45 @@ namespace Saab.Foundation.Map
 
                 // Remove ROINode position as offset - Go to local coordinate system under ROI Node
 
-                if (roi != null && roi.IsValid())
-                    result.position -= roi.Position;
+                ToLocal(result);
             }
                        
 
             return true;
         }
 
+        /// <summary>
+        /// Get local ENU orientation matrix for Global Position Vec3D
+        /// </summary>
+        /// <param name="global_position"></param>
+        /// <returns></returns>
+        public Matrix3 GetLocalOrientation(Vec3D global_position)
+        {
+            Coordinate converter = new Coordinate();
+
+            switch (_mapType)
+            {
+                default:
+                    {
+                        return new Matrix3();
+                    }
+
+                case MapType.UTM:
+
+                    return new Matrix3(new Vec3(1, 0, 0), new Vec3(0, 0, -1), new Vec3(0, 1, 0));    // East North Up vectors
+
+
+                case MapType.GEOCENTRIC:
+
+                    return converter.GetOrientationMatrix(new CartPos(global_position.x+_origin.x,global_position.y+_origin.y, global_position.z+_origin.z));
+            }
+        }
+
+        /// <summary>
+        /// Get local ENU orientation matrix for LatPos
+        /// </summary>
+        /// <param name="pos"></param>
+        /// <returns></returns>
         public Matrix3 GetLocalOrientation(LatPos pos)
         {
             Coordinate converter = new Coordinate();
@@ -347,7 +377,7 @@ namespace Saab.Foundation.Map
 
             RoiNode roi = pos.node as RoiNode;
 
-            if (roi != null && roi.IsValid())
+            if (roi != null && roi.IsValid())       // Convert to a possible global position
                 position += roi.Position;
 
             switch (_mapType)
@@ -389,7 +419,7 @@ namespace Saab.Foundation.Map
 
             RoiNode roi = pos.node as RoiNode;
 
-            if (roi != null && roi.IsValid())
+            if (roi != null && roi.IsValid())   // Convert to a global position
                 position += roi.Position;
 
             switch (_mapType)
@@ -419,11 +449,18 @@ namespace Saab.Foundation.Map
             return converter.GetCartPos(out result);
         }
 
-
-        private void MapToRoi(MapPos result)
+        /// <summary>
+        /// Converts a global mappos to a local under a roi
+        /// </summary>
+        /// <param name="result"></param>
+        /// <returns></returns>
+        public bool ToLocal(MapPos result)
         {
+            if (result.node != null)        // Already local
+                return true;
+
             if (_topRoi == null)
-                return;
+                return false;
             
             RoiNode roi = _topRoi.GetClosestRoiNode(result.position);
             result.node = roi;
@@ -431,8 +468,36 @@ namespace Saab.Foundation.Map
             // Remove roiNode position as offset - Go to local RoiNode based coordinate system
 
             if (roi != null && roi.IsValid())
+            {
                 result.position -= roi.Position;
-            
+                return true;
+            }
+            return false;   // We failed to convert
+        }
+
+        /// <summary>
+        /// Converts a local mappos under a roi to a global position
+        /// </summary>
+        /// <param name="result"></param>
+        /// <returns></returns>
+        public bool ToGlobal(MapPos result)
+        {
+            if (result.node == null)    // Already global
+                return true;
+
+            // Remove roiNode position as offset - Go to local RoiNode based coordinate system
+
+            RoiNode roi = result.node as RoiNode;
+
+            if (roi != null && roi.IsValid())
+            {
+                result.position += roi.Position;
+                result.node = null;
+
+                return true;
+            }
+
+            return false;   // We failed to convert
         }
 
         public bool SetPosition(MapPos result, LatPos pos, GroundClampType groundClamp = GroundClampType.NONE, ClampFlags flags = ClampFlags.DEFAULT)
@@ -440,10 +505,10 @@ namespace Saab.Foundation.Map
             Coordinate converter = new Coordinate();
             converter.SetLatPos(pos);
 
-            if (!WorldToMap(converter, ref result.position, ref result.local_orientation))
+            if (!WorldToGlobal(converter, ref result.position, ref result.local_orientation))
                 return false;
 
-            MapToRoi(result);
+            ToLocal(result);
 
             return UpdatePosition(result, groundClamp, flags);
         }
@@ -455,18 +520,18 @@ namespace Saab.Foundation.Map
             Coordinate converter = new Coordinate();
             converter.SetCartPos(pos);
 
-            if (!WorldToMap(converter, ref result.position, ref result.local_orientation))
+            if (!WorldToGlobal(converter, ref result.position, ref result.local_orientation))
                 return false;
 
             // Check possibly local 3D under a roiNode
 
-            MapToRoi(result);
+            ToLocal(result);
 
 
             return UpdatePosition(result, groundClamp, flags);
         }
 
-        private bool WorldToMap(Coordinate converter, ref Vec3D pos, ref Matrix3 orientationMatrix)
+        private bool WorldToGlobal(Coordinate converter, ref Vec3D pos, ref Matrix3 orientationMatrix)
         {
 
             // Convert to global 3D coordinate in appropriate target system
@@ -485,10 +550,6 @@ namespace Saab.Foundation.Map
 
                         pos = new Vec3D(utmpos.Easting, utmpos.H, -utmpos.Northing) - _origin;
 
-                        orientationMatrix = new Matrix3(new Vec3(1, 0, 0), new Vec3(0, 0, -1), new Vec3(0, 1, 0));    // East North Up vectors
-
-
-                        // Possibly compensate for zone and north as well XXX
                     }
                     break;
 
@@ -502,8 +563,6 @@ namespace Saab.Foundation.Map
                             return false;
                         }
 
-                        orientationMatrix = converter.GetOrientationMatrix(cartpos);
-
                         pos = new Vec3D(cartpos.X, cartpos.Y, cartpos.Z) - _origin;
                     }
                     break;
@@ -511,6 +570,10 @@ namespace Saab.Foundation.Map
                 default:
                     return false;
             }
+
+            // Set up orientation
+
+            orientationMatrix = GetLocalOrientation(pos);
 
             return true;
         }
@@ -525,8 +588,10 @@ namespace Saab.Foundation.Map
             return SetPosition(result, pos, groundClamp, flags);                 
         }
 
-        public Roi FindTopRoi(Node map)
+        private Roi FindTopRoi(Node map)
         {
+            // Must be called node locked
+
             if (map == null)
                 return null;
 
@@ -560,77 +625,82 @@ namespace Saab.Foundation.Map
 
             set
             {
-                NodeLock.WaitLockEdit();
-
-                _currentMap = value;
-
-                if (value != null && value.IsValid())
+                try
                 {
-                    var projection = _currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_PROJECTION);
+                    NodeLock.WaitLockEdit();
 
-                    if (projection == DBI_PROJECTION_UTM)
+                    _currentMap = value;
+
+                    if (value != null && value.IsValid())
                     {
-                        _mapType = MapType.UTM;
-                        UTMPos utmOrigin = _currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_ORIGIN);
-                        _origin = new Vec3D(utmOrigin.Easting, utmOrigin.H, -utmOrigin.Northing);
-                        _north = utmOrigin.North;
-                        _utmZone = utmOrigin.Zone;
-                    }
-                    else if (projection == DBI_PROJECTION_FLAT_EARTH)
-                    {
-                        _mapType = MapType.PLAIN;
-                        _origin = (Vec3D)_currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_ORIGIN).GetVec3();
-                    }
-                    else if (projection == DBI_PROJECTION_SPHERE)
-                    {
-                        _mapType = MapType.GEOCENTRIC;
-                        CartPos cartOrigin = _currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_ORIGIN);
-                        _origin = new Vec3D(cartOrigin.X, cartOrigin.Y, cartOrigin.Z);
-                    }
-                    else
-                        _mapType = MapType.UNKNOWN;
+                        var projection = _currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_PROJECTION);
 
-                    var maxLodDistance = _currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_MAX_LOD_RANGE).GetNumber();
-
-                    _topRoi = FindTopRoi(value);
-
-                    if(_topRoi==null)   // We have no roi. We must add one
-                    {
-                        _topRoi = new Roi();
-
-                        RoiNode roiNode = new RoiNode
+                        if (projection == DBI_PROJECTION_UTM)
                         {
-                            LoadDistance = 2 * maxLodDistance,
-                            PurgeDistance = 2 * maxLodDistance
-                        };
-
-                        if (_nodeURL != null)  // We have an URL
+                            _mapType = MapType.UTM;
+                            UTMPos utmOrigin = _currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_ORIGIN);
+                            _origin = new Vec3D(utmOrigin.Easting, utmOrigin.H, -utmOrigin.Northing);
+                            _north = utmOrigin.North;
+                            _utmZone = utmOrigin.Zone;
+                        }
+                        else if (projection == DBI_PROJECTION_FLAT_EARTH)
                         {
-                            DynamicLoader loader = new DynamicLoader
-                            {
-                                NodeURL = _nodeURL
-                            };
-
-                            roiNode.AddNode(loader);
+                            _mapType = MapType.PLAIN;
+                            _origin = (Vec3D)_currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_ORIGIN).GetVec3();
+                        }
+                        else if (projection == DBI_PROJECTION_SPHERE)
+                        {
+                            _mapType = MapType.GEOCENTRIC;
+                            CartPos cartOrigin = _currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_ORIGIN);
+                            _origin = new Vec3D(cartOrigin.X, cartOrigin.Y, cartOrigin.Z);
                         }
                         else
+                            _mapType = MapType.UNKNOWN;
+
+                        var maxLodDistance = _currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_MAX_LOD_RANGE).GetNumber();
+
+                        _topRoi = FindTopRoi(value);
+
+                        if (_topRoi == null)   // We have no roi. We must add one
                         {
-                            roiNode.AddNode(value);
+                            _topRoi = new Roi();
+
+                            RoiNode roiNode = new RoiNode
+                            {
+                                LoadDistance = 2 * maxLodDistance,
+                                PurgeDistance = 2 * maxLodDistance
+                            };
+
+                            if (_nodeURL != null)  // We have an URL
+                            {
+                                DynamicLoader loader = new DynamicLoader
+                                {
+                                    NodeURL = _nodeURL
+                                };
+
+                                roiNode.AddNode(loader);
+                            }
+                            else
+                            {
+                                roiNode.AddNode(value);
+                            }
+
+
+                            _topRoi.AddNode(roiNode);
+
+                            _currentMap = _topRoi;
                         }
-                                                                        
-
-                        _topRoi.AddNode(roiNode);
-
-                        _currentMap = _topRoi;
+                    }
+                    else
+                    {
+                        _mapType = MapType.UNKNOWN;
+                        _topRoi = null;
                     }
                 }
-                else
+                finally
                 {
-                    _mapType = MapType.UNKNOWN;
-                    _topRoi = null;
+                    NodeLock.UnLock();
                 }
-
-                NodeLock.UnLock();
             }
         }
 
