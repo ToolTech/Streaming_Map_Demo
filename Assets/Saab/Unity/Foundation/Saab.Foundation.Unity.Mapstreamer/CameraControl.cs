@@ -154,6 +154,10 @@ namespace Saab.Foundation.Unity.MapStreamer
                         mapPos.position += new Vec3(1, 1, 1);
 
                         Map.MapControl.SystemMap.UpdatePosition(mapPos, GroundClampType.GROUND);
+
+                        Vec3D global = Map.MapControl.SystemMap.LocalToGlobal(mapPos,new Vec3(0,0,10));
+
+                        GlobalPosition = global;
                     }
 
 

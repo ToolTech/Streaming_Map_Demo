@@ -138,8 +138,7 @@ namespace Saab.Foundation.Unity.MapStreamer
         private GameObject _root;
 
         private NodeAction _actionReceiver;
-        private Matrix4x4 _zflipMatrix;
-
+  
         private int _unusedCounter = 0;
   
         private readonly string ID = "Saab.Foundation.Unity.MapStreamer.SceneManager";
@@ -796,8 +795,6 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             _actionReceiver.OnAction += ActionReceiver_OnAction;
 
-            _zflipMatrix = new Matrix4x4(new Vector4(1, 0, 0), new Vector4(0, 1, 0), new Vector4(0, 0, -1), new Vector4(0, 0, 0, 1));
-
             GizmoSDK.GizmoBase.Message.Send("SceneManager", MessageLevel.DEBUG, "Loading Graph");
 
             NodeLock.WaitLockEdit();
@@ -1188,9 +1185,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                     Matrix4x4 unity_camera_transform = UnityCamera.transform.worldToLocalMatrix;
 
-                    Matrix4x4 gz_transform = _zflipMatrix * unity_camera_transform * _zflipMatrix;
-
-                    _native_camera.Transform = gz_transform.ToMatrix4();
+                    _native_camera.Transform = unity_camera_transform.ToZFlippedMatrix4();
 
                     _native_camera.Position = SceneManagerCamera.GlobalPosition;
 

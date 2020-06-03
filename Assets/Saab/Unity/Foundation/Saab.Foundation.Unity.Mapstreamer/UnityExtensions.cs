@@ -88,6 +88,32 @@ namespace Saab.Unity.Extensions
             };
         }
 
+        public static Matrix4 ToZFlippedMatrix4(this Matrix4x4 matrix)
+        {
+            return new Matrix4
+            {
+                v11 = matrix.m00,
+                v12 = matrix.m01,
+                v13 = -matrix.m02,
+                v14 = matrix.m03,
+
+                v21 = matrix.m10,
+                v22 = matrix.m11,
+                v23 = -matrix.m12,
+                v24 = matrix.m13,
+
+                v31 = -matrix.m20,
+                v32 = -matrix.m21,
+                v33 = matrix.m22,
+                v34 = -matrix.m23,
+
+                v41 = matrix.m30,
+                v42 = matrix.m31,
+                v43 = -matrix.m32,
+                v44 = matrix.m33,
+            };
+        }
+
         #endregion
 
 

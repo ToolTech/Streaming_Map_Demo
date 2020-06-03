@@ -192,7 +192,7 @@ namespace Saab.Foundation.Map
             return GetGroundPosition(position, direction, out result, flags);
         }
 
-        public Vec3D LocalToGlobal(MapPos mappos)
+        public Vec3D LocalToGlobal(MapPos mappos,Vec3 enu_offset=default)
         {
             Vec3D result = mappos.position;
 
@@ -204,6 +204,8 @@ namespace Saab.Foundation.Map
             {
                 result += roi.Position;             
             }
+
+            result += mappos.local_orientation * enu_offset;
 
             return result;
         }

@@ -42,6 +42,7 @@ namespace GizmoSDK
 {
     namespace GizmoBase
     {
+        [StructLayout(LayoutKind.Sequential)]
         public struct Matrix3 
         {
             public float v11, v21, v31;
@@ -161,6 +162,8 @@ namespace GizmoSDK
             CCW = 0x0901,
             
         }
+
+        [StructLayout(LayoutKind.Sequential)]
         public struct Matrix4
         {
             public float v11, v21, v31, v41;

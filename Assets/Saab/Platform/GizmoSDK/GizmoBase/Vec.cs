@@ -44,6 +44,7 @@ namespace GizmoSDK
     namespace GizmoBase
     {
         [Serializable]
+        [StructLayout(LayoutKind.Sequential)]
         public struct Vec2 
         {
             public Vec2(float _x = 0, float _y = 0)
@@ -125,6 +126,7 @@ namespace GizmoSDK
             private static extern IntPtr Vec2_asString(ref Vec2 vec);
         }
         [Serializable]
+        [StructLayout(LayoutKind.Sequential)]
         public struct Vec3
         {
             public Vec3(float _x = 0, float _y = 0, float _z = 0)
@@ -264,6 +266,7 @@ namespace GizmoSDK
         }
 
         [Serializable]
+        [StructLayout(LayoutKind.Sequential)]
         public struct Vec4
         {
             public Vec4(float _x = 0, float _y = 0, float _z = 0,float _w=0)
@@ -352,6 +355,7 @@ namespace GizmoSDK
         }
 
         [Serializable]
+        [StructLayout(LayoutKind.Sequential)]
         public struct Vec2D
         {
             public Vec2D(double _x = 0, double _y = 0)
@@ -435,6 +439,7 @@ namespace GizmoSDK
         }
 
         [Serializable]
+        [StructLayout(LayoutKind.Sequential)]
         public struct Vec3D
         {
             public static Vec3D Zero = default(Vec3D);
@@ -556,6 +561,7 @@ namespace GizmoSDK
         }
 
         [Serializable]
+        [StructLayout(LayoutKind.Sequential)]
         public struct Vec4D
         {
             public Vec4D(double _x = 0, double _y = 0, double _z = 0, double _w = 0)
