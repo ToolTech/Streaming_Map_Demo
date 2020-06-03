@@ -57,6 +57,7 @@ rem ---------------- Tools --------------------------------------------------
 
 mklink /J Tools\SceneBuilder 							..\BTA_Dev\BTA\ws\vs16\foundation\Saab.Foundation.Map.Native\SceneBuilder\x64\Release
 mklink /J Tools\SceneBuilderClient						..\BTA_Dev\GizmoSDK\utilities\SceneBuilderClient\x64\Release
+mklink /J Tools\PurlServer							%GIZMOSDK%\GizmoBase\examples\purlserver\x64\Release_lib_s
 
 
 

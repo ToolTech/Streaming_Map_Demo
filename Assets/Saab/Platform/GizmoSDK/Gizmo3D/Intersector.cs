@@ -37,8 +37,6 @@
 //******************************************************************************
 
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using GizmoSDK.GizmoBase;
 
@@ -60,7 +58,9 @@ namespace GizmoSDK
             ONE_HIT =               (1 << 6),       // Return first HIT
             ACCELLERATE =           (1 << 7),       // Build and use nonatree
             WAIT_FOR_DYNAMIC_DATA = (1 << 8),       // Wait for dynamic loaded data
-            UPDATE_DYNAMIC_DATA =   (1 << 9),       // Wait for dynamic loaded data
+            UPDATE_DYNAMIC_DATA =   (1 << 9),       // Update dynamic loaded data
+            TRANSFORM =             (1 << 10),      // Add transform to result
+            UV =                    (1 << 11),      // Add UV Coordinate
         };
 
         public class Intersector : GizmoBase.Object , INameInterface

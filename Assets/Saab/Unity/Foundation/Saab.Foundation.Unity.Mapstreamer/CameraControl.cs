@@ -149,6 +149,11 @@ namespace Saab.Foundation.Unity.MapStreamer
                                 sphere.transform.localScale = new Vector3(10, 10, 10);
                             }
                         }
+
+                        // Just test some update
+                        mapPos.position += new Vec3(1, 1, 1);
+
+                        Map.MapControl.SystemMap.UpdatePosition(mapPos, GroundClampType.GROUND);
                     }
 
 

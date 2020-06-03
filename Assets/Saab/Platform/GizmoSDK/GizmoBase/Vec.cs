@@ -218,6 +218,16 @@ namespace GizmoSDK
                 return (b - a).Length();
             }
 
+            public Vec3 Cross(Vec3 vector)
+	        {
+		        return new Vec3(y* vector.z - z* vector.y, z* vector.x - x* vector.z, x* vector.y - y* vector.x);
+	        }
+
+            public float Dot(Vec3 vector)
+            {
+                return x * vector.x + y * vector.y + z * vector.z;
+            }
+
             public override string ToString()
             {
                 return Marshal.PtrToStringUni(Vec3_asString(ref this));
@@ -491,6 +501,16 @@ namespace GizmoSDK
                     a.x * b.y - a.y * b.x
                     );
 
+            }
+
+            public Vec3D Cross(Vec3D vector)
+            {
+                return new Vec3D(y * vector.z - z * vector.y, z * vector.x - x * vector.z, x * vector.y - y * vector.x);
+            }
+
+            public double Dot(Vec3D vector)
+            {
+                return x * vector.x + y * vector.y + z * vector.z;
             }
 
             public double Length()

@@ -231,6 +231,20 @@ namespace GizmoSDK
                 return retval;
             }
 
+            public static Vec3 operator *(Matrix4 m, Vec3 v)
+            {
+                float w = m.v41 * v.x + m.v42 * v.y + m.v43 * v.z + m.v44;
+
+                Vec3 retval = new Vec3
+                {
+                    x = (m.v11 * v.x + m.v12 * v.y + m.v13 * v.z + m.v14)/w,
+                    y = (m.v21 * v.x + m.v22 * v.y + m.v23 * v.z + m.v24)/w,
+                    z = (m.v31 * v.x + m.v32 * v.y + m.v33 * v.z + m.v34)/w,
+                };
+
+                return retval;
+            }
+
             public bool Inverse(out Matrix4 destination)
             {
                 destination = new Matrix4();

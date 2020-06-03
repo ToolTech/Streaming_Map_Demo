@@ -78,11 +78,13 @@ namespace Saab.Foundation.Map
 
     public class MapPos : IMapLocation<Node>
     {
-        public Node     node;                   // Local Context, Can be null for Global context
-        public Vec3D    position;               // Relative position to context in double precision
-        public bool     clamped;                // true if this position is clamped
-        public Vec3     normal;                 // Normal in local coordinate system
-        public Matrix3  local_orientation;      // East North Up
+        public Node             node;                   // Local Context, Can be null for Global context
+        public Vec3D            position;               // Relative position to context in double precision
+        public IntersectQuery   clamp_result;           // non zero if this position is clamped
+        public Vec3             normal;                 // Normal in local coordinate system
+        public Matrix3          local_orientation;      // East North Up base matrix
+        public Vec3             hpr;                    // Heading, Pitch, Roll
+        public Vec3D            a, b, c;                // Place on triangle
 
         public bool IsLocal()
         {
@@ -116,10 +118,10 @@ namespace Saab.Foundation.Map
             }
         }
 
-        protected Vec3 _euler; // PYR
+        
         public Quaternion Rotation
         {
-            get { return Quaternion.CreateFromYawPitchRoll(_euler.y, _euler.x, _euler.z); }
+            get { return Quaternion.CreateFromYawPitchRoll(hpr.x, hpr.y, hpr.z); }
         }
 
 
@@ -138,6 +140,7 @@ namespace Saab.Foundation.Map
         public void SetCartPos(double x, double y, double z)
         {
             var mapControl = MapControl.SystemMap;
+
             if (mapControl == null)
             {
                 return;
@@ -148,7 +151,7 @@ namespace Saab.Foundation.Map
 
         public void SetRotation(float yaw, float pitch, float roll)
         {
-            _euler = new Vec3(pitch, yaw, roll);
+            hpr = new Vec3(yaw, pitch, roll);
         }
 
         virtual public Transform Step(double time, LocationOptions options)
@@ -210,6 +213,7 @@ namespace Saab.Foundation.Map
             }
 
             var clampFlags = ClampFlags.DEFAULT;
+
             if (options.LoadOptions == LoadOptions.Load)
                 clampFlags = ClampFlags.WAIT_FOR_DATA;
 
@@ -280,7 +284,7 @@ namespace Saab.Foundation.Map
             var dot = Vector3.Dot(proj, north);
             var det = Vector3.Dot(n, Vector3.Cross(north,proj));
 
-            _euler.y = -(float)Math.Atan2(det,dot);
+            hpr.x = -(float)Math.Atan2(det,dot);
 
             return base.Step(time, options);
         }

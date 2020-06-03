@@ -123,7 +123,7 @@ namespace Saab.Foundation.Map
 
             // Coordinate is now in world Cartesian coordinates (Roi Position)
 
-            Vec3D origo = new Vec3D(0, 0, 0);       // Set used origo
+            Vec3D origo = new Vec3D(0, 0, 0);       // Set used origo for clamp operation
 
             Intersector isect = new Intersector();
 
@@ -143,22 +143,35 @@ namespace Saab.Foundation.Map
             isect.SetStartPosition((Vec3)global_position);
             isect.SetDirection(direction);
 
-            if (isect.Intersect(_currentMap, IntersectQuery.NEAREST_POINT | IntersectQuery.NORMAL | ((flags & ClampFlags.WAIT_FOR_DATA) != 0 ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0), 1, true, origo))
+            if (isect.Intersect(_currentMap, IntersectQuery.ABC_TRI | IntersectQuery.NEAREST_POINT | IntersectQuery.NORMAL | ( flags.HasFlag(ClampFlags.WAIT_FOR_DATA) ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0), 1, true, origo))
             {
                 IntersectorResult res = isect.GetResult();
 
                 IntersectorData data = res.GetData(0);
 
-                result.position = data.position + origo;
+                result.position = data.coordinate + origo;
 
-                result.normal = data.normal;
+                if( (data.resultMask & IntersectQuery.NORMAL) != 0)
+                    result.normal = data.normal;
 
-                result.clamped = true;
+                if ( data.resultMask.HasFlag(IntersectQuery.ABC_TRI) )
+                {
+                    result.a = data.a + origo;
+                    result.b = data.b + origo;
+                    result.c = data.c + origo;
+                }
+
+                result.clamp_result = data.resultMask;
             }
+            else
+                result.clamp_result = IntersectQuery.NULL;
 
             isect.Dispose();   // Drop handle and ignore GC
 
             result.local_orientation = GetLocalOrientation(result.position);
+
+            if (result.clamp_result == IntersectQuery.NULL)
+                result.normal = result.local_orientation.GetCol(2);
 
             return ToLocal(result);
         }
@@ -223,6 +236,73 @@ namespace Saab.Foundation.Map
             return updatedPos.Altitude;
         }
 
+        public static bool Intersect(Vec3D origin, Vec3D direction, Vec3D V0, Vec3D V1 ,Vec3D V2 , out Vec3D p)
+        {
+            p = new Vec3D();
+
+	        Vec3D E1 = V1 - V0;
+            Vec3D E2 = V2 - V0;
+
+            Vec3D P = direction.Cross(E2);
+
+            double factor = P.Dot(E1);
+
+	        if(factor>=0.0)
+	        {
+		        if(factor<1e-8)
+			        return false;
+
+		        Vec3D T = origin - V0;
+
+                double u = P.Dot(T);
+
+		        if(u<0 || u> factor)
+			        return false;
+
+		        Vec3D Q = T.Cross(E1);
+
+                double v = Q.Dot(direction);
+
+		        if(v<0 || (u+v)>factor )
+			        return false;
+
+		        double mag=Q.Dot(E2)/factor;
+
+		        if(mag<0)
+			        return false;
+
+		        p=origin+mag* direction;
+            }
+	        else
+	        {
+		        if(factor>-1e-8)
+			        return false;
+
+		        Vec3D T = origin - V0;
+
+                double u = P.Dot(T);
+
+		        if(u>0 || u<factor)
+			        return false;
+
+		        Vec3D Q = T.Cross(E1);
+
+                double v = Q.Dot(direction);
+
+		        if(v>0 || (u+v)<factor )
+			        return false;
+
+		        double mag=Q.Dot(E2)/factor;
+
+		        if(mag<0)
+			        return false;
+
+		        p=origin+mag* direction;
+            }
+
+	        return true;
+        }
+
         public bool UpdatePosition(MapPos result, GroundClampType groundClamp = GroundClampType.NONE, ClampFlags flags = ClampFlags.DEFAULT)
         {
             if (_currentMap == null)    // No map
@@ -237,6 +317,27 @@ namespace Saab.Foundation.Map
 
                 if (roi != null && roi.IsValid())
                     result.position += roi.Position;
+
+                // The defined down vector
+
+                Vec3 down = new Vec3(-result.local_orientation.v13, -result.local_orientation.v23, -result.local_orientation.v33);
+
+
+                // Check triangel ground
+
+                if (result.clamp_result.HasFlag(IntersectQuery.ABC_TRI))
+                {
+                    if(Intersect(result.position,down,result.a,result.b,result.c,out Vec3D p))
+                    {
+                        result.position = p;
+                        ToLocal(result);
+
+                        return true;
+                    }
+                }
+
+                // Check new intersector
+                
 
                 Intersector isect = new Intersector();
 
@@ -255,35 +356,36 @@ namespace Saab.Foundation.Map
                 if ((flags & ClampFlags.ISECT_LOD_QUALITY) != 0)                // Lets stand in the ray to get highest quality
                     origo = result.position;
 
-                Vec3 up = new Vec3(result.local_orientation.v13, result.local_orientation.v23, result.local_orientation.v33);
+               
+                isect.SetStartPosition((Vec3)(result.position - origo) - 10000.0f * down);  // Move backwards
+                isect.SetDirection(down);
 
-                // TODO: Fix this....
-                if (up.x == 0 && up.y == 0 && up.z == 0)
-                    up.y = 1;
-
-                isect.SetStartPosition((Vec3)(result.position - origo) + 10000.0f * up);
-                isect.SetDirection(-up);
-
-                if (isect.Intersect(_currentMap,    IntersectQuery.NEAREST_POINT|
+                if (isect.Intersect(_currentMap,    IntersectQuery.NEAREST_POINT| IntersectQuery.ABC_TRI |
                                                     IntersectQuery.NORMAL | 
-                                                    ( (flags & ClampFlags.WAIT_FOR_DATA)!=0 ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0)|
-                                                    ((flags & ClampFlags.UPDATE_DATA) != 0 ? IntersectQuery.UPDATE_DYNAMIC_DATA : 0)
+                                                    ( flags.HasFlag(ClampFlags.WAIT_FOR_DATA) ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0)|
+                                                    ( flags.HasFlag(ClampFlags.UPDATE_DATA) ? IntersectQuery.UPDATE_DYNAMIC_DATA : 0)
                                                     , 1, true, origo))
                 {
                     IntersectorResult res = isect.GetResult();
 
                     IntersectorData data = res.GetData(0);
 
-                    result.position = data.position + origo;
-                    
-                    result.normal = data.normal;
-                    result.clamped = true;
+                    result.position = data.coordinate + origo;
+
+                    if ((data.resultMask & IntersectQuery.NORMAL) != 0)
+                        result.normal = data.normal;
+
+                    if (data.resultMask.HasFlag(IntersectQuery.ABC_TRI))
+                    {
+                        result.a = data.a + origo;
+                        result.b = data.b + origo;
+                        result.c = data.c + origo;
+                    }
+
+                    result.clamp_result = data.resultMask;
                 }
                 else
-                {
-                    result.normal = up;
-                    result.clamped = false;
-                }
+                    result.clamp_result = IntersectQuery.NULL;
 
                 if (groundClamp == GroundClampType.GROUND)
                 {
@@ -470,6 +572,7 @@ namespace Saab.Foundation.Map
             if (roi != null && roi.IsValid())
             {
                 result.position -= roi.Position;
+                
                 return true;
             }
             return false;   // We failed to convert
@@ -492,6 +595,7 @@ namespace Saab.Foundation.Map
             if (roi != null && roi.IsValid())
             {
                 result.position += roi.Position;
+
                 result.node = null;
 
                 return true;
