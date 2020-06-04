@@ -117,8 +117,29 @@ namespace Saab.Foundation.Map
                     throw new SystemException("Not a local position");
             }
         }
+        /// <summary>
+        /// This is the database global position
+        /// </summary>
+        /// <param name="enu_offset"></param>
+        /// <returns></returns>
+        public Vec3D GlobalPosition(Vec3 enu_offset = default)
+        {
+            Vec3D result = position;
 
-        
+            RoiNode roi = node as RoiNode;
+
+            // If we are a roi node based position we add roi position as local origin
+
+            if (roi != null && roi.IsValid())
+            {
+                result += roi.Position;
+            }
+
+            result += local_orientation * enu_offset;
+
+            return result;
+        }
+
         public Quaternion Rotation
         {
             get { return Quaternion.CreateFromYawPitchRoll(hpr.x, hpr.y, hpr.z); }

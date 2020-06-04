@@ -194,20 +194,7 @@ namespace Saab.Foundation.Map
 
         public Vec3D LocalToGlobal(MapPos mappos,Vec3 enu_offset=default)
         {
-            Vec3D result = mappos.position;
-
-            RoiNode roi = mappos.node as RoiNode;
-
-            // If we are a roi node based position we add roi position as local origin
-
-            if (roi != null && roi.IsValid())
-            {
-                result += roi.Position;             
-            }
-
-            result += mappos.local_orientation * enu_offset;
-
-            return result;
+            return mappos.GlobalPosition(enu_offset);
         }
 
         public MapPos GlobalToLocal(Vec3D global_position)
