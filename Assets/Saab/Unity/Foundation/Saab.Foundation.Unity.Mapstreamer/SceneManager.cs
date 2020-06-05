@@ -100,8 +100,14 @@ namespace Saab.Foundation.Unity.MapStreamer
         public UnityEngine.ComputeShader ComputeShader;
         public int FrameCleanupInterval;
         public double MaxBuildTime;
+        public byte DynamicLoaders;
 
-        public static readonly SceneManagerSettings Default = new SceneManagerSettings { FrameCleanupInterval = 1000, MaxBuildTime = 0.01 /*100hz*/ };
+        public static readonly SceneManagerSettings Default = new SceneManagerSettings 
+        { 
+            FrameCleanupInterval = 1000, 
+            MaxBuildTime = 0.01, /*100hz*/ 
+            DynamicLoaders = 4,
+        };
     }
 
 
@@ -830,7 +836,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
 
             DynamicLoader.UsePreCache(true);                    // Enable use of mipmap creation on dynamic loading
-            DynamicLoaderManager.SetNumberOfActiveLoaders(4);   // Lets start with 4 parallell threads
+            DynamicLoaderManager.SetNumberOfActiveLoaders(Settings.DynamicLoaders);   // Lets start with 4 parallell threads
             DynamicLoaderManager.StartManager();
 
             return true;
