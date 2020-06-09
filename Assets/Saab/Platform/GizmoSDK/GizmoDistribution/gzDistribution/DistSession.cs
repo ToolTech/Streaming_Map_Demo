@@ -64,11 +64,18 @@ namespace GizmoSDK
                 return Marshal.PtrToStringUni(DistSession_getName(GetNativeReference()));
             }
 
-    
+            public DistObject FindObject(string objectName)
+            {
+                var res = DistSession_findObject(GetNativeReference(), objectName);
+                return ReferenceDictionary<DistObject>.GetObject(res);
+            }
+
             #region --------------------------------- private --------------------------------------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DistSession_getName(IntPtr session_reference);
-    
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr DistSession_findObject(IntPtr session_reference, string object_name);
+
 
             #endregion
         }

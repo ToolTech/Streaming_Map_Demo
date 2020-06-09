@@ -263,7 +263,7 @@ namespace GizmoSDK
             #endregion
         }
 
-        public class ReferenceDictionary<T> where T : class,IReference
+        public static class ReferenceDictionary<T> where T : class,IReference
         {
             static public bool AddObject(IReference nativeRef)
             {
