@@ -335,6 +335,7 @@ MonoBehaviour:
     ComputeShader: {fileID: 7200000, guid: 75616827e64e7bd478340a97f80a1da0, type: 3}
     FrameCleanupInterval: 1000
     MaxBuildTime: 0.01
+    DynamicLoaders: 4
   MapUrl: Maps/jkg_small/roi.gzl
 --- !u!114 &534669908
 MonoBehaviour:

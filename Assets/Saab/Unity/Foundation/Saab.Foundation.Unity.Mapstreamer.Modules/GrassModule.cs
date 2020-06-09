@@ -129,10 +129,14 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 SurfaceMesh = _mesh,
                 SplatMap = DefaultSplatMap,
                 NodeTexture = (Texture2D)_texture,
-                PlacementMap = PlacementMap
+                PlacementMap = PlacementMap,
+                ComputeShader = Instantiate(ComputeShader),
+                SurfaceSize = new Vector3(_mesh.bounds.size.x, _mesh.bounds.size.y, _mesh.bounds.size.z)
             };
 
-            Initialize(grass);
+            //grass.SurfaceSize = new Vector3(grass.SurfaceMesh.bounds.size.x, grass.SurfaceMesh.bounds.size.y, grass.SurfaceMesh.bounds.size.z);
+
+            //Initialize(grass);
 
             //add grass to list
             _drawGrass.Add(grass);
@@ -236,7 +240,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private Texture2DArray _grassTextures;
         private Transform _roiTransform;
         public bool UseETC2 = false;
-        private bool _hasRendered;
 
         // Compute kernel names
         private const string _indirectGrassKernelName = "IndirectGrass";
@@ -353,7 +356,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private void Initialize(Grass grass)
         {
             //Init shaders
-            grass.ComputeShader = Instantiate(ComputeShader);
+            //grass.ComputeShader = Instantiate(ComputeShader);
 
             // Init kernels
             grass.MeshGrassGeneratorKernel = new ComputeKernel(_meshGrassGeneratorKernelName, grass.ComputeShader);
@@ -363,8 +366,11 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             grass.SurfaceSize = new Vector3(grass.SurfaceMesh.bounds.size.x, grass.SurfaceMesh.bounds.size.y, grass.SurfaceMesh.bounds.size.z);
             grass.SurfaceTriangles = grass.SurfaceMesh.triangles.Length;
 
-            var maxGrassMesh = (int)Mathf.Ceil((grass.SurfaceSize.x * grass.SurfaceSize.z) / GrassDensity);
+            var maxGrassMesh = (int)Mathf.Ceil((grass.SurfaceSize.x * grass.SurfaceSize.z) / GrassDensity) / 2;
             grass.MaxGrass = maxGrassMesh > 0 ? maxGrassMesh : 1;
+
+            //Debug.LogWarning("About to add to memory: " + (grass.MaxGrass / 1000000.0).ToString("F4") + " mb");
+            //PrintTotalBufferSize();
 
             grass.GrassBuffer = new ComputeBuffer(grass.MaxGrass, sizeof(float) * 4, ComputeBufferType.Append);
 
@@ -406,13 +412,38 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+        private void PrintTotalBufferSize()
+        {
+            int size = 0;
+            int extra = 0;
+            foreach (Grass grass in _drawGrass)
+            {
+                if (grass.Initlized)
+                {
+                    size += grass.MaxGrass * sizeof(float) * 4;
+                    extra++;
+                }
+                if (grass.SurfaceVertices != null)
+                {
+                    size += grass.SurfaceMesh.vertices.Length * sizeof(float) * 3;
+                    size += grass.SurfaceMesh.GetIndices(0).Length * sizeof(int);
+                    size += grass.SurfaceMesh.uv.Length * sizeof(float) * 2;
+                }
+            }
+            Debug.LogFormat("buffer grass memory: " + (size / 1000000.0).ToString("F4") + " mb buffers: " + extra + " average: " + ((size / 1000000.0) / extra).ToString("F4"));
+        }
+
         private void Render(List<Grass> grassList)
         {
+            //PrintTotalBufferSize();
             if (Camera.main != null)
             {
                 // Reset grass buffer and run generation
                 _megaBuffer.SetCounterValue(0);
                 _frustumPlanes = GenerateFrustumPlane();
+
+                //int current = 0;
+                //int active = grassList.Where(p => p.Initlized == true).Count();
 
                 for (int i = 0; i < grassList.Count; i++)
                 {
@@ -439,11 +470,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
                     if (!grass.Initlized)
                     {
-                        //var node = grass.GameObject.GetComponent<NodeHandle>();
-                        //if (node.node.BoundaryRadius >= 190 || node.node.BoundaryRadius == 0)
-                        //{
-                        //    continue;
-                        //}
+                        Initialize(grass);
+
+                        grass.MeshGrassGeneratorKernel.SetTexture(ComputeShaderID.splatMap, grass.SplatMap);
+                        grass.MeshGrassGeneratorKernel.SetTexture(ComputeShaderID.nodeTexture, grass.NodeTexture);
+                        grass.MeshGrassGeneratorKernel.SetTexture(ComputeShaderID.placementMap, grass.PlacementMap);
+                        grass.CullKernal.SetBuffer(ComputeShaderID.cullOutBuffer, _megaBuffer);
 
                         grass.MeshGrassGeneratorKernel.SetBuffer(ComputeShaderID.terrainBuffer, grass.GrassBuffer);                 // Grass generator output
                         grass.GrassBuffer.SetCounterValue(0);
@@ -457,8 +489,10 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                         grass.SurfaceVertices.SafeRelease();
                         grass.SurfaceIndices.SafeRelease();
                         grass.SurfaceUVs.SafeRelease();
+
                         _roiTransform = FindFirstNodeParent(grass.GameObject.transform);
                     }
+                    //current++;
 
                     _frustumPlanes[5].w = DrawDistance;
 
@@ -471,6 +505,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                     var x = Mathf.CeilToInt(grass.MaxGrass / 128.0f);
                     grass.CullKernal.Dispatch(x, 1, 1);
                 }
+
+                //Debug.LogFormat("grass buffers total: " + grassList.Count() + "  intlized: " + active + " Drawn: " + current);
+                //Debug.LogFormat("active grass buffers: " + active + " drawn: " + current + " total: " + grassList.Count());
 
                 // ********* Update grassmaterial *********
                 _grassMaterial.SetFloat(ShaderID.grassWind, GrassWind);
@@ -492,11 +529,11 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             grass.ComputeShader.SetMatrix(ComputeShaderID.objToWorld, grass.GameObject.transform.localToWorldMatrix);
             grass.ComputeShader.SetFloat(ComputeShaderID.surfaceGridStep, GrassDensity);
 
-            grass.MeshGrassGeneratorKernel.SetTexture(ComputeShaderID.splatMap, grass.SplatMap);
-            grass.MeshGrassGeneratorKernel.SetTexture(ComputeShaderID.nodeTexture, grass.NodeTexture);
-            grass.MeshGrassGeneratorKernel.SetTexture(ComputeShaderID.placementMap, grass.PlacementMap);
+            //grass.MeshGrassGeneratorKernel.SetTexture(ComputeShaderID.splatMap, grass.SplatMap);
+            //grass.MeshGrassGeneratorKernel.SetTexture(ComputeShaderID.nodeTexture, grass.NodeTexture);
+            //grass.MeshGrassGeneratorKernel.SetTexture(ComputeShaderID.placementMap, grass.PlacementMap);
 
-            grass.CullKernal.SetBuffer(ComputeShaderID.cullOutBuffer, _megaBuffer);
+            //grass.CullKernal.SetBuffer(ComputeShaderID.cullOutBuffer, _megaBuffer);
         }
         private void UpdatePlanePos(Grass grass)
         {
@@ -507,19 +544,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         public void Camera_OnPostTraverse()
         {
-            if (!_hasRendered)
-            {
-                Render(_drawGrass);
-            }
-            _hasRendered = true;
-        }
-        public void LateUpdate()
-        {
-            if (!_hasRendered)
-            {
-                Render(_drawGrass);
-            }
-            _hasRendered = false;
+            Render(_drawGrass);
         }
 
         private void OnDestroy()

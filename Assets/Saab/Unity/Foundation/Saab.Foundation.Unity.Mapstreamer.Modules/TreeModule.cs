@@ -51,8 +51,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _minMaxWidthHeight = GetMinMaxWidthHeight(TreeTextures);
             _offsetArray = GetOffset(TreeTextures);
 
-            _megaBuffer = new ComputeBuffer(2500000, sizeof(float) * 4, ComputeBufferType.Append);
-            _closeMegaBuffer = new ComputeBuffer(2000000, sizeof(float) * 4, ComputeBufferType.Append);
+            _megaBuffer = new ComputeBuffer(1500000, sizeof(float) * 4, ComputeBufferType.Append);
+            _closeMegaBuffer = new ComputeBuffer(1000000, sizeof(float) * 4, ComputeBufferType.Append);
 
             _inderectBuffer = new ComputeBuffer(4, sizeof(uint), ComputeBufferType.IndirectArguments);
             _inderectBuffer.SetData(new uint[] { 0, 1, 0, 0 });
@@ -90,8 +90,10 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 SplatMap = DefaultSplatMap,
                 NodeTexture = (Texture2D)_texture,
                 PlacementMap = PlacementMap,
+                ComputeShader = Instantiate(ComputeShader),
+                SurfaceSize = new Vector3(_mesh.bounds.size.x, _mesh.bounds.size.y, _mesh.bounds.size.z)
             };
-            Initialize(tree);
+            //Initialize(tree);
 
             //add grass to list
             _drawTree.Add(tree);
@@ -339,7 +341,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private void Initialize(Trees tree)
         {
             //Init shaders
-            tree.ComputeShader = Instantiate(ComputeShader);
+            //tree.ComputeShader = Instantiate(ComputeShader);
 
             // Init kernels
             tree.MeshTreeGeneratorKernel = new ComputeKernel(_meshTreeGeneratorKernelName, tree.ComputeShader);
@@ -349,8 +351,11 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             tree.SurfaceSize = new Vector3(tree.SurfaceMesh.bounds.size.x, tree.SurfaceMesh.bounds.size.y, tree.SurfaceMesh.bounds.size.z);
             tree.SurfaceTriangles = tree.SurfaceMesh.triangles.Length;
 
-            var maxTreeMesh = (int)Mathf.Ceil((tree.SurfaceSize.x * tree.SurfaceSize.z) / Density);
+            var maxTreeMesh = (int)Mathf.Ceil((tree.SurfaceSize.x * tree.SurfaceSize.z) / Density) / 2;
             tree.MaxTree = maxTreeMesh > 0 ? maxTreeMesh : 1;
+
+            //Debug.LogWarning("About to add to memory: " + (tree.MaxTree / 1000000.0).ToString("F4") + " mb");
+            //PrintTotalBufferSize();
 
             tree.TreeBuffer = new ComputeBuffer(tree.MaxTree, sizeof(float) * 4, ComputeBufferType.Append);
 
@@ -374,15 +379,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             tree.MeshTreeGeneratorKernel.SetBuffer(ComputeShaderID.surfaceIndices, tree.SurfaceIndices);
             tree.SurfaceUVs.SetData(surfaceUVs);
             tree.MeshTreeGeneratorKernel.SetBuffer(ComputeShaderID.surfaceUVs, tree.SurfaceUVs);
-
-            //tree.ComputeShader.SetInt(ComputeShaderID.terrainResolution, tree.SplatMap.height);
-            //tree.ComputeShader.SetMatrix(ComputeShaderID.objToWorld, tree.GameObject.transform.localToWorldMatrix);
-            //tree.ComputeShader.SetFloat(ComputeShaderID.surfaceGridStep, Density);
-
-            //tree.MeshTreeGeneratorKernel.SetTexture(ComputeShaderID.splatMap, tree.SplatMap);
-            //tree.MeshTreeGeneratorKernel.SetTexture(ComputeShaderID.nodeTexture, tree.NodeTexture);
-            //tree.MeshTreeGeneratorKernel.SetTexture(ComputeShaderID.placementMap, tree.PlacementMap);
-
         }
         // --- GrassComponent ---
         private void InitializeMaterial()
@@ -430,7 +426,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         {
             while (true)
             {
-                if (Camera.main != null)
+                if (Camera.main != null || !UpdateTree)
                 {
                     _frustumPlanes = GenerateFrustumPlane();
 
@@ -453,28 +449,34 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                             continue;
                         }
 
-                        if (!UpdateTree)
-                        {
-                            continue;
-                        }
-
                         //UpdatePlanePos(tree);
                         UpdateShaderValues(tree);
 
                         if (!tree.Initlized)
                         {
+                            tree.Initlized = true;
+                            Initialize(tree);
+
+                            tree.MeshTreeGeneratorKernel.SetTexture(ComputeShaderID.splatMap, tree.SplatMap);
+                            tree.MeshTreeGeneratorKernel.SetTexture(ComputeShaderID.nodeTexture, tree.NodeTexture);
+                            tree.MeshTreeGeneratorKernel.SetTexture(ComputeShaderID.placementMap, tree.PlacementMap);
+
+                            tree.CullKernal.SetBuffer(ComputeShaderID.cullOutBuffer, _megaBuffer);
+                            tree.CullKernal.SetBuffer(ComputeShaderID.closeBuffer, _closeMegaBuffer);
+
                             tree.MeshTreeGeneratorKernel.SetBuffer(ComputeShaderID.terrainBuffer, tree.TreeBuffer);                 // tree generator output
                             tree.TreeBuffer.SetCounterValue(0);
                             var GenX = Mathf.CeilToInt(tree.SurfaceTriangles / 8.0f);
 
                             tree.MeshTreeGeneratorKernel.Dispatch(GenX, 1, 1);
-                            tree.Initlized = true;
+                            
 
                             tree.CullKernal.SetBuffer(ComputeShaderID.cullInBuffer, tree.TreeBuffer);
 
                             tree.SurfaceVertices.SafeRelease();
                             tree.SurfaceIndices.SafeRelease();
                             tree.SurfaceUVs.SafeRelease();
+
                             _roiTransform = FindFirstNodeParent(tree.GameObject.transform);
                             yield return null;
                         }
@@ -484,9 +486,31 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             }
         }
 
+        private void PrintTotalBufferSize()
+        {
+            int size = 0;
+            int extra = 0;
+            foreach (Trees tree in _drawTree)
+            {
+                if(tree.Initlized)
+                {
+                    size += tree.MaxTree * sizeof(float) * 4;
+                    extra++;
+                }
+                if(tree.SurfaceVertices != null)
+                {
+                    size += tree.SurfaceMesh.vertices.Length * sizeof(float) * 3;
+                    size += tree.SurfaceMesh.GetIndices(0).Length * sizeof(int);
+                    size += tree.SurfaceMesh.uv.Length * sizeof(float) * 2;
+                }
+            }
+            Debug.LogFormat("buffer tree memory: " + (size / 1000000.0).ToString("F4") + " mb buffers: " + extra + " average: " + ((size / 1000000.0)/extra).ToString("F4"));
+        }
+
         private void Render(List<Trees> treeList)
         {
-            if (Camera.main != null)
+            //PrintTotalBufferSize();
+            if (Camera.main != null || !UpdateTree)
             {
                 FadeFarAmount = DrawDistance / 3;
                 FadeFarValue = DrawDistance - FadeFarAmount;
@@ -500,6 +524,10 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 _megaBuffer.SetCounterValue(0);
                 _closeMegaBuffer.SetCounterValue(0);
                 _frustumPlanes = GenerateFrustumPlane();
+
+                //int current = 0;
+                //int active = _drawTree.Where(p => p.Initlized == true).Count();
+                //Debug.LogFormat("active tree buffers: " + (_drawTree.Where(p => p.Initlized == true).Count() * 2).ToString() + " + 2");
 
                 for (int i = 0; i < _drawTree.Count; i++)
                 {
@@ -516,11 +544,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                     _frustumPlanes[5].w = DrawDistance + longestSide * 0.75f;
 
                     if (!IsInFrustum(tree.GameObject.transform.position, -longestSide * 0.75f))
-                    {
-                        continue;
-                    }
-
-                    if (!UpdateTree)
                     {
                         continue;
                     }
@@ -568,13 +591,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             tree.ComputeShader.SetInt(ComputeShaderID.terrainResolution, tree.SplatMap.height);
             tree.ComputeShader.SetMatrix(ComputeShaderID.objToWorld, tree.GameObject.transform.localToWorldMatrix);
             tree.ComputeShader.SetFloat(ComputeShaderID.surfaceGridStep, Density);
-
-            tree.MeshTreeGeneratorKernel.SetTexture(ComputeShaderID.splatMap, tree.SplatMap);
-            tree.MeshTreeGeneratorKernel.SetTexture(ComputeShaderID.nodeTexture, tree.NodeTexture);
-            tree.MeshTreeGeneratorKernel.SetTexture(ComputeShaderID.placementMap, tree.PlacementMap);
-
-            tree.CullKernal.SetBuffer(ComputeShaderID.cullOutBuffer, _megaBuffer);
-            tree.CullKernal.SetBuffer(ComputeShaderID.closeBuffer, _closeMegaBuffer);
         }
         private void UpdatePlanePos(Trees tree)
         {
@@ -685,7 +701,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private void SafeRelease(Trees tree)
         {
             //Debug.LogFormat("Trees: Removed " + tree.ID + " From List!");
-
             tree.TreeBuffer.SafeRelease();
 
             Destroy(tree.ComputeShader);

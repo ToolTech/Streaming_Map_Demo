@@ -377,7 +377,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 						{
 							if (dist < maxdist)
 							{
-								transparency = (abs(yaw) * 2) > 1 ? 1 : (abs(yaw) * 2);
+								transparency = (abs(yaw * 4)) > 1 ? 1 : (abs(yaw* 4));
 								topColor.a = transparency < fade ? transparency : fade;
 								bottomColor.a = topColor.a;
 							}
