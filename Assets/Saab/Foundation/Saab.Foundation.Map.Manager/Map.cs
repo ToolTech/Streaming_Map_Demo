@@ -90,12 +90,33 @@ namespace Saab.Foundation.Map
 
         public void Reset()
         {
-            MapType = MapType.UNKNOWN;
-            _topRoi = null;
-            _currentMap = null;
-            _nodeURL = null;
+            try
+            {
+                NodeLock.WaitLockEdit();        // All change of map parameters shall be done in locked edit mode
+
+                _mapType = MapType.UNKNOWN;
+                _topRoi = null;
+                _currentMap = null;
+                _nodeURL = null;
+            }
+            finally
+            {
+                NodeLock.UnLock();
+            }
         }
 
+        #region ------------------------ Screen Functions --------------------------------------
+
+        /// <summary>
+        /// Get Global position and global direction for a screen coordinate
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <param name="size_x"></param>
+        /// <param name="size_y"></param>
+        /// <param name="position"></param>
+        /// <param name="direction"></param>
+        /// <returns></returns>
         public bool GetScreenVectors(int x,int y,uint size_x,uint size_y,out Vec3D position,out Vec3 direction)
         {
             position = new Vec3D();
@@ -110,7 +131,198 @@ namespace Saab.Foundation.Map
         }
 
         /// <summary>
-        /// Get Local mappos
+        /// Get local ground position using intersector in screen coordinates
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <param name="size_x"></param>
+        /// <param name="size_y"></param>
+        /// <param name="result"></param>
+        /// <param name="flags"></param>
+        /// <returns></returns>
+        public bool GetScreenGroundPosition(int x, int y, uint size_x, uint size_y, out MapPos result, ClampFlags flags = ClampFlags.DEFAULT)
+        {
+            Vec3D position;
+            Vec3 direction;
+
+
+            if (!GetScreenVectors(x, y, size_x, size_y, out position, out direction))
+            {
+                result = null;
+                return false;
+            }
+
+            return GetGroundPosition(position, direction, out result, flags);
+        }
+
+        #endregion
+
+        #region ------------------------ Local/Global ------------------------------------------
+
+        /// <summary>
+        /// Convert a local mappos to a global 3D position with ENU offset
+        /// </summary>
+        /// <param name="mappos"></param>
+        /// <param name="enu_offset"></param>
+        /// <returns></returns>
+        public Vec3D LocalToGlobal(MapPos mappos, Vec3 enu_offset = default)
+        {
+            return mappos.GlobalPosition(enu_offset);
+        }
+
+        public MapPos GlobalToLocal(Vec3D global_position)
+        {
+            MapPos result = new MapPos();
+
+            result.position = global_position;
+
+            result.local_orientation = GetLocalOrientation(global_position);
+
+            ToLocal(result);
+
+            return result;
+        }
+
+        #endregion
+
+        #region ------------------------ Global/World ------------------------------------------
+
+        public bool GlobalToWorld(Vec3D global_position, out LatPos result)
+        {
+            Coordinate converter = new Coordinate();
+
+            if (!GlobalToWorld(converter, global_position))
+            {
+                result = null;
+                return false;
+            }
+
+            return converter.GetLatPos(out result);
+        }
+
+        public bool GlobalToWorld(Vec3D global_position, out CartPos result)
+        {
+            Coordinate converter = new Coordinate();
+
+            if (!GlobalToWorld(converter, global_position))
+            {
+                result = null;
+                return false;
+            }
+
+            return converter.GetCartPos(out result);
+        }
+
+        private bool WorldToGlobal(Coordinate converter, ref Vec3D pos, ref Matrix3 orientationMatrix)
+        {
+
+            // Convert to global 3D coordinate in appropriate target system
+
+            switch (_mapType)
+            {
+                case MapType.UTM:
+                    {
+                        UTMPos utmpos;
+
+                        if (!converter.GetUTMPos(out utmpos))
+                        {
+                            Message.Send("Controller", MessageLevel.WARNING, "Failed to convert to UTM");
+                            return false;
+                        }
+
+                        pos = new Vec3D(utmpos.Easting, utmpos.H, -utmpos.Northing) - _origin;
+
+                    }
+                    break;
+
+                case MapType.GEOCENTRIC:
+                    {
+                        CartPos cartpos;
+
+                        if (!converter.GetCartPos(out cartpos))
+                        {
+                            Message.Send("Controller", MessageLevel.WARNING, "Failed to convert to Geocentric");
+                            return false;
+                        }
+
+                        pos = new Vec3D(cartpos.X, cartpos.Y, cartpos.Z) - _origin;
+                    }
+                    break;
+
+                default:
+                    return false;
+            }
+
+            // Set up orientation
+
+            orientationMatrix = GetLocalOrientation(pos);
+
+            return true;
+        }
+
+        public bool GlobalToWorld(Coordinate converter, Vec3D position)
+        {
+            switch (_mapType)
+            {
+                case MapType.UNKNOWN:
+                    {
+                        return false;
+                    }
+
+                case MapType.UTM:
+
+                    UTMPos utmpos = new UTMPos(_utmZone, _north, -(position.z + _origin.z), position.x + _origin.x, position.y + _origin.y);
+
+                    converter.SetUTMPos(utmpos);
+
+                    break;
+
+                case MapType.GEOCENTRIC:
+
+                    CartPos cartpos = new CartPos(position.x + _origin.x, position.y + _origin.y, position.z + _origin.z);
+
+                    converter.SetCartPos(cartpos);
+
+                    break;
+            }
+
+            return true;
+        }
+
+        #endregion
+
+        #region ------------------------ Local/World -------------------------------------------
+
+        public bool LocalToWorld(MapPos pos, out LatPos result)
+        {
+            Vec3D position = pos.position;
+
+            RoiNode roi = pos.node as RoiNode;
+
+            if (roi != null && roi.IsValid())   // Convert to a global position
+                position += roi.Position;
+
+            return GlobalToWorld(position, out result);
+        }
+
+        public bool LocalToWorld(MapPos pos, out CartPos result)
+        {
+            Vec3D position = pos.position;
+
+            RoiNode roi = pos.node as RoiNode;
+
+            if (roi != null && roi.IsValid())   // Convert to a global position
+                position += roi.Position;
+
+            return GlobalToWorld(position, out result);
+        }
+
+        #endregion
+
+        #region ------------------------ Intersector Queries -----------------------------------
+
+        /// <summary>
+        /// Get a Local mappos in Global ray direction
         /// </summary>
         /// <param name="global_position"></param>
         /// <param name="direction"></param>
@@ -143,7 +355,7 @@ namespace Saab.Foundation.Map
             isect.SetStartPosition((Vec3)global_position);
             isect.SetDirection(direction);
 
-            if (isect.Intersect(_currentMap, IntersectQuery.ABC_TRI | IntersectQuery.NEAREST_POINT | IntersectQuery.NORMAL | ( flags.HasFlag(ClampFlags.WAIT_FOR_DATA) ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0), 1, true, origo))
+            if (isect.Intersect(_currentMap, IntersectQuery.ABC_TRI | IntersectQuery.NEAREST_POINT | IntersectQuery.NORMAL | (flags.HasFlag(ClampFlags.WAIT_FOR_DATA) ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0), 1, true, origo))
             {
                 IntersectorResult res = isect.GetResult();
 
@@ -151,10 +363,10 @@ namespace Saab.Foundation.Map
 
                 result.position = data.coordinate + origo;
 
-                if( (data.resultMask & IntersectQuery.NORMAL) != 0)
+                if ((data.resultMask & IntersectQuery.NORMAL) != 0)
                     result.normal = data.normal;
 
-                if ( data.resultMask.HasFlag(IntersectQuery.ABC_TRI) )
+                if (data.resultMask.HasFlag(IntersectQuery.ABC_TRI))
                 {
                     result.a = data.a + origo;
                     result.b = data.b + origo;
@@ -176,41 +388,7 @@ namespace Saab.Foundation.Map
             return ToLocal(result);
         }
 
-
-        public bool GetScreenGroundPosition(int x, int y, uint size_x, uint size_y,out MapPos result, ClampFlags flags= ClampFlags.DEFAULT)
-        {
-            Vec3D position;
-            Vec3 direction;
-
-
-            if (!GetScreenVectors(x, y, size_x, size_y, out position, out direction))
-            {
-                result = null;
-                return false;
-            }
-
-            return GetGroundPosition(position, direction, out result, flags);
-        }
-
-        public Vec3D LocalToGlobal(MapPos mappos,Vec3 enu_offset=default)
-        {
-            return mappos.GlobalPosition(enu_offset);
-        }
-
-        public MapPos GlobalToLocal(Vec3D global_position)
-        {
-            MapPos result = new MapPos();
-
-            result.position = global_position;
-
-            result.local_orientation = GetLocalOrientation(global_position);
-
-            ToLocal(result);
-
-            return result;
-        }
-
-        public double GetAltitude(LatPos pos , ClampFlags flags = ClampFlags.DEFAULT)
+        public double GetAltitude(LatPos pos, ClampFlags flags = ClampFlags.DEFAULT)
         {
             MapPos mapPos;
 
@@ -219,77 +397,77 @@ namespace Saab.Foundation.Map
 
             LatPos updatedPos;
 
-            if (!GetLatPos(mapPos, out updatedPos))
+            if (!LocalToWorld(mapPos, out updatedPos))
                 return 0;
 
             return updatedPos.Altitude;
         }
 
-        public static bool Intersect(Vec3D origin, Vec3D direction, Vec3D V0, Vec3D V1 ,Vec3D V2 , out Vec3D p)
+        public static bool Intersect(Vec3D origin, Vec3D direction, Vec3D V0, Vec3D V1, Vec3D V2, out Vec3D p)
         {
             p = new Vec3D();
 
-	        Vec3D E1 = V1 - V0;
+            Vec3D E1 = V1 - V0;
             Vec3D E2 = V2 - V0;
 
             Vec3D P = direction.Cross(E2);
 
             double factor = P.Dot(E1);
 
-	        if(factor>=0.0)
-	        {
-		        if(factor<1e-8)
-			        return false;
+            if (factor >= 0.0)
+            {
+                if (factor < 1e-8)
+                    return false;
 
-		        Vec3D T = origin - V0;
-
-                double u = P.Dot(T);
-
-		        if(u<0 || u> factor)
-			        return false;
-
-		        Vec3D Q = T.Cross(E1);
-
-                double v = Q.Dot(direction);
-
-		        if(v<0 || (u+v)>factor )
-			        return false;
-
-		        double mag=Q.Dot(E2)/factor;
-
-		        if(mag<0)
-			        return false;
-
-		        p=origin+mag* direction;
-            }
-	        else
-	        {
-		        if(factor>-1e-8)
-			        return false;
-
-		        Vec3D T = origin - V0;
+                Vec3D T = origin - V0;
 
                 double u = P.Dot(T);
 
-		        if(u>0 || u<factor)
-			        return false;
+                if (u < 0 || u > factor)
+                    return false;
 
-		        Vec3D Q = T.Cross(E1);
+                Vec3D Q = T.Cross(E1);
 
                 double v = Q.Dot(direction);
 
-		        if(v>0 || (u+v)<factor )
-			        return false;
+                if (v < 0 || (u + v) > factor)
+                    return false;
 
-		        double mag=Q.Dot(E2)/factor;
+                double mag = Q.Dot(E2) / factor;
 
-		        if(mag<0)
-			        return false;
+                if (mag < 0)
+                    return false;
 
-		        p=origin+mag* direction;
+                p = origin + mag * direction;
+            }
+            else
+            {
+                if (factor > -1e-8)
+                    return false;
+
+                Vec3D T = origin - V0;
+
+                double u = P.Dot(T);
+
+                if (u > 0 || u < factor)
+                    return false;
+
+                Vec3D Q = T.Cross(E1);
+
+                double v = Q.Dot(direction);
+
+                if (v > 0 || (u + v) < factor)
+                    return false;
+
+                double mag = Q.Dot(E2) / factor;
+
+                if (mag < 0)
+                    return false;
+
+                p = origin + mag * direction;
             }
 
-	        return true;
+            return true;
         }
 
         public bool UpdatePosition(MapPos result, GroundClampType groundClamp = GroundClampType.NONE, ClampFlags flags = ClampFlags.DEFAULT)
@@ -316,7 +494,7 @@ namespace Saab.Foundation.Map
 
                 if (result.clamp_result.HasFlag(IntersectQuery.ABC_TRI))
                 {
-                    if(Intersect(result.position,down,result.a,result.b,result.c,out Vec3D p))
+                    if (Intersect(result.position, down, result.a, result.b, result.c, out Vec3D p))
                     {
                         result.position = p;
                         ToLocal(result);
@@ -326,11 +504,11 @@ namespace Saab.Foundation.Map
                 }
 
                 // Check new intersector
-                
+
 
                 Intersector isect = new Intersector();
 
-                Vec3D origo = new Vec3D(0,0,0);
+                Vec3D origo = new Vec3D(0, 0, 0);
 
                 // Check camera frustrum -----------------------------------------------------------
 
@@ -345,14 +523,14 @@ namespace Saab.Foundation.Map
                 if ((flags & ClampFlags.ISECT_LOD_QUALITY) != 0)                // Lets stand in the ray to get highest quality
                     origo = result.position;
 
-               
+
                 isect.SetStartPosition((Vec3)(result.position - origo) - 10000.0f * down);  // Move backwards
                 isect.SetDirection(down);
 
-                if (isect.Intersect(_currentMap,    IntersectQuery.NEAREST_POINT| IntersectQuery.ABC_TRI |
-                                                    IntersectQuery.NORMAL | 
-                                                    ( flags.HasFlag(ClampFlags.WAIT_FOR_DATA) ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0)|
-                                                    ( flags.HasFlag(ClampFlags.UPDATE_DATA) ? IntersectQuery.UPDATE_DYNAMIC_DATA : 0)
+                if (isect.Intersect(_currentMap, IntersectQuery.NEAREST_POINT | IntersectQuery.ABC_TRI |
+                                                    IntersectQuery.NORMAL |
+                                                    (flags.HasFlag(ClampFlags.WAIT_FOR_DATA) ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0) |
+                                                    (flags.HasFlag(ClampFlags.UPDATE_DATA) ? IntersectQuery.UPDATE_DYNAMIC_DATA : 0)
                                                     , 1, true, origo))
                 {
                     IntersectorResult res = isect.GetResult();
@@ -388,10 +566,14 @@ namespace Saab.Foundation.Map
 
                 ToLocal(result);
             }
-                       
+
 
             return true;
         }
+
+        #endregion
+
+
 
         /// <summary>
         /// Get local ENU orientation matrix for Global Position Vec3D
@@ -456,89 +638,9 @@ namespace Saab.Foundation.Map
             }
         }
 
-        public bool GetLatPos(MapPos pos,out LatPos result)
-        {
-            Coordinate converter = new Coordinate();
+        
 
-            Vec3D position = pos.position;
-
-            result = new LatPos();
-
-            // Check possibly local 3D under a roiNode
-
-            RoiNode roi = pos.node as RoiNode;
-
-            if (roi != null && roi.IsValid())       // Convert to a possible global position
-                position += roi.Position;
-
-            switch (_mapType)
-            {
-                case MapType.UNKNOWN:
-                    {
-                        return false;
-                    }
-
-                case MapType.UTM:
-
-                    UTMPos utmpos = new UTMPos(_utmZone, _north, -(position.z + _origin.z), position.x + _origin.x, position.y + _origin.y);
-
-                    converter.SetUTMPos(utmpos);
-
-                    break;
-
-                case MapType.GEOCENTRIC:
-
-                    CartPos cartpos = new CartPos(position.x + _origin.x, position.y + _origin.y, position.z + _origin.z);
-
-                    converter.SetCartPos(cartpos);
-
-                    break;
-            }
-
-            return converter.GetLatPos(out result);
-        }
-
-        public bool GetCartPos(MapPos pos, out CartPos result)
-        {
-            Coordinate converter = new Coordinate();
-
-            Vec3D position = pos.position;
-
-            result = new CartPos();
-
-            // Check possibly local 3D under a roiNode
-
-            RoiNode roi = pos.node as RoiNode;
-
-            if (roi != null && roi.IsValid())   // Convert to a global position
-                position += roi.Position;
-
-            switch (_mapType)
-            {
-                case MapType.UNKNOWN:
-                    {
-                        return false;
-                    }
-
-                case MapType.UTM:
-
-                    UTMPos utmpos = new UTMPos(_utmZone, _north, -(position.z + _origin.z), position.x + _origin.x, position.y + _origin.y);
-
-                    converter.SetUTMPos(utmpos);
-
-                    break;
-
-                case MapType.GEOCENTRIC:
-
-                    CartPos cartpos = new CartPos(position.x + _origin.x, position.y + _origin.y, position.z + _origin.z);
-
-                    converter.SetCartPos(cartpos);
-
-                    break;
-            }
-
-            return converter.GetCartPos(out result);
-        }
+       
 
         /// <summary>
         /// Converts a global mappos to a local under a roi
@@ -593,6 +695,7 @@ namespace Saab.Foundation.Map
             return false;   // We failed to convert
         }
 
+
         public bool SetPosition(MapPos result, LatPos pos, GroundClampType groundClamp = GroundClampType.NONE, ClampFlags flags = ClampFlags.DEFAULT)
         {
             Coordinate converter = new Coordinate();
@@ -605,8 +708,6 @@ namespace Saab.Foundation.Map
 
             return UpdatePosition(result, groundClamp, flags);
         }
-
-
 
         public bool SetPosition(MapPos result, CartPos pos, GroundClampType groundClamp = GroundClampType.NONE, ClampFlags flags = ClampFlags.DEFAULT)
         {
@@ -623,53 +724,7 @@ namespace Saab.Foundation.Map
 
             return UpdatePosition(result, groundClamp, flags);
         }
-
-        private bool WorldToGlobal(Coordinate converter, ref Vec3D pos, ref Matrix3 orientationMatrix)
-        {
-
-            // Convert to global 3D coordinate in appropriate target system
-
-            switch (_mapType)
-            {
-                case MapType.UTM:
-                    {
-                        UTMPos utmpos;
-
-                        if (!converter.GetUTMPos(out utmpos))
-                        {
-                            Message.Send("Controller", MessageLevel.WARNING, "Failed to convert to UTM");
-                            return false;
-                        }
-
-                        pos = new Vec3D(utmpos.Easting, utmpos.H, -utmpos.Northing) - _origin;
-
-                    }
-                    break;
-
-                case MapType.GEOCENTRIC:
-                    {
-                        CartPos cartpos;
-
-                        if (!converter.GetCartPos(out cartpos))
-                        {
-                            Message.Send("Controller", MessageLevel.WARNING, "Failed to convert to Geocentric");
-                            return false;
-                        }
-
-                        pos = new Vec3D(cartpos.X, cartpos.Y, cartpos.Z) - _origin;
-                    }
-                    break;
-
-                default:
-                    return false;
-            }
-
-            // Set up orientation
-
-            orientationMatrix = GetLocalOrientation(pos);
-
-            return true;
-        }
+             
 
         public bool GetPosition(LatPos pos, out MapPos result,GroundClampType groundClamp= GroundClampType.NONE, ClampFlags flags = ClampFlags.DEFAULT)
         {
@@ -681,39 +736,37 @@ namespace Saab.Foundation.Map
             return SetPosition(result, pos, groundClamp, flags);                 
         }
 
-        private Roi FindTopRoi(Node map)
+        
+        public Vec3D Origin
         {
-            // Must be called node locked
-
-            if (map == null)
-                return null;
-
-            Roi roi = map as Roi;
-
-            if (roi !=null)
-                return roi;
-
-            Group grp = map as Group;
-
-            if (grp!=null)
+            get
             {
-                foreach(Node child in grp)
+                try
                 {
-                    Roi sub = FindTopRoi(child);
+                    NodeLock.WaitLockEdit();
 
-                    if (sub != null)
-                        return sub;
+                    return _origin;
+                }
+                finally
+                {
+                    NodeLock.UnLock();
                 }
             }
-
-            return null;
         }
 
         public Node CurrentMap
         {
             get
             {
-                return _currentMap;
+                try
+                {
+                    NodeLock.WaitLockEdit();
+                    return _currentMap;
+                }
+                finally
+                {
+                    NodeLock.UnLock();
+                }
             }
 
             set
@@ -736,7 +789,7 @@ namespace Saab.Foundation.Map
                             _north = utmOrigin.North;
                             _utmZone = utmOrigin.Zone;
                         }
-                        else if (projection == DBI_PROJECTION_FLAT_EARTH)
+                        else if (projection == DBI_PROJECTION_FLAT_EARTH)   // To run a 3D world without world coordinates
                         {
                             _mapType = MapType.PLAIN;
                             _origin = (Vec3D)_currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_ORIGIN).GetVec3();
@@ -799,8 +852,18 @@ namespace Saab.Foundation.Map
 
         public MapType MapType
         {
-            get { return _mapType; }
-            set { _mapType = value; }
+            get
+            {
+                try
+                {
+                    NodeLock.WaitLockEdit();
+                    return _mapType;
+                }
+                finally
+                {
+                    NodeLock.UnLock();
+                }
+            }
         }
 
         public Camera Camera
@@ -823,6 +886,38 @@ namespace Saab.Foundation.Map
         }
 
         public static MapControl SystemMap=new MapControl();
+
+        #region ----- Private methods ------------------
+
+        private Roi FindTopRoi(Node map)
+        {
+            // Must be called node locked
+
+            if (map == null)
+                return null;
+
+            Roi roi = map as Roi;
+
+            if (roi != null)
+                return roi;
+
+            Group grp = map as Group;
+
+            if (grp != null)
+            {
+                foreach (Node child in grp)
+                {
+                    Roi sub = FindTopRoi(child);
+
+                    if (sub != null)
+                        return sub;
+                }
+            }
+
+            return null;
+        }
+
+        #endregion
 
         #region ----- Private variables ----------------
 

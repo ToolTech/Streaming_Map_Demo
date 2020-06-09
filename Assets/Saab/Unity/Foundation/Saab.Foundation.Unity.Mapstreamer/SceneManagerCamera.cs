@@ -68,7 +68,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             get
             {
                 LatPos res;
-                MapControl.SystemMap.GetLatPos(_position, out res);
+                MapControl.SystemMap.LocalToWorld(_position, out res);
                 return res;
             }
             set
