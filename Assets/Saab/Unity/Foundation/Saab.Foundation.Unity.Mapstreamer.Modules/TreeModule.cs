@@ -541,9 +541,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
                     if (!tree.GameObject.activeSelf) { continue; }
                     var longestSide = Mathf.Max(tree.SurfaceSize.x, tree.SurfaceSize.z, tree.SurfaceSize.y);
-                    _frustumPlanes[5].w = DrawDistance + longestSide * 0.75f;
+                    _frustumPlanes[5].w = DrawDistance + longestSide * 1.25f;
 
-                    if (!IsInFrustum(tree.GameObject.transform.position, -longestSide * 0.75f))
+                    if (!IsInFrustum(tree.GameObject.transform.position, -longestSide * 1.25f))
                     {
                         continue;
                     }

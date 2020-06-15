@@ -259,12 +259,35 @@ namespace GizmoSDK
                 return Marshal.PtrToStringUni(Matrix4_asString(ref this));
             }
 
+            public static Matrix4 Euler_YXZ(float y_rot, float x_rot, float z_rot, Vec3 translation = default)
+            {
+                Matrix4 mat = new Matrix4();
+
+                Matrix4_euler_yxz(ref mat, y_rot, x_rot, z_rot,ref translation);
+
+                return mat;
+            }
+
+            public static Matrix4 Euler_ZXY(float z_rot, float x_rot, float y_rot,Vec3 translation=default)
+            {
+                Matrix4 mat = new Matrix4();
+
+                Matrix4_euler_zxy(ref mat, z_rot, x_rot, y_rot,ref translation);
+
+                return mat;
+            }
+
             #region // --------------------- Native calls -----------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool Matrix4_inverse(ref Matrix4 source, ref Matrix4 dest);
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr Matrix4_asString(ref Matrix4 mat);
+
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Matrix4_euler_yxz(ref Matrix4 mat, float y_rot, float x_rot, float z_rot,ref Vec3 translation);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Matrix4_euler_zxy(ref Matrix4 mat, float z_rot, float x_rot, float y_rot,ref Vec3 translation);
             #endregion
 
         }

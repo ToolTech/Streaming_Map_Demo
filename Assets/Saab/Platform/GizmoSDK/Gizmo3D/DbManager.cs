@@ -70,16 +70,31 @@ namespace GizmoSDK
 
             static public Node LoadDB(string url, string extension="", AdapterFlags flags=AdapterFlags.DEFAULT, UInt32 version=0, string password="", Reference associatedData=null)
             {
-                return Reference.CreateObject(DbManager_loadDB(url,extension,ref flags,version, password, associatedData?.GetNativeReference() ?? IntPtr.Zero)) as Node;
+                SerializeAdapter.AdapterError error = SerializeAdapter.AdapterError.NO_ERROR;
+                IntPtr nativeErrorString = IntPtr.Zero;
+
+                return Reference.CreateObject(DbManager_loadDB(url,extension,ref flags,version, password, associatedData?.GetNativeReference() ?? IntPtr.Zero,ref nativeErrorString,ref error)) as Node;
             }
-            
+
+            static public Node LoadDB(string url, ref string errorString, ref SerializeAdapter.AdapterError error,string extension = "", AdapterFlags flags = AdapterFlags.DEFAULT, UInt32 version = 0, string password = "", Reference associatedData = null)
+            {
+                IntPtr nativeErrorString = IntPtr.Zero;
+
+                IntPtr node=DbManager_loadDB(url, extension, ref flags, version, password, associatedData?.GetNativeReference() ?? IntPtr.Zero, ref nativeErrorString, ref error);
+
+                if (nativeErrorString != IntPtr.Zero)
+                    errorString = Marshal.PtrToStringUni(nativeErrorString);
+
+                return Reference.CreateObject(node) as Node;
+            }
+
             static public void Initialize()
             {
                 DbManager_initialize();
             }
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr DbManager_loadDB(string url, string extension , ref AdapterFlags flags, UInt32 version ,  string password , IntPtr associatedData);
+            private static extern IntPtr DbManager_loadDB(string url, string extension , ref AdapterFlags flags, UInt32 version ,  string password , IntPtr associatedData, ref IntPtr nativeErrorString, ref SerializeAdapter.AdapterError error);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void DbManager_initialize();
         }

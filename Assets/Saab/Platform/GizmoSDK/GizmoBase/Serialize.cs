@@ -93,6 +93,7 @@ namespace GizmoSDK
                 BROKEN_ACCESS,
                 URL_SYNTAX,
                 MISSING_URL_PROVIDER,
+                FORMAT_ERROR,
                 OTHER,
             };
 
@@ -113,7 +114,7 @@ namespace GizmoSDK
                 return adapter;
             }
 
-            public static SerializeAdapter GetURLAdapter(string url, SerializeAction action, AdapterFlags flags,string password,ref string errorString,ref AdapterError error)
+            public static SerializeAdapter GetURLAdapter(string url, SerializeAction action, AdapterFlags flags,ref string errorString,ref AdapterError error, string password="")
             {
                 IntPtr nativeErrorString = IntPtr.Zero;
 
@@ -207,10 +208,11 @@ namespace GizmoSDK
                 return SerializeAdapter_hasError(GetNativeReference());
             }
 
-            public string GetError()
+            public string Error
             {
-                return Marshal.PtrToStringUni(SerializeAdapter_getError(GetNativeReference()));
+                get { return Marshal.PtrToStringUni(SerializeAdapter_getError(GetNativeReference())); }
             }
+                     
 
             public static bool SetAssetManagerHandle(IntPtr JNIEnvHandle,IntPtr assetManagerHandle)
             {
@@ -338,10 +340,24 @@ namespace GizmoSDK
 
             }
 
+            public void SetChunkSize(UInt32 size)
+            {
+                SerializeAdapterQueue_setChunkSize(GetNativeReference(), size);
+            }
+
+            public void SetRealSize(UInt32 size)
+            {
+                SerializeAdapterQueue_setRealSize(GetNativeReference(), size);
+            }
+
             #region -------------- Native calls ------------------
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr SerializeAdapterQueue_create(QueueMode mode,UInt32 chunksize);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void SerializeAdapterQueue_setChunkSize(IntPtr queue_reference,UInt32 chunkSize);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void SerializeAdapterQueue_setRealSize(IntPtr queue_reference,UInt32 realSize);
 
             #endregion
         }

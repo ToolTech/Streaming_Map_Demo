@@ -459,9 +459,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                     UpdatePlanePos(grass);
 
                     var longestSide = Mathf.Max(grass.SurfaceSize.x, grass.SurfaceSize.z, grass.SurfaceSize.y);
-                    _frustumPlanes[5].w = DrawDistance + longestSide * 0.75f;
+                    _frustumPlanes[5].w = DrawDistance + longestSide * 1.25f;
 
-                    if (!IsInFrustum(grass.GameObject.transform.position, -longestSide * 0.75f))
+                    if (!IsInFrustum(grass.GameObject.transform.position, -longestSide * 1.25f))
                     {
                         continue;
                     }
@@ -519,7 +519,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
                 // Culling      
                 ComputeBuffer.CopyCount(_megaBuffer, _inderectBuffer, 0);
-                Graphics.DrawProceduralIndirect(_grassMaterial, new Bounds(Vector3.zero, new Vector3(DrawDistance, DrawDistance, DrawDistance)), MeshTopology.Points, _inderectBuffer, 0, null, null, DrawGrassShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
+                var bounds = new Bounds(Vector3.zero, new Vector3(DrawDistance + DrawDistance / 3, DrawDistance + DrawDistance / 3, DrawDistance + DrawDistance / 3) * 1.5f);
+                Graphics.DrawProceduralIndirect(_grassMaterial, bounds, MeshTopology.Points, _inderectBuffer, 0, null, null, DrawGrassShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
                 //Graphics.DrawMeshInstancedIndirect(_mesh, 0, grass.GrassMaterial, new Bounds(Vector3.zero, new Vector3(float.MaxValue, float.MaxValue, float.MaxValue)), grass.ArgsBufferGrass, 0, null, DrawGrassShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
             }
         }

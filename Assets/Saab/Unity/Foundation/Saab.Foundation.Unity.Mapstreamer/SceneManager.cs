@@ -55,7 +55,6 @@ using GizmoSDK.Coordinate;
 using gzCamera = GizmoSDK.Gizmo3D.Camera;
 using gzTransform = GizmoSDK.Gizmo3D.Transform;
 using gzTexture = GizmoSDK.Gizmo3D.Texture;
-using gzImage = GizmoSDK.GizmoBase.Image;
 
 
 // Map utility
@@ -121,6 +120,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         public delegate void EventHandler_OnGameObject(GameObject o);
         public delegate void EventHandler_OnNode(Node node);
+        public delegate void EventHandler_OnMapLoadError(ref string url,string errorString,SerializeAdapter.AdapterError errorType,ref bool retry);
 
         // Notifications for external users that wants to add components to created game objects. Be swift as we are in edit lock
 
@@ -128,12 +128,14 @@ namespace Saab.Foundation.Unity.MapStreamer
         public event EventHandler_OnGameObject  OnNewLod;        // GameObject that toggles on off dep on distance
         public event EventHandler_OnGameObject  OnNewTransform;  // GameObject that has a specific parent transform
         public event EventHandler_OnGameObject  OnNewLoader;     // GameObject that works like a dynamic loader
+        
 
         public delegate void EventHandler_Traverse();
 
         public event EventHandler_Traverse      OnPreTraverse;
         public event EventHandler_Traverse      OnPostTraverse;
         public event EventHandler_OnNode        OnMapChanged;
+        public event EventHandler_OnMapLoadError OnMapLoadError;
 
         #region ------------- Privates ----------------
 
@@ -703,12 +705,32 @@ namespace Saab.Foundation.Unity.MapStreamer
                 if (!ResetMap())
                     return false;
 
-                var node = DbManager.LoadDB(mapURL);
+                Node node = null;
 
-                if (node == null || !node.IsValid())
+                while (true)
                 {
-                    Message.Send(ID, MessageLevel.WARNING, $"Failed to load map {mapURL}");
-                    return false;
+                    if (string.IsNullOrEmpty(mapURL))
+                        break;
+
+                    string errorString = "";
+                    SerializeAdapter.AdapterError errorType = SerializeAdapter.AdapterError.NO_ERROR;
+                    bool retry = false;
+
+                    node = DbManager.LoadDB(mapURL, ref errorString, ref errorType);
+
+                    if (node == null || !node.IsValid())
+                    {
+                        Message.Send(ID, MessageLevel.WARNING, $"Failed to load map {mapURL}");
+
+                        OnMapLoadError?.Invoke(ref mapURL, errorString, errorType, ref retry);
+
+                        if (retry)
+                            continue;
+
+                        return false;
+                    }
+
+                    break;
                 }
 
                 MapUrl = mapURL;
@@ -716,19 +738,26 @@ namespace Saab.Foundation.Unity.MapStreamer
                 MapControl.SystemMap.NodeURL = mapURL;
                 MapControl.SystemMap.CurrentMap = node;
 
-                _native_scene.AddNode(MapControl.SystemMap.CurrentMap);
                 
-                _native_scene.Debug();
 
-                _root = new GameObject("root");
+                if (node != null)
+                {
+                    _native_scene.AddNode(MapControl.SystemMap.CurrentMap);
+                    _native_scene.Debug();
 
-                GameObject scene = Traverse(MapControl.SystemMap.CurrentMap, null);
+                    _root = new GameObject("root");
+                    GameObject scene = Traverse(MapControl.SystemMap.CurrentMap, null);
 
-                if(scene!=null)
-                    scene.transform.SetParent(_root.transform, false);
+                    if (scene != null)
+                        scene.transform.SetParent(_root.transform, false);
 
-                // As GizmoSDK has a flipped Z axis going out of the screen we need a top transform to flip Z
-                _root.transform.localScale = new Vector3(1, 1, -1);
+                    // As GizmoSDK has a flipped Z axis going out of the screen we need a top transform to flip Z
+                    _root.transform.localScale = new Vector3(1, 1, -1);
+                }
+                
+                
+
+                
 
 
                 //// Add example object under ROI --------------------------------------------------------------
@@ -758,6 +787,8 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         public bool ResetMap()
         {
+            MapUrl = null;
+
             NodeLock.WaitLockEdit();
 
             try // We are now locked in edit
@@ -881,7 +912,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             return true;
         }
 
-        internal bool Init()
+        internal bool Init(bool loadMap = true)
         {
             if (_initialized)
                 return true;
@@ -891,7 +922,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             StartCoroutine(AssetLoader());
 
-            if (!InitMap())
+            if (!InitMap(loadMap))
             {
                 _initialized = false;
                 return false;
@@ -926,7 +957,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             if (!_initialized)
                 return;
 
-            InitMap();
+            InitMap(true);
         }
 
 
@@ -935,7 +966,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             // We add Unitialize and shut down threads here as this routine gets called by an edit in code
             Uninitialize();
         }
-        private bool InitMap()
+        private bool InitMap(bool loadMap)
         {
             //_plugin_initializer = new UnityPluginInitializer();  // in case we need it our own
             if (!GizmoSDK.Gizmo3D.Platform.Initialize())
@@ -949,7 +980,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                 return false;
 
             // Load the map
-            if (!LoadMap(MapUrl))
+            if (loadMap && !LoadMap(MapUrl))
                 return false;
 
             return true;

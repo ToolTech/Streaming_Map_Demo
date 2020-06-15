@@ -69,6 +69,11 @@ namespace Saab.Foundation.Map
     //      In UTM its aligned with X to the east, Y up and Z to the south
     //      In Sperical its aligned with XYZ to Cartesian Coordnates
     //
+    // 4.   The local ENU (East-North-Up) coordinate system.
+    //      A MapPos local coordnate is given in a fixed 3D frame aligned with Unitys coordnate system
+    //      but with flipped Z axis. In this the east,north,up vectors might be aligned in another direction
+    //      A ENU transform can be performed on a local MapPos to get it to ENU MapPos              (MapPos ENU)
+    //
     //  In Unity you have a Left ON system and with a Z into the screen so be careful using Unitys quarternios etc.
     //  Positioning is made under the Top RoiNode and it has a fliped Z transform so in under this node you dont need to take the flip into account
     //
@@ -83,7 +88,7 @@ namespace Saab.Foundation.Map
         public IntersectQuery   clamp_result;           // non zero if this position is clamped
         public Vec3             normal;                 // Normal in local coordinate system
         public Matrix3          local_orientation;      // East North Up base matrix
-        public Vec3             hpr;                    // Heading, Pitch, Roll
+        public Vec3             euler_enu;              // Yaw, Pitch, Roll - euler angles around East,North,Up right ON
         public Vec3D            a, b, c;                // Place on triangle
 
         public bool IsLocal()
@@ -142,43 +147,70 @@ namespace Saab.Foundation.Map
 
         public Quaternion Rotation
         {
-            get { return Quaternion.CreateFromYawPitchRoll(hpr.x, hpr.y, hpr.z); }
+            get { return Quaternion.CreateFromYawPitchRoll(euler_enu.x, euler_enu.y, euler_enu.z); }
+        }
+
+        public Matrix3 Orientation
+        {
+            get { return Matrix3.Euler_YXZ(euler_enu.x, euler_enu.y, euler_enu.z); }
+        }
+
+        public Matrix3 EnuToLocal(LocationOptions options)
+        {
+            Vec3 up;                                    // up in local coordinate system
+
+            if (normal.x != 0)                          // Use normal as up
+                up = normal;
+            else 
+                up = local_orientation.GetCol(2);       // If no normal use 
+           
+            Vec3 east = local_orientation.GetCol(0);
+
+            Vec3 north = local_orientation.GetCol(1);
+
+            if (options.RotationOptions.HasFlag(RotationOptions.AlignToSurface))
+            {
+                east = east.Orthogonal(up);
+                north = up.Cross(east);
+            }
+
+            return new Matrix3(east, north, up);
         }
 
 
-        public void SetLatPos(double lat, double lon, double alt)
+        public bool SetLatPos(double lat, double lon, double alt)
         {
             var mapControl = MapControl.SystemMap;
 
             if (mapControl == null)
             {
-                return;
+                return false;
             }
 
-            mapControl.SetPosition(this, new LatPos(lat,lon, alt));
+            return mapControl.SetPosition(this, new LatPos(lat,lon, alt));
         }
 
-        public void SetCartPos(double x, double y, double z)
+        public bool SetCartPos(double x, double y, double z)
         {
             var mapControl = MapControl.SystemMap;
 
             if (mapControl == null)
             {
-                return;
+                return false;
             }
 
-            mapControl.SetPosition(this, new CartPos(x, y, z));
+            return mapControl.SetPosition(this, new CartPos(x, y, z));
+
         }
 
         public void SetRotation(float yaw, float pitch, float roll)
         {
-            hpr = new Vec3(yaw, pitch, roll);
+            euler_enu = new Vec3(yaw, pitch, roll);
         }
 
         virtual public Transform Step(double time, LocationOptions options)
         {
             Clamp(options);
-
 
             var up = new Vector3(normal.x, normal.y, -normal.z);
 
@@ -245,8 +277,6 @@ namespace Saab.Foundation.Map
 
             return true;
         }
-
-
     }
 
     public class DynamicMapPos : MapPos, IDynamicLocation<Node>
@@ -259,9 +289,11 @@ namespace Saab.Foundation.Map
         public Vec3 Velocity => _vel;
         public Vec3 Acceleration => _acc;
 
-        public void SetKinematicParams(double posX, double posY, double posZ, Vector3 vel, Vector3 acc, double t)
+        public bool SetKinematicParams(double posX, double posY, double posZ, Vector3 vel, Vector3 acc, double t)
         {
-            SetCartPos(posX, posY, posZ);
+            if (!SetCartPos(posX, posY, posZ))
+                return false;
+            
             _pos = new Vec3((float)position.x, (float)position.y, (float)position.z);
 
             var conv = new Coordinate();
@@ -276,24 +308,25 @@ namespace Saab.Foundation.Map
             _vel = local_orientation * orientMatrix * _vel;
             _acc = local_orientation * orientMatrix * _acc;
 
+            return true;
         }
 
         public override Transform Step(double time, LocationOptions options)
         {   
             var dt = (float)(time - _time);
-            var v = _vel * dt + 0.5f * _acc * dt * dt;
+            var s = _vel * dt + 0.5f * _acc * dt * dt;
 
-            if(Vec3.Dot(v, v) == 0.0 )
+            if(Vec3.Dot(s, s) == 0.0 )
             {
                 return base.Step(time, options);
             }
 
-            position =  _pos + v;
+            position =  _pos + s;
 
             if (!options.RotationOptions.HasFlag(RotationOptions.AlignToVelocity))
                 return base.Step(time, options);
 
-            v = _vel + _acc * dt;
+            var v = _vel + _acc * dt;
             v.Normalize();
 
             var n = new Vector3(local_orientation.v13, local_orientation.v23, local_orientation.v33);
@@ -305,7 +338,7 @@ namespace Saab.Foundation.Map
             var dot = Vector3.Dot(proj, north);
             var det = Vector3.Dot(n, Vector3.Cross(north,proj));
 
-            hpr.x = -(float)Math.Atan2(det,dot);
+            euler_enu.x = -(float)Math.Atan2(det,dot);
 
             return base.Step(time, options);
         }

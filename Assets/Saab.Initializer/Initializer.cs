@@ -102,10 +102,11 @@ namespace Saab.Unity.Initializer
 
             Message.Send(Message.GIZMOSDK, MessageLevel.DEBUG, "MultiCast Lock acquired");
 
-            station = new DebugCommandStation("udp::45456?nic=${wlan0}&blocking=no");
+            //station = new DebugCommandStation("udp::45456?nic=${wlan0}&blocking=no");
 
-            Thread thread = new Thread(new ThreadStart(WorkThreadFunction));
-            thread.Start();
+            //Thread thread = new Thread(new ThreadStart(WorkThreadFunction));
+            //thread.Start();
+
 #endif //UNITY_ANDROID
         }
 

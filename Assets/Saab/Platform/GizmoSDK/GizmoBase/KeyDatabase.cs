@@ -46,14 +46,44 @@ namespace GizmoSDK
        
         public class KeyDatabase
         {
-            static public bool SetLocalRegistry(string url)
+            static public bool SetLocalRegistry(string url, string password = "")
             {
-                return KeyDatabase_setLocalRegistry(url);
+                SerializeAdapter.AdapterError error = SerializeAdapter.AdapterError.NO_ERROR;
+                IntPtr nativeErrorString = IntPtr.Zero;
+
+                return KeyDatabase_setLocalRegistry(url,password,ref nativeErrorString,ref error);
             }
 
-            static public void SetDefaultRegistry(string url)
+            static public bool SetLocalRegistry(string url, ref string errorString, ref SerializeAdapter.AdapterError error, string password="")
             {
-                KeyDatabase_setDefaultRegistry(url);
+                IntPtr nativeErrorString = IntPtr.Zero;
+
+                bool result=KeyDatabase_setLocalRegistry(url, password, ref nativeErrorString, ref error);
+
+                if (nativeErrorString != IntPtr.Zero)
+                    errorString = Marshal.PtrToStringUni(nativeErrorString);
+
+                return result;
+            }
+
+            static public bool SetDefaultRegistry(string url,string password = "")
+            {
+                SerializeAdapter.AdapterError error = SerializeAdapter.AdapterError.NO_ERROR;
+                IntPtr nativeErrorString = IntPtr.Zero;
+
+                return KeyDatabase_setDefaultRegistry(url,password, ref nativeErrorString, ref error);
+            }
+
+            static public bool SetDefaultRegistry(string url, ref string errorString, ref SerializeAdapter.AdapterError error, string password = "")
+            {
+                IntPtr nativeErrorString = IntPtr.Zero;
+
+                bool result = KeyDatabase_setDefaultRegistry(url, password, ref nativeErrorString, ref error);
+
+                if (nativeErrorString != IntPtr.Zero)
+                    errorString = Marshal.PtrToStringUni(nativeErrorString);
+
+                return result;
             }
 
             static public T GetUserKey<T>(string key, string password="", bool onlyUserKey=false)
@@ -140,9 +170,9 @@ namespace GizmoSDK
             #region // --------------------- Native calls -----------------------
 
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern void KeyDatabase_setDefaultRegistry(string url);
+            private static extern bool KeyDatabase_setDefaultRegistry(string url, string password, ref IntPtr nativeErrorString, ref SerializeAdapter.AdapterError error);
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern bool KeyDatabase_setLocalRegistry(string url);
+            private static extern bool KeyDatabase_setLocalRegistry(string url, string password, ref IntPtr nativeErrorString, ref SerializeAdapter.AdapterError error);
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr KeyDatabase_getUserKey(string key, string password , bool onlyUserKey);
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]

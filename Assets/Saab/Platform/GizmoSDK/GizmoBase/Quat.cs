@@ -43,6 +43,7 @@ namespace GizmoSDK
     namespace GizmoBase
     {
         [Serializable]
+        [StructLayout(LayoutKind.Sequential)]
         public struct Quaternion 
         {
             public Quaternion(float _w = 0, float _x=0,float _y=0,float _z = 0)
@@ -79,12 +80,22 @@ namespace GizmoSDK
                 return Marshal.PtrToStringUni(Quaternion_asString(ref this));
             }
 
+            public static Quaternion CreateFromEulerYXZ(float heading,float pitch,float roll)
+            {
+                Quaternion quat = new Quaternion();
+
+                Quaternion_from_euler_yxz(ref quat, heading, pitch, roll);
+
+                return quat;
+            }
 
             public float w, x, y, z;
 
             #region // --------------------- Native calls -----------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr Quaternion_asString(ref Quaternion quat);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Quaternion_from_euler_yxz(ref Quaternion quat,float heading, float pitch,float roll);
             #endregion
 
         }

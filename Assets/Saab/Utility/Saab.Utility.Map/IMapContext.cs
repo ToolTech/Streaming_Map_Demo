@@ -68,13 +68,13 @@ namespace Saab.Utility.Map
 
     public interface IMapLocation<TContext> : ILocation<TContext>
     {
-        void SetLatPos(double lat, double lon, double alt);
+        bool SetLatPos(double lat, double lon, double alt);
         void SetRotation(float yaw, float pitch, float roll);
     }
 
     public interface IDynamicLocation<TContext> : IMapLocation<TContext>
     {
-        void SetKinematicParams(double posX, double posY, double posZ, Vector3 vel, Vector3 acc, double t);
+        bool SetKinematicParams(double posX, double posY, double posZ, Vector3 vel, Vector3 acc, double t);
     }
 
 
