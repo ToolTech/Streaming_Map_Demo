@@ -430,6 +430,9 @@ namespace Saab.Foundation.Unity.MapStreamer
                         filter.sharedMesh = mesh;
                         renderer.sharedMaterial = currentMaterial;
                     }
+                    else
+                        Message.Send(ID, MessageLevel.WARNING, $"Failed to load geometry {geom.GetName()}");
+
                     return true;
                 }
                 return true;

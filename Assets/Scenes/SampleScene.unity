@@ -336,7 +336,7 @@ MonoBehaviour:
     FrameCleanupInterval: 1000
     MaxBuildTime: 0.01
     DynamicLoaders: 4
-  MapUrl: purl:maps,sweden/smaland/data/map.gzd
+  MapUrl: Maps/jkg_small/roi.gzl
 --- !u!114 &534669908
 MonoBehaviour:
   m_ObjectHideFlags: 0

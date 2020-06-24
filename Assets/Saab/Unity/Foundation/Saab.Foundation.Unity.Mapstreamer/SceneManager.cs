@@ -32,6 +32,7 @@
 //
 // AMO	180607	Created file        (2.9.1)
 // AMO  200304  Updated SceneManager with events for external users     (2.10.1)
+// AMO  200624  Updated transforms with rotation and generic transform  (2.10.6)
 //
 //******************************************************************************
 
@@ -431,12 +432,38 @@ namespace Saab.Foundation.Unity.MapStreamer
                 {
                     Performance.Enter("SM.Traverse.Transform");
 
-                    Vec3 translation;
-
-                    if (tr.GetTranslation(out translation))
+                    if (tr.IsActive())
                     {
-                        Vector3 trans = new Vector3(translation.x, translation.y, translation.z);
-                        gameObject.transform.localPosition = trans;
+                        Vec3 translation;
+
+                        bool handled=false;
+
+                        if (tr.GetTranslation(out translation))
+                        {
+                            Vector3 trans = new Vector3(translation.x, translation.y, translation.z);
+                            gameObject.transform.localPosition = trans;
+
+                            handled = true;
+                        }
+
+                        // Rotation Euler   // TBD. Right now not handled 
+
+                        // Rotation Quat
+
+                        // Scale 
+
+                        // Or generic if not handled
+
+                        if(!handled)
+                        {
+                            Matrix4 transform;
+                            tr.GetTransform(out transform);
+                                                      
+
+                            gameObject.transform.localPosition = transform.Translation().ToVector3();
+                            gameObject.transform.localScale = transform.Scale().ToVector3();
+                            gameObject.transform.localRotation = transform.Quaternion().ToQuaternion();
+                        }
                     }
 
                     Performance.Enter("SM.Traverse.OnNewTransform");

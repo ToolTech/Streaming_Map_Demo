@@ -62,6 +62,11 @@ namespace Saab.Unity.Extensions
             return new Vec3(vec.x, vec.y, vec.z);
         }
 
+        public static GizmoSDK.GizmoBase.Quaternion ToQuaternion(this UnityEngine.Quaternion quat)
+        {
+            return new GizmoSDK.GizmoBase.Quaternion(quat.w,quat.x, quat.y, quat.z);
+        }
+
         public static Matrix4 ToMatrix4(this Matrix4x4 matrix)
         {
             return new Matrix4
@@ -127,6 +132,11 @@ namespace Saab.Unity.Extensions
         public static Vector3 ToVector3(this Vec3 vec)
         {
             return new Vector3(vec.x, vec.y, vec.z);
+        }
+
+        public static UnityEngine.Quaternion ToQuaternion(this GizmoSDK.GizmoBase.Quaternion quat)
+        {
+            return new UnityEngine.Quaternion(quat.x, quat.y, quat.z, quat.w);
         }
 
         public static Matrix4x4 ToMatrix4x4(this Matrix4 matrix)

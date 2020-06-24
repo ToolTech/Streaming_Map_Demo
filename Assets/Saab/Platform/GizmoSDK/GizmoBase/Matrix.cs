@@ -254,6 +254,29 @@ namespace GizmoSDK
                 return Matrix4_inverse(ref this, ref destination);
             }
 
+            public Vec3 Scale()
+            {
+                Vec3 result = new Vec3();
+
+                Matrix4_scale(ref this, ref result);
+
+                return result;
+            }
+
+            public Vec3 Translation()
+            {
+                return new Vec3(v14, v24, v34);
+            }
+
+            public Quaternion Quaternion()
+            {
+                Quaternion quat = new Quaternion();
+
+                Matrix4_quaternion(ref this, ref quat);
+
+                return quat;
+            }
+
             public override string ToString()
             {
                 return Marshal.PtrToStringUni(Matrix4_asString(ref this));
@@ -277,6 +300,8 @@ namespace GizmoSDK
                 return mat;
             }
 
+            
+
             #region // --------------------- Native calls -----------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool Matrix4_inverse(ref Matrix4 source, ref Matrix4 dest);
@@ -288,6 +313,10 @@ namespace GizmoSDK
             private static extern void Matrix4_euler_yxz(ref Matrix4 mat, float y_rot, float x_rot, float z_rot,ref Vec3 translation);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void Matrix4_euler_zxy(ref Matrix4 mat, float z_rot, float x_rot, float y_rot,ref Vec3 translation);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Matrix4_scale(ref Matrix4 mat, ref Vec3 translation);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Matrix4_quaternion(ref Matrix4 mat, ref Quaternion quat);
             #endregion
 
         }

@@ -79,6 +79,17 @@ namespace GizmoSDK
                 return Transform_getTranslation(GetNativeReference(),ref translation);
             }
 
+            public bool IsActive()
+            {
+                return Transform_isActive(GetNativeReference());
+            }
+
+            public void GetTransform(out Matrix4 transform)
+            {
+                transform = new Matrix4();
+                Transform_getTransform(GetNativeReference(), ref transform);
+            }
+
             #region Native dll interface ----------------------------------
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr Transform_create(string name);
@@ -86,6 +97,11 @@ namespace GizmoSDK
             private static extern bool Transform_hasTranslation(IntPtr transform_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool Transform_getTranslation(IntPtr transform_reference,ref Vec3 translation);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool Transform_isActive(IntPtr transform_reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Transform_getTransform(IntPtr transform_reference, ref Matrix4 translation);
+
             #endregion
         }
     }
