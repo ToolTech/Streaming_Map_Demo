@@ -32,7 +32,6 @@
 //
 // AMO	180607	Created file        (2.9.1)
 // AMO  200304  Updated SceneManager with events for external users     (2.10.1)
-// AMO  200624  Updated transforms with rotation and generic transform  (2.10.6)
 //
 //******************************************************************************
 
@@ -73,7 +72,6 @@ using System;
 using System.Collections;
 using UnityEngine.Networking;
 
-
 namespace Saab.Foundation.Unity.MapStreamer
 {
     // The SceneManager behaviour takes a unity camera and follows that to populate the current scene with GameObjects in a scenegraph hierarchy
@@ -105,7 +103,7 @@ namespace Saab.Foundation.Unity.MapStreamer
         public static readonly SceneManagerSettings Default = new SceneManagerSettings 
         { 
             FrameCleanupInterval = 1000, 
-            MaxBuildTime = 0.01, /*100hz*/ 
+            MaxBuildTime = 0.016,
             DynamicLoaders = 4,
         };
     }
@@ -129,7 +127,7 @@ namespace Saab.Foundation.Unity.MapStreamer
         public event EventHandler_OnGameObject  OnNewLod;        // GameObject that toggles on off dep on distance
         public event EventHandler_OnGameObject  OnNewTransform;  // GameObject that has a specific parent transform
         public event EventHandler_OnGameObject  OnNewLoader;     // GameObject that works like a dynamic loader
-        
+        public event EventHandler_OnGameObject OnEnterPool;
 
         public delegate void EventHandler_Traverse();
 
@@ -152,12 +150,11 @@ namespace Saab.Foundation.Unity.MapStreamer
   
         private readonly string ID = "Saab.Foundation.Unity.MapStreamer.SceneManager";
 
- 
         //#pragma warning disable 414
         //private UnityPluginInitializer _plugin_initializer;
         //#pragma warning restore 414
 
-        #endregion
+#endregion
 
         struct NodeLoadInfo
         {
@@ -203,14 +200,24 @@ namespace Saab.Foundation.Unity.MapStreamer
             public string object_id;
         };
 
+        // stores information for a pending build job
+        struct BuildInfo
+        {
+            public INodeBuilder Builder;
+            public NodeHandle NodeHandle;
+            public Node Node;
+            public GameObject GameObject;
+            public NodeHandle ActiveStateNode;
+        }
+
         // A queue for new pending loads/unloads
         List<NodeLoadInfo> pendingLoaders = new List<NodeLoadInfo>(100);
+
         // A queue for pending activations/deactivations
         List<ActivationInfo> pendingActivations = new List<ActivationInfo>(100);
   
-
         // A queue for post build work
-        Queue<NodeHandle> pendingBuilds = new Queue<NodeHandle>(500);
+        Queue<BuildInfo> pendingBuilds = new Queue<BuildInfo>(200);
 
         // A queue for AssetLoading
         Stack<AssetLoadInfo> pendingAssetLoads = new Stack<AssetLoadInfo>(100);
@@ -218,293 +225,250 @@ namespace Saab.Foundation.Unity.MapStreamer
         // The current active asset bundles
         Dictionary<string, AssetBundle> currentAssetBundles = new Dictionary<string, AssetBundle>();
 
-        // Lookup for used materials
-        Dictionary<IntPtr, Material> textureMaterialStorage = new Dictionary<IntPtr, Material>();
-
         // Linked List for nodes that needs updates on update
         LinkedList<GameObject> updateNodeObjects = new LinkedList<GameObject>();
+        
         private bool _initialized;
 
-        //Add GameObjects to dictionary
+        private readonly List<INodeBuilder> _builders = new List<INodeBuilder>();
 
-        // Traverse function iterates the scene graph to build local branches on Unity
-        GameObject Traverse(Node n, Material currentMaterial)
+        public void AddBuilder(INodeBuilder builder)
+        {
+            _builders.Add(builder);
+        }
+
+        public void RemoveBuilder(INodeBuilder builder)
+        {
+            _builders.Remove(builder);
+        }
+
+        private INodeBuilder GetBuilderForNode(Node node)
+        {
+            foreach (var builder in _builders)
+            {
+                if (!builder.CanBuild(node))
+                    continue;
+
+                return builder;
+            }
+
+            return null;
+        }
+
+        private void BuildNode(INodeBuilder builder, NodeHandle nodeHandle, NodeHandle activeStateNode)
+        {
+            switch (builder.Priority)
+            {
+                case BuildPriority.Immediate:
+                    if (builder.Build(nodeHandle, nodeHandle.gameObject, activeStateNode))
+                        nodeHandle.builder = builder;
+                    break;
+                default:
+                    pendingBuilds.Enqueue(new BuildInfo() 
+                    { 
+                        Builder = builder, 
+                        NodeHandle = nodeHandle, 
+                        Node = nodeHandle.node,
+                        GameObject = nodeHandle.gameObject, 
+                        ActiveStateNode = activeStateNode,
+                    });
+                    break;
+            }
+        }
+
+        private void ProcessTransformNode(gzTransform node, unTransform transform)
+        {
+            if (!node.IsActive())
+                return;
+
+            if (node.GetTranslation(out Vec3 translation))
+            {
+                transform.localPosition = new Vector3(translation.x, translation.y, translation.z);
+                return;
+            }
+
+            node.GetTransform(out Matrix4 mat4);
+
+            transform.localPosition = mat4.Translation().ToVector3();
+            transform.localScale = mat4.Scale().ToVector3();
+            transform.localRotation = mat4.Quaternion().ToQuaternion();
+        }
+
+        private GameObject ProcessDynamicLoaderNode(DynamicLoader node, NodeHandle nodeHandle)
+        {
+            // Possibly we can add action interfaces for dyn load childs as they will get traversable if they have node actons
+            if (NodeUtils.FindGameObjectsUnsafe(node.GetNativeReference(), out List<GameObject> list))
+                return list[0]; // We are already in list, lets return first object wich is our main registered node
+            
+            // We are not registered
+            NodeUtils.AddGameObjectReferenceUnsafe(node.GetNativeReference(), nodeHandle.gameObject);
+
+            nodeHandle.inNodeUtilsRegistry = true;  // Added to registry
+
+            return null;
+        }
+
+        private void ProcessLodNode(Lod node, NodeHandle nodeHandle, NodeHandle activeStateNode)
+        {
+            ProcessGroup(node, nodeHandle, activeStateNode, true);
+        }
+
+        private void ProcessRoiNode(Roi node, NodeHandle nodeHandle, NodeHandle activeStateNode)
+        {
+            RegisterNodeForUpdate(nodeHandle);
+            ProcessGroup(node, nodeHandle, activeStateNode, true);
+        }
+
+        private void RegisterNodeForUpdate(NodeHandle nodeHandle)
+        {
+            nodeHandle.updateTransform = true;
+            nodeHandle.inNodeUpdateList = true;
+            updateNodeObjects.AddLast(nodeHandle.gameObject);
+        }
+
+        private void ProcessGroup(Group node, NodeHandle nodeHandle, NodeHandle activeStateNode, bool addActionInterfaces = false)
+        {
+            var parent = nodeHandle.transform;
+
+            if (addActionInterfaces)
+            {
+                foreach (var child in node)
+                {
+                    var gameObject = TraverseInternal(child, activeStateNode);
+
+                    var childNodeHandle = gameObject.GetComponent<NodeHandle>();
+
+                    if (!NodeUtils.HasGameObjectsUnsafe(child.GetNativeReference()))
+                    {
+                        NodeUtils.AddGameObjectReferenceUnsafe(child.GetNativeReference(), gameObject);
+
+                        childNodeHandle.inNodeUtilsRegistry = true;
+                        child.AddActionInterface(_actionReceiver, NodeActionEvent.IS_TRAVERSABLE);
+                        child.AddActionInterface(_actionReceiver, NodeActionEvent.IS_NOT_TRAVERSABLE);
+                    }
+
+                    gameObject.transform.SetParent(parent, false);
+                }
+                
+                return;
+            }
+
+            foreach (var child in node)
+            {
+                var gameObject = TraverseInternal(child, activeStateNode);
+
+                gameObject.transform.SetParent(parent, false);
+            }
+        }
+
+        private NodeHandle CreateNodeHandle(Node node, PoolObjectFeature feature)
+        {
+            var nodeHandle = Allocate(feature, node);
+
+            nodeHandle.name = node.GetName();
+            
+            if (string.IsNullOrEmpty(nodeHandle.name))
+                nodeHandle.name = node.GetType().Name;
+  
+            return nodeHandle;
+        }
+
+        private GameObject BeginTraverse(Node node,bool dynloaded=false)
         {
             // We must be called in edit lock
 
-            if (n == null || !n.IsValid())
-                return null;
+            // if dynloaded we should add actions for traverse here as we can be toggled on/off by loader (fancier look)
+
+            return TraverseInternal(node, null);
+        }
+
+        private GameObject TraverseInternal(Node node, NodeHandle activeStateNode)
+        {
+            // We must be called in edit lock
+            
+            System.Diagnostics.Debug.Assert(node != null && node.IsValid());
+
+
 
             // --------------------------- Add game object ---------------------------------------
 
-            string name = n.GetName();
-
-            if (String.IsNullOrEmpty(name))
-                name = n.GetNativeTypeName();
-
-            GameObject gameObject = new GameObject(name);
-
-            var nodeHandle = gameObject.AddComponent<NodeHandle>();
-
-            //nodeHandle.Renderer = Renderer;
-            nodeHandle.node = n;
-            nodeHandle.currentMaterial = currentMaterial;
-            nodeHandle.ComputeShader = Settings.ComputeShader;
 
 
-            // ---------------------------- Check material state ----------------------------------
+            NodeHandle nodeHandle;
 
-            if (n.HasState())
+            var builder = GetBuilderForNode(node);
+
+            if (builder == null)
             {
-                try
-                {
-                    Performance.Enter("SM.Traverse.State");
-
-                    State state = n.State;
-
-                    if (state.HasTexture(0) && state.GetMode(StateMode.TEXTURE) == StateModeActivation.ON)
-                    {
-                        gzTexture texture = state.GetTexture(0);
-
-                        if (!textureMaterialStorage.TryGetValue(texture.GetNativeReference(), out currentMaterial))
-                        {
-                            if (texture.HasImage())
-                            {
-
-                                ImageFormat image_format;
-                                ComponentType comp_type;
-                                uint components;
-
-                                uint depth;
-                                uint width;
-                                uint height;
-
-                                uint size;
-
-                                bool uncompress = false;
-
-                                Image image = texture.GetImage();
-
-                                image_format = image.GetFormat();
-
-                                image.Dispose();
-
-                                switch (image_format)      // Not yet
-                                {
-                                    case ImageFormat.COMPRESSED_RGBA8_ETC2:
-                                        if (!SystemInfo.SupportsTextureFormat(TextureFormat.ETC2_RGBA8))
-                                            uncompress = true;
-                                        break;
-
-                                    case ImageFormat.COMPRESSED_RGB8_ETC2:
-                                        if (!SystemInfo.SupportsTextureFormat(TextureFormat.ETC2_RGB))
-                                            uncompress = true;
-                                        break;
-
-                                    case ImageFormat.COMPRESSED_RGBA_S3TC_DXT1:
-                                    case ImageFormat.COMPRESSED_RGB_S3TC_DXT1:
-                                        if (!SystemInfo.SupportsTextureFormat(TextureFormat.DXT1))
-                                            uncompress = true;
-                                        break;
-
-                                    case ImageFormat.COMPRESSED_RGBA_S3TC_DXT5:
-                                        if (!SystemInfo.SupportsTextureFormat(TextureFormat.DXT5))
-                                            uncompress = true;
-                                        break;
-                                }
-
-                                IntPtr native_memory = IntPtr.Zero;
-
-                                if (texture.GetMipMapImageArray(ref native_memory, out size, out image_format, out comp_type, out components, out width, out height, out depth, true, uncompress))
-                                {
-                                    if (depth == 1)
-                                    {
-                                        if (n is Crossboard)
-                                            currentMaterial = new Material(Settings.CrossboardShader);
-                                        else
-                                            currentMaterial = new Material(Settings.DefaultShader);
-
-                                        TextureFormat format = TextureFormat.ARGB32;
-
-                                        switch (comp_type)
-                                        {
-                                            case ComponentType.UNSIGNED_BYTE:
-                                                {
-                                                    switch (image_format)
-                                                    {
-                                                        case ImageFormat.RGBA:
-                                                            format = TextureFormat.RGBA32;
-                                                            break;
-
-                                                        case ImageFormat.RGB:
-                                                            format = TextureFormat.RGB24;
-                                                            break;
-
-                                                        case ImageFormat.COMPRESSED_RGBA_S3TC_DXT1:
-                                                        case ImageFormat.COMPRESSED_RGB_S3TC_DXT1:
-                                                            format = TextureFormat.DXT1;
-                                                            break;
-
-                                                        case ImageFormat.COMPRESSED_RGBA_S3TC_DXT5:
-                                                            format = TextureFormat.DXT5;
-                                                            break;
-
-                                                        case ImageFormat.COMPRESSED_RGB8_ETC2:
-                                                            format = TextureFormat.ETC2_RGB;
-                                                            break;
-
-                                                        case ImageFormat.COMPRESSED_RGBA8_ETC2:
-                                                            format = TextureFormat.ETC2_RGBA8;
-                                                            break;
-
-
-                                                        default:
-                                                            // Issue your own error here because we can not use this texture yet
-                                                            return null;
-                                                    }
-                                                }
-                                                break;
-
-                                            default:
-                                                // Issue your own error here because we can not use this texture yet
-                                                return null;
-
-                                        }
-
-
-                                        Texture2D tex = new Texture2D((int)width, (int)height, format, true);
-
-                                        tex.LoadRawTextureData(native_memory,(int)size);
-
-
-                                        switch (texture.MinFilter)
-                                        {
-                                            default:
-                                                tex.filterMode = FilterMode.Point;
-                                                break;
-
-                                            case gzTexture.TextureMinFilter.LINEAR:
-                                            case gzTexture.TextureMinFilter.LINEAR_MIPMAP_NEAREST:
-                                                tex.filterMode = FilterMode.Bilinear;
-                                                break;
-
-                                            case gzTexture.TextureMinFilter.LINEAR_MIPMAP_LINEAR:
-                                                tex.filterMode = FilterMode.Trilinear;
-                                                break;
-                                        }
-
-                                        tex.Apply(texture.UseMipMaps, true);
-
-                                        currentMaterial.mainTexture = tex;
-
-                                    }
-                                }
-                            }
-
-                            // Add some kind of check for textures shared by many
-                            // Right now only for crossboards
-
-                            if (n is Crossboard)
-                                textureMaterialStorage.Add(texture.GetNativeReference(), currentMaterial);
-
-                        }
-
-                        nodeHandle.currentMaterial = currentMaterial;
-                        texture.Dispose();
-                    }
-
-                    state.Dispose();
-
-                }
-                finally
-                {
-                    Performance.Leave();
-                }
+                nodeHandle = CreateNodeHandle(node, PoolObjectFeature.None);
+                
+                // check for new active state
+                if (node.HasState())
+                    activeStateNode = nodeHandle;
             }
+            else
+            {
+                nodeHandle = CreateNodeHandle(node, builder.Feature);
+
+                // check for new active state
+                if (node.HasState())
+                    activeStateNode = nodeHandle;
+
+                // build gameobjects for this node
+                BuildNode(builder, nodeHandle, activeStateNode);
+            }
+
+            var gameObject = nodeHandle.gameObject;
+
+
 
             // ---------------------------- Transform check -------------------------------------
 
-            gzTransform tr = n as gzTransform;
-
-            if (tr != null)
+            if (node is gzTransform tr)
             {
                 try
                 {
                     Performance.Enter("SM.Traverse.Transform");
 
-                    if (tr.IsActive())
-                    {
-                        Vec3 translation;
-
-                        bool handled=false;
-
-                        if (tr.GetTranslation(out translation))
-                        {
-                            Vector3 trans = new Vector3(translation.x, translation.y, translation.z);
-                            gameObject.transform.localPosition = trans;
-
-                            handled = true;
-                        }
-
-                        // Rotation Euler   // TBD. Right now not handled 
-
-                        // Rotation Quat
-
-                        // Scale 
-
-                        // Or generic if not handled
-
-                        if(!handled)
-                        {
-                            Matrix4 transform;
-                            tr.GetTransform(out transform);
-                                                      
-
-                            gameObject.transform.localPosition = transform.Translation().ToVector3();
-                            gameObject.transform.localScale = transform.Scale().ToVector3();
-                            gameObject.transform.localRotation = transform.Quaternion().ToQuaternion();
-                        }
-                    }
+                    ProcessTransformNode(tr, gameObject.transform);
 
                     Performance.Enter("SM.Traverse.OnNewTransform");
+                    
                     // Notify subscribers of new Transform
                     OnNewTransform?.Invoke(gameObject);
+                    
                     Performance.Leave();
                 }
                 finally
                 {
                     Performance.Leave();
                 }
+
+                    
             }
 
             // ---------------------------- DynamicLoader check -------------------------------------
 
-            DynamicLoader dl = n as DynamicLoader;      // Add dynamic loader as game object in dictionary
-                                                        // so other dynamic loaded data can parent them as child to loader
-            if (dl != null)
+            // Add dynamic loader as game object in dictionary
+            // so other dynamic loaded data can parent them as child to loader
+            if (node is DynamicLoader dl)
             {
                 try
                 {
                     Performance.Enter("SM.Traverse.Loader");
 
-                    List<GameObject> list;
+                    var res = ProcessDynamicLoaderNode(dl, nodeHandle);
+                    if (res != null)
+                        return res;
+                    
+                    // We shall continue to iterate as a group to see if we already have loaded children
 
-                    if (!NodeUtils.FindGameObjects(dl.GetNativeReference(), out list))     // We are not registered
-                    {
-                        NodeUtils.AddGameObjectReference(dl.GetNativeReference(), gameObject);
-
-                        nodeHandle.inNodeUtilsRegistry = true;  // Added to registry
-
-                        // We shall continue to iterate as a group to see if we already have loaded children
-                    }
-                    else  // We are already in list
-                    {
-                        return list[0];     // Lets return first object wich is our main registered node
-                    }
 
                     Performance.Enter("SM.Traverse.OnNewLoader");
+                    
                     // Notify subscribers of new Loader
                     OnNewLoader?.Invoke(gameObject);
+                    
                     Performance.Leave();
                 }
                 finally
@@ -515,38 +479,15 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             // ---------------------------- Lod check -------------------------------------
 
-            Lod ld = n as Lod;
-
-            if (ld != null)
+            if (node is Lod ld)
             {
-                foreach (Node child in ld)
-                {
-                    GameObject go_child = Traverse(child, currentMaterial);
-
-                    if (go_child == null)
-                        return null;
-
-                    NodeHandle h = go_child.GetComponent<NodeHandle>();
-
-                    if (h != null)
-                    {
-                        if (!NodeUtils.HasGameObjects(h.node.GetNativeReference()))
-                        {
-                            NodeUtils.AddGameObjectReference(h.node.GetNativeReference(), go_child);
-
-                            h.inNodeUtilsRegistry = true;
-                            h.node.AddActionInterface(_actionReceiver, NodeActionEvent.IS_TRAVERSABLE);
-                            h.node.AddActionInterface(_actionReceiver, NodeActionEvent.IS_NOT_TRAVERSABLE);
-                        }
-
-                    }
-
-                    go_child.transform.SetParent(gameObject.transform, false);
-                }
+                ProcessLodNode(ld, nodeHandle, activeStateNode);
 
                 Performance.Enter("SM.Traverse.OnNewLod");
+                
                 // Notify subscribers of new Lod
                 OnNewLod?.Invoke(gameObject);
+                
                 Performance.Leave();
 
                 // Dont process group as group is already processed
@@ -555,126 +496,46 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             // ---------------------------- Roi check -------------------------------------
 
-            Roi roi = n as Roi;
-
-            if (roi != null)
+            if (node is Roi roi)
             {
+                ProcessRoiNode(roi, nodeHandle, activeStateNode);
 
-                nodeHandle.updateTransform = true;
-                nodeHandle.inNodeUpdateList = true;
-                updateNodeObjects.AddLast(gameObject);
-
-                foreach (Node child in roi)
-                {
-                    GameObject go_child = Traverse(child, currentMaterial);
-
-                    if (go_child == null)
-                        return null;
-
-                    NodeHandle h = go_child.GetComponent<NodeHandle>();
-
-                    if (h != null)
-                    {
-                        if (!NodeUtils.HasGameObjects(h.node.GetNativeReference()))
-                        {
-                            NodeUtils.AddGameObjectReference(h.node.GetNativeReference(), go_child);
-
-                            h.inNodeUtilsRegistry = true;
-                            h.node.AddActionInterface(_actionReceiver, NodeActionEvent.IS_TRAVERSABLE);
-                            h.node.AddActionInterface(_actionReceiver, NodeActionEvent.IS_NOT_TRAVERSABLE);
-                        }
-
-                    }
-
-                    go_child.transform.SetParent(gameObject.transform, false);
-                }
-
-                // Dont process group
+                // Dont process group as group is already processed
                 return gameObject;
-
             }
 
             // ---------------------------- RoiNode check -------------------------------------
 
-            RoiNode roinode = n as RoiNode;
-
-            if (roinode != null)
+            if (node is RoiNode)
             {
-                nodeHandle.updateTransform = true;
-                nodeHandle.inNodeUpdateList = true;
-                updateNodeObjects.AddLast(gameObject);
+                RegisterNodeForUpdate(nodeHandle);
             }
 
             // ---------------------------- Group check -------------------------------------
-
-            Group g = n as Group;
-
-            if (g != null)
+                
+            if (node is Group g)
             {
-
-                foreach (Node child in g)
-                {
-                    GameObject go_child = Traverse(child, currentMaterial);
-
-                    if (go_child == null)
-                        return null;
-
-                    go_child.transform.SetParent(gameObject.transform, false);
-                }
-
+                ProcessGroup(g, nodeHandle, activeStateNode);
                 return gameObject;
             }
 
             // ---------------------------ExtRef check -----------------------------------------
 
-            ExtRef ext = n as ExtRef;
-
-            if (ext != null)
+            if (node is ExtRef extRef)
             {
-                AssetLoadInfo info = new AssetLoadInfo(gameObject, ext.ResourceURL, ext.ObjectID);
+                var info = new AssetLoadInfo(gameObject, extRef.ResourceURL, extRef.ObjectID);
 
                 pendingAssetLoads.Push(info);
-            }
-
-            // ---------------------------- Crossboard check -----------------------------------
-
-            Crossboard cb = n as Crossboard;
-
-            if (cb != null && GfxCaps.HasCapability(Capability.UseTreeCrossboards))
-            {
-                // Scheduled for later build
-                pendingBuilds.Enqueue(nodeHandle);
-            }
+            }    
 
             // ---------------------------- Geometry check -------------------------------------
 
-            Geometry geom = n as Geometry;
-
-            if (geom != null)
+            if (node is Geometry geom)
             {
-                try
-                {
-                    Performance.Enter("SM.Traverse.Geometry");
-
-                    nodeHandle.BuildGameObject();
-
-                    Performance.Enter("SM.Traverse.OnNewGeometry");
-                    // Notify subscribers of new Geometry
-                    OnNewGeometry?.Invoke(gameObject);
-                    Performance.Leave();
-
-                    // Later on we will identify types of geoemtry that will be scheduled later if they are extensive and not ground that covers other geometry
-                    // and build them in a later pass distributed over time
-                    // pendingBuilds.Enqueue(nodeHandle);
-                }
-                finally
-                {
-                    Performance.Leave();
-                }
+                OnNewGeometry?.Invoke(gameObject);
             }
-
+                
             return gameObject;
-
         }
 
         private IEnumerator AssetLoader()
@@ -773,7 +634,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                     _native_scene.Debug();
 
                     _root = new GameObject("root");
-                    GameObject scene = Traverse(MapControl.SystemMap.CurrentMap, null);
+                    GameObject scene = BeginTraverse(MapControl.SystemMap.CurrentMap);
 
                     if (scene != null)
                         scene.transform.SetParent(_root.transform, false);
@@ -814,7 +675,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         public bool ResetMap()
         {
-            MapUrl = null;
+            //MapUrl = null;
 
             NodeLock.WaitLockEdit();
 
@@ -836,11 +697,12 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                 pendingActivations.Clear();
 
-                RemoveGameObjectHandles(_root);
-
-                GameObject.Destroy(_root);
-
-                _root = null;
+                if (_root)
+                {
+                    Free(_root.transform);
+                    _root = null;
+                }
+                
 
                 MapControl.SystemMap.Reset();
             }
@@ -852,39 +714,65 @@ namespace Saab.Foundation.Unity.MapStreamer
             return true;
         }
 
+        private void AddDefaultBuilders()
+        {
+            // initialize node builders
+            AddBuilder(new DefaultGeometryNodeBuilder(Settings.DefaultShader));
+
+            if (GfxCaps.CurrentCaps.HasFlag(Capability.UseTreeCrossboards))
+                AddBuilder(new CrossboardNodeBuilder(Settings.CrossboardShader, Settings.ComputeShader));
+        }
+
 
         public bool InitializeInternal()        
         {
-            _actionReceiver = new NodeAction("DynamicLoadManager");
+            // Initialize streamer APIs
+            if (!GizmoSDK.Gizmo3D.Platform.Initialize())
+                return false;
 
+            // Initialize formats
+            DbManager.Initialize();
+
+            GizmoSDK.GizmoBase.Message.Send("SceneManager", MessageLevel.DEBUG, "Initialize Graph Streaming");
+
+            // Add builder for registered types
+            AddDefaultBuilders();
+
+            // Setup internal subscription events
+            _actionReceiver = new NodeAction("DynamicLoadManager");
             _actionReceiver.OnAction += ActionReceiver_OnAction;
 
-            GizmoSDK.GizmoBase.Message.Send("SceneManager", MessageLevel.DEBUG, "Loading Graph");
+            DynamicLoader.OnDynamicLoad += DynamicLoader_OnDynamicLoad;
 
+            
             NodeLock.WaitLockEdit();
 
             try // We are now locked in edit
             {
-
+                // Camera setup
                 _native_camera = new PerspCamera("Test");
                 _native_camera.RoiPosition = true;
                 MapControl.SystemMap.Camera = _native_camera;
 
-                _native_scene = new Scene("TestScene");
+                // Top scene
+                _native_scene = new Scene("Scene");
+                _native_camera.Scene = _native_scene;
 
+                // Top context
                 _native_context = new Context();
 
 #if DEBUG_CAMERA
+
+                // If we want to visualize debug 3D
                 _native_camera.Debug(_native_context);      // Enable to debug view
 #endif // DEBUG_CAMERA
 
+                // Default travrser
                 _native_traverse_action = new CullTraverseAction();
 
                 // _native_traverse_action.SetOmniTraverser(true);  // To skip camera cull and use LOD in omni directions
 
-                DynamicLoader.OnDynamicLoad += DynamicLoader_OnDynamicLoad;
 
-                _native_camera.Scene = _native_scene;
             }
             finally
             {
@@ -892,21 +780,28 @@ namespace Saab.Foundation.Unity.MapStreamer
                 NodeLock.UnLock();
             }
 
-
+            // Set up dynamic loading
             DynamicLoader.UsePreCache(true);                    // Enable use of mipmap creation on dynamic loading
             DynamicLoaderManager.SetNumberOfActiveLoaders(Settings.DynamicLoaders);   // Lets start with 4 parallell threads
             DynamicLoaderManager.StartManager();
+
+            // Start coroutines for asset loading
+            StartCoroutine(AssetLoader());
 
             return true;
         }
 
         public bool Uninitialize()
         {
+            if (!_initialized)
+                   return false;
 
+            // Stop manager
             DynamicLoaderManager.StopManager();
 
             ResetMap();
 
+            // Remove actions
             DynamicLoader.OnDynamicLoad -= DynamicLoader_OnDynamicLoad;
             _actionReceiver.OnAction -= ActionReceiver_OnAction;
 
@@ -935,6 +830,10 @@ namespace Saab.Foundation.Unity.MapStreamer
                 NodeLock.UnLock();
             }
 
+            // Drop platform streamer
+            GizmoSDK.Gizmo3D.Platform.Uninitialize();
+
+            _initialized = false;
 
             return true;
         }
@@ -944,16 +843,15 @@ namespace Saab.Foundation.Unity.MapStreamer
             if (_initialized)
                 return true;
 
-
             _initialized = true;
-
-            StartCoroutine(AssetLoader());
-
-            if (!InitMap(loadMap))
-            {
-                _initialized = false;
+           
+            // Initialize this manager
+            if (!InitializeInternal())
                 return false;
-            }
+
+            // Load the map
+            if (loadMap && !LoadMap(MapUrl))
+                return false;
 
             return true;
         }
@@ -981,39 +879,25 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         private void OnEnable()
         {
+            // important that we do not run Init() from OnEable() since that will run during AddComponent(),
+            // and in BTA we need to control when the map is loaded.
             if (!_initialized)
                 return;
 
-            InitMap(true);
+            Init();
         }
 
+        private void OnApplicationQuit()
+        {
+            Uninitialize();
+        }
 
         private void OnDisable()
         {
             // We add Unitialize and shut down threads here as this routine gets called by an edit in code
             Uninitialize();
         }
-        private bool InitMap(bool loadMap)
-        {
-            //_plugin_initializer = new UnityPluginInitializer();  // in case we need it our own
-            if (!GizmoSDK.Gizmo3D.Platform.Initialize())
-                return false;
-
-            // Initialize formats
-            DbManager.Initialize();
-
-            // Initialize this manager
-            if (!InitializeInternal())
-                return false;
-
-            // Load the map
-            if (loadMap && !LoadMap(MapUrl))
-                return false;
-
-            return true;
-        }
-
-       
+               
         private void DynamicLoader_OnDynamicLoad(DynamicLoadingState state, DynamicLoader loader, Node node)
         {
             // Locked in edit or render (render) by caller
@@ -1028,54 +912,63 @@ namespace Saab.Foundation.Unity.MapStreamer
                 node?.ReleaseNoDelete();
             }
         }
-
-        private void RemoveGameObjectHandles(GameObject obj)
-        {
-            if (obj == null)
-                return;
-
-            foreach (unTransform child in obj.transform)    // Recursive remove
-                RemoveGameObjectHandles(child.gameObject);
-
-            NodeHandle h = obj.GetComponent<NodeHandle>();
-
-            if (h != null)
-            {
-                if (h.inNodeUtilsRegistry)
-                {
-                    NodeUtils.RemoveGameObjectReference(h.node.GetNativeReference(), obj);
-                    h.inNodeUtilsRegistry = false;
-                }
-
-                if (h.inNodeUpdateList)
-                {
-                    updateNodeObjects.Remove(obj);
-                    h.inNodeUpdateList = false;
-                }
-
-                h.node?.Dispose();
-                h.node = null;
-            }
-
-        }
-
-
-        
+       
         private void ProcessPendingUpdates()
         {
             // We must be called in edit lock
 
-            var timer = System.Diagnostics.Stopwatch.StartNew();      // Measure time precise in update
+            var timer = System.Diagnostics.Stopwatch.StartNew();
 
             #region Dynamic Loading/Add/Remove native handles ---------------------------------------------------------------
 
             Performance.Enter("SM.ProcessPendingUpdates.BuildGO");
 
+            ProcessPendingLoaders();
+
+            Performance.Leave();
+
+#endregion
+
+#region Activate/Deactivate GameObjects based on scenegraph -----------------------------------------------------
+
+            Performance.Enter("SM.ProcessPendingUpdates.ActivateGO");
+
+            ProcessPendingActivations();
+
+            Performance.Leave();
+
+#endregion
+
+#region Update slow loading assets ------------------------------------------------------------------------------
+
+            Performance.Enter("SM.ProcessPendingUpdates.DequeBuildGO");
+
+            var remainingTime = TimeSpan.FromSeconds(Settings.MaxBuildTime) - timer.Elapsed;
+            ProcessPendingBuilders(remainingTime);
+            
+
+            Performance.Leave();
+
+#endregion
+
+            // Right now we use this as a dirty fix to handle unused shared materials
+
+            _unusedCounter = (_unusedCounter + 1) % Settings.FrameCleanupInterval;
+            if (_unusedCounter == 0)
+            {
+                Performance.Enter("SM.ProcessPendingUpdates.Cleanup");
+                Resources.UnloadUnusedAssets();
+                Performance.Leave();
+            }
+        }
+
+        private void ProcessPendingLoaders()
+        {
             foreach (NodeLoadInfo nodeLoadInfo in pendingLoaders)
             {
                 if (nodeLoadInfo.state == DynamicLoadingState.LOADED)   // We got a callback from dyn loader that we were loaded or unloaded
                 {
-                    unTransform transform = NodeUtils.FindFirstGameObjectTransform(nodeLoadInfo.loader.GetNativeReference());
+                    unTransform transform = NodeUtils.FindFirstGameObjectTransformUnsafe(nodeLoadInfo.loader.GetNativeReference());
 
                     if (transform == null)              // We have been unloaded or not registered
                         continue;
@@ -1083,9 +976,11 @@ namespace Saab.Foundation.Unity.MapStreamer
                     if (transform.childCount != 0)       // We have already a child and our sub graph was loaded
                         continue;
 
-                    GameObject go = Traverse(nodeLoadInfo.node, null);          // Build sub graph
+                    // TODO: Active state node can be further up the tree and should be located and passed here
 
-                    if(go!=null)
+                    GameObject go = BeginTraverse(nodeLoadInfo.node,true);       // Build sub graph as result of dynamic loader
+
+                    if (go != null)
                         go.transform.SetParent(transform, false);               // Connect to our parent
 
                 }
@@ -1093,35 +988,29 @@ namespace Saab.Foundation.Unity.MapStreamer
                 {
                     List<GameObject> list;
 
-                    if(NodeUtils.FindGameObjects(nodeLoadInfo.loader.GetNativeReference(),out list))
+                    if (NodeUtils.FindGameObjectsUnsafe(nodeLoadInfo.loader.GetNativeReference(), out list))
                     {
-                        foreach (GameObject go in list)
+                        foreach (var go in list)
                         {
-                            foreach (unTransform child in go.transform)         //We need to unload all limked go in hierarchy
-                            {
-                                RemoveGameObjectHandles(child.gameObject);
-                                GameObject.Destroy(child.gameObject);
-                            }
+                            //We need to unload all limked go in hierarchy
+                            var tr = go.transform;
+                            for (var i = tr.childCount - 1; i >= 0; i--)
+                                Free(tr.GetChild(i));
                         }
                     }
                 }
             }
 
             pendingLoaders.Clear();
+        }
 
-            Performance.Leave();
-
-            #endregion
-
-            #region Activate/Deactivate GameObjects based on scenegraph -----------------------------------------------------
-
-            Performance.Enter("SM.ProcessPendingUpdates.ActivateGO");
-
+        private void ProcessPendingActivations()
+        {
             foreach (ActivationInfo activationInfo in pendingActivations)
             {
                 List<GameObject> list;  // We need to activate the correct nodes
 
-                if (NodeUtils.FindGameObjects(activationInfo.node.GetNativeReference(), out list))
+                if (NodeUtils.FindGameObjectsUnsafe(activationInfo.node.GetNativeReference(), out list))
                 {
                     foreach (GameObject obj in list)
                     {
@@ -1134,33 +1023,22 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
 
             pendingActivations.Clear();
+        }
 
-            Performance.Leave();
+        private void ProcessPendingBuilders(TimeSpan timeBudget)
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
 
-            #endregion
-
-            #region Update slow loading assets ------------------------------------------------------------------------------
-
-            Performance.Enter("SM.ProcessPendingUpdates.DequeBuildGO");
-
-            while (pendingBuilds.Count > 0 && timer.Elapsed.TotalSeconds < Settings.MaxBuildTime)
+            while (pendingBuilds.Count > 0 && sw.Elapsed < timeBudget)
             {
-                NodeHandle handle = pendingBuilds.Dequeue();
-                handle.BuildGameObject();
-            }
+                var buildInfo = pendingBuilds.Dequeue();
 
-            Performance.Leave();
+                // make sure the pending build is still valid
+                if (buildInfo.NodeHandle.node != buildInfo.Node)
+                    continue;
 
-            #endregion
-
-            // Right now we use this as a dirty fix to handle unused shared materials
-
-            _unusedCounter = (_unusedCounter + 1) % Settings.FrameCleanupInterval;
-            if (_unusedCounter == 0)
-            {
-                Performance.Enter("SM.ProcessPendingUpdates.Cleanup");
-                Resources.UnloadUnusedAssets();
-                Performance.Leave();
+                var res = buildInfo.Builder.Build(buildInfo.NodeHandle, buildInfo.GameObject, buildInfo.ActiveStateNode);
+                System.Diagnostics.Debug.Assert(res);
             }
         }
         
@@ -1187,10 +1065,14 @@ namespace Saab.Foundation.Unity.MapStreamer
             {
                 Performance.Enter("SM.Update");
 
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+
                 if (!NodeLock.TryLockEdit(30))      // 30 msek allow latency of other pending editor
                 {
+                    Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Lock contention detected! NodeLock::TryLockEdit() FRAME LOST");
+
                     // We failed to refresh scene in reasonable time but we still need to issue updates;
-                    
+
                     Performance.Enter("SM.Update.PreTraverse");
                     if(SceneManagerCamera!=null)
                         SceneManagerCamera.PreTraverse();
@@ -1200,13 +1082,30 @@ namespace Saab.Foundation.Unity.MapStreamer
                     return;
                 }
 
+                sw.Stop();
+                var timeSpentWaitingForLock = sw.Elapsed.TotalMilliseconds;
+                if (timeSpentWaitingForLock > 1)
+                {
+                    Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Lock contention detected! NodeLock::TryLockEdit() = {0:0.00} ms", timeSpentWaitingForLock);
+                }
+
                 try // We are now locked in edit
                 {
+                    Performance.Enter("SM.ProcessPendingUpdates");
                     ProcessPendingUpdates();
                 }
                 finally
                 {
+                    Performance.Leave();
+
+                    sw.Restart();
                     NodeLock.UnLock();
+                    sw.Stop();
+                    timeSpentWaitingForLock = sw.Elapsed.TotalMilliseconds;
+                    if (timeSpentWaitingForLock > 1)
+                    {
+                        Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Lock contention detected! NodeLock::UnLock() = {0:0.00} ms", timeSpentWaitingForLock);
+                    }
                 }
 
                 // Notify about we are starting to traverse -----------------------
@@ -1230,8 +1129,18 @@ namespace Saab.Foundation.Unity.MapStreamer
                 if (UnityCamera == null)
                     return;
 
+                sw.Restart();
                 if (!NodeLock.TryLockRender(30))    // 30 millisek latency allowed
+                {
+                    Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Lock contention detected! NodeLock::TryLockRender() FRAME LOST");
                     return;
+                }
+
+                timeSpentWaitingForLock = sw.Elapsed.TotalMilliseconds;
+                if (timeSpentWaitingForLock > 1)
+                {
+                    Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Lock contention detected! NodeLock::TryLockRender() = {0:0.00} ms", timeSpentWaitingForLock);
+                }
 
                 try // We are now locked in read
                 {
@@ -1261,7 +1170,14 @@ namespace Saab.Foundation.Unity.MapStreamer
                 }
                 finally
                 {
+                    sw.Restart();
                     NodeLock.UnLock();
+
+                    timeSpentWaitingForLock = sw.Elapsed.TotalMilliseconds;
+                    if (timeSpentWaitingForLock > 1)
+                    {
+                        Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Lock contention detected! NodeLock::UnLock() = {0:0.00} ms", timeSpentWaitingForLock);
+                    }
                 }
 
                 UpdateNodeInternals();
@@ -1282,7 +1198,113 @@ namespace Saab.Foundation.Unity.MapStreamer
                 Performance.Leave();
             }
         }
-        
+
+        private readonly Dictionary<PoolObjectFeature, Stack<NodeHandle>> _free = new Dictionary<PoolObjectFeature, Stack<NodeHandle>>();
+
+        private NodeHandle Allocate(PoolObjectFeature featureKey, Node node)
+        {
+            if (_free.TryGetValue(featureKey, out Stack<NodeHandle> pool) && pool.Count > 0)
+            {
+                var res = pool.Pop();
+                res.node = node;
+
+                // init
+                res.gameObject.SetActive(true);
+
+                return res;
+            }
+
+            var go = new GameObject();
+            go.hideFlags = HideFlags.None;
+
+            var nh = go.AddComponent<NodeHandle>();
+            nh.node = node;
+            nh.featureKey = featureKey;
+            
+
+
+            return nh;
+        }
+
+        private void Free(unTransform transform)
+        {
+            for (var i = transform.childCount - 1; i >= 0; i--)
+                Free(transform.GetChild(i));
+
+            var nodeHandle = transform.GetComponent<NodeHandle>();
+
+            if (nodeHandle)
+                FreeHandle(nodeHandle);
+            else
+                Destroy(transform.gameObject);
+        }
+
+        private void FreeHandle(NodeHandle nodeHandle)
+        {
+            var featureKey = nodeHandle.featureKey;
+
+            if (!_free.TryGetValue(featureKey, out Stack<NodeHandle> pool))
+            {
+                pool = new Stack<NodeHandle>();
+                _free.Add(featureKey, pool);
+            }
+
+            pool.Push(nodeHandle);
+
+            var go = nodeHandle.gameObject;
+            go.SetActive(false);
+            go.hideFlags = HideFlags.HideInHierarchy;
+
+            var tr = go.transform;
+            tr.parent = null;
+            tr.localPosition = Vector3.zero;
+            tr.localRotation = UnityEngine.Quaternion.identity;
+            tr.localScale = Vector3.one;
+
+            
+            var node = nodeHandle.node;
+
+            if (nodeHandle.inNodeUtilsRegistry)
+                NodeUtils.RemoveGameObjectReferenceUnsafe(node.GetNativeReference(), go);
+
+            if (nodeHandle.inNodeUpdateList)
+                updateNodeObjects.Remove(go);
+
+            if (node != null)
+            {
+                node.Dispose();
+                nodeHandle.node = null;
+            }
+            
+            if (nodeHandle.builder != null)
+            {
+                nodeHandle.builder.BuiltObjectReturnedToPool(go);
+                nodeHandle.builder = null;
+            }
+
+            nodeHandle.stateLoadInfo = StateLoadInfo.None;
+            nodeHandle.stateFlags = NodeStateFlags.None;
+            nodeHandle.texture = null;
+
+            OnEnterPool?.Invoke(go);
+        }
     }
 
+    [Flags]
+    public enum PoolObjectFeature : byte
+    {
+        //
+        None = 0,
+
+        //
+        StaticMesh = 1 << 0,
+
+        //
+        Crossboard = 1 << 1,
+    }
+
+
 }
+
+
+

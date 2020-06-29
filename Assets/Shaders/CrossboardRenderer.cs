@@ -44,21 +44,9 @@ namespace Assets.Crossboard
         public bool OpaqueCrossboard = false;
         public bool OpaqueCrossboardCompute = false;
         public Material DefaultMaterial;
-        public Material Material { get; set; }
 
-        private void Awake()
+        public virtual void SetCrossboardDataset(CrossboardDataset dataset, Material material)
         {
-            if(Material == null)
-            {
-                Material = DefaultMaterial;
-            }
-        }
-
-        public virtual void SetCrossboardDataset(CrossboardDataset dataset)
-        {
-            var meshRenderer = gameObject.AddComponent<MeshRenderer>();
-            meshRenderer.sharedMaterial = Material;
-
             var mesh = new Mesh();
             mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
             mesh.vertices = dataset.POSITION;
@@ -95,8 +83,17 @@ namespace Assets.Crossboard
 
             //mesh.bounds = new Bounds(Vector3.zero, new Vector3(100f, 100f, 100f));
 
-            var meshFilter = gameObject.AddComponent<MeshFilter>();
+            var meshFilter = gameObject.GetComponent<MeshFilter>();
+            if (meshFilter == null)
+                meshFilter = gameObject.AddComponent<MeshFilter>();
+            
             meshFilter.sharedMesh = mesh;
+
+            var meshRenderer = gameObject.GetComponent<MeshRenderer>();
+            if (meshRenderer == null)
+                meshRenderer = gameObject.AddComponent<MeshRenderer>();
+
+            meshRenderer.sharedMaterial = material ?? DefaultMaterial;
         }
     }
 }

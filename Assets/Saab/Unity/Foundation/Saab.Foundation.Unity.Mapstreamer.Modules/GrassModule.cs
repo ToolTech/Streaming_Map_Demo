@@ -144,7 +144,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public void RemoveGrass(GameObject gameobj)
         {
             if (_drawGrass.Count == 0) { return; }
-            var grass = _drawGrass.Where(go => go.GameObject == gameobj).First();
+            var grass = _drawGrass.Where(go => go.GameObject == gameobj).FirstOrDefault();
             if (grass == null) { return; }
             _drawGrass.Remove(grass);
 

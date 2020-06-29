@@ -101,7 +101,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public void RemoveTree(GameObject gameobj)
         {
             if (_drawTree.Count == 0) { return; }
-            var tree = _drawTree.Where(go => go.GameObject == gameobj).First();
+            var tree = _drawTree.Where(go => go.GameObject == gameobj).FirstOrDefault();
             if (tree == null) { return; }
             _drawTree.Remove(tree);
 

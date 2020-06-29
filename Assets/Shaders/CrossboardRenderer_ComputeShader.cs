@@ -35,12 +35,32 @@
 //
 // *****************************************************************************
 
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace Assets.Crossboard
 {
+    public struct CrossboardDataset
+    {
+        public Vector3[] POSITION;
+        public Vector2[] UV0;
+        public Vector2[] UV1;
+
+        // Opaque shader
+        public List<Vector2> UV0List;
+        public List<Vector3> UV1List;
+        public List<Vector3> UV2List;
+        public List<Vector3> UV3List;
+
+        // ************* Opaque shader compute *************
+        public List<Vector4> UV0ListComp;
+        public List<Vector4> UV1ListComp;
+
+        public Color[] COLOR;
+    }
+
     public class CrossboardRenderer_ComputeShader : CrossboardRenderer
     {
         public ComputeShader _computeShader;
@@ -77,11 +97,8 @@ namespace Assets.Crossboard
             _argBuffer.Release();
         }
 
-        public override void SetCrossboardDataset(CrossboardDataset dataset)
+        public override void SetCrossboardDataset(CrossboardDataset dataset, Material material)
         {
-            var meshRenderer = gameObject.AddComponent<MeshRenderer>();
-            meshRenderer.sharedMaterial = Material;
-
             var n = dataset.POSITION.Length;
 
             // instance data is 6 floats (position x,y,z, extents x,y,z)
@@ -112,7 +129,11 @@ namespace Assets.Crossboard
             _argBuffer = new ComputeBuffer(4, Marshal.SizeOf(typeof(int)), ComputeBufferType.IndirectArguments);
 
             // clone the material
-            _material = Material;// Instantiate(Material);
+            // _material = Instantiate(material);// Material;// Instantiate(Material);
+            if (_material)
+                Destroy(_material);
+            
+            _material = material ?? DefaultMaterial;
 
             // get cull kernel
             _cullingKernel = _computeShader.FindKernel("CS_Cull");

@@ -60,15 +60,19 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             if (SceneManager)
             {
-                SceneManager.OnNewGeometry += SceneManager_OnNewGeometry;
-
                 InitMapModules();
 
                 if (_treeModule != null)
+                {
                     SceneManager.OnPostTraverse += _treeModule.Camera_OnPostTraverse;
+                    SceneManager.OnEnterPool += _treeModule.RemoveTree;
+                }
 
                 if (_grassModule != null)
+                {
                     SceneManager.OnPostTraverse += _grassModule.Camera_OnPostTraverse;
+                    SceneManager.OnEnterPool += _grassModule.RemoveGrass;
+                }
 
             }
         }

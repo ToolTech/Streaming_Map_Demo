@@ -83,6 +83,10 @@ namespace Saab.Foundation.Map
         const string DBI_ORIGIN                     = "DbI-Database Origin";
         const string DBI_MAX_LOD_RANGE			    = "DbI-LR";
 
+
+        public delegate void EventHandler_MapInfo(string url,MapType type,Node root);
+        public event EventHandler_MapInfo OnMapInfo;
+
         public MapControl()
         {
             Reset();
@@ -835,6 +839,8 @@ namespace Saab.Foundation.Map
                             _topRoi.AddNode(roiNode);
 
                             _currentMap = _topRoi;
+
+                            
                         }
                     }
                     else
@@ -842,6 +848,8 @@ namespace Saab.Foundation.Map
                         _mapType = MapType.UNKNOWN;
                         _topRoi = null;
                     }
+
+                    OnMapInfo?.Invoke(_nodeURL, _mapType, _currentMap);
                 }
                 finally
                 {

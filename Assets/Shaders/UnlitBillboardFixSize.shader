@@ -6,7 +6,7 @@
 		_Color("Tint", Color) = (1,1,1,1)
 		[MaterialToggle] PixelSnap("Pixel snap", Float) = 0
 		[HideInInspector] _RendererColor("RendererColor", Color) = (1,1,1,1)
-		[HideInInspector] _Flip("Flip", Vector) = (1,1,1,1)
+		[HideInInspector] _Flip("Flip", Vector) = (-1,1,1,1)
 		[PerRendererData] _AlphaTex("External Alpha", 2D) = "white" {}
 		[PerRendererData] _EnableExternalAlpha("Enable External Alpha", Float) = 0
 	}
@@ -66,12 +66,12 @@
 
 					// multiply by view depth for constant view size scaling
 					vertex *= -viewPos.z;
-					
+
 
 					// divide by perspective projection matrix [1][1] if you don't want camera FOV to displayed size
 					// the * 0.5 is to make a default quad with a scale of 1 be exactly the height of the view
-					 
-					vertex /= UNITY_MATRIX_P._m11 * 0.5;
+
+					vertex /= UNITY_MATRIX_P._m11 * float2(-0.5, 0.5);
 
 					// along with the perspective projection divide by screen height if you want the scale to be in screen pixels
 					// vertex /= _ScreenParams.y;
