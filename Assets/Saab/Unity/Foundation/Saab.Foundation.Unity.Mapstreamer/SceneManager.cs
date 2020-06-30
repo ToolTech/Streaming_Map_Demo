@@ -1180,13 +1180,13 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                 // init
                 res.gameObject.SetActive(true);
+                res.gameObject.hideFlags = HideFlags.None;
 
                 return res;
             }
 
             var go = new GameObject();
-            go.hideFlags = HideFlags.None;
-
+   
             var nh = go.AddComponent<NodeHandle>();
             nh.node = node;
             nh.featureKey = featureKey;

@@ -592,7 +592,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             while (_pointGenerators.Count > 0)
                 _pointGenerators.Pop().Dispose();
 
-            _renderingShader.Dispose();
+            if(_renderingShader!=null)
+                _renderingShader.Dispose();
         }
 
         private static uint NextPowerOfTwo(uint v)

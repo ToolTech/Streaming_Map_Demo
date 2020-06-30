@@ -150,7 +150,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                 if (!gzTexture.GetMipMapImageArray(ref nativePtr, out uint size, out _, out _, out _,
                     out uint width, out uint height, out uint depth, mipChain, uncompress))
                     return false;
-
+                 
                 if (depth != 1)
                     return false;
 
