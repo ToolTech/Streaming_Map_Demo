@@ -372,9 +372,9 @@ void MeshTreeGenerator(int3 id : SV_DispatchThreadID)
 
 		float4 color = splatMap[uv * terrainResolution];
 		float4 nodeColor = NodeTexture[uv * 512];
-		float3 placement = PlacementMap[uv * 512];
+		//float3 placement = PlacementMap[uv * 512];
 
-		int chance = intToByte(placement, 4);
+		//int chance = intToByte(placement, 4);
 		// ****** 48 <=> 0.189 ******
 		// ****** 32 <=> 0.126 ******
 		// ****** 16 <=> 0.063 ******

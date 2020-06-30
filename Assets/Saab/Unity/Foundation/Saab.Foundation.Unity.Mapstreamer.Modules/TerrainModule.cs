@@ -76,17 +76,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             }
         }
-        public void SceneCameraUpdated()
-        {
-            if (_treeModule != null)
-            {
-                _treeModule.UpdateSceneCamera(SceneManager.SceneManagerCamera);
-            }
-            if (_grassModule != null)
-            {
-                _grassModule.UpdateSceneCamera(SceneManager.SceneManagerCamera);
-            }
-        }
+
         private void InitMapModules()
         {
             if (EnableGrass)
@@ -113,7 +103,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 _grassModule.GrassDensity = TerrainSettings.GrassDensity;
                 _grassModule.PlacementMap = TerrainSettings.PlacementMap;
 
-                _grassModule.UpdateSceneCamera(SceneManager.SceneManagerCamera as SceneManagerCamera);
+                //_grassModule.UpdateSceneCamera(SceneManager.SceneManagerCamera as SceneManagerCamera);
             }
 
             if (EnableTrees)
@@ -124,7 +114,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 _treeModule = go.AddComponent<TreeModule>();
 
                 // ********************************
-                _treeModule.UseETC2 = UseETC2;
+                //_treeModule.UseETC2 = UseETC2;
 
                 _treeModule.TreeTextures = TerrainSettings.TreeTextures;
                 _treeModule.PerlinNoise = TerrainSettings.PerlinNoise;
@@ -141,9 +131,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 _treeModule.Wind = TerrainSettings.wind / 10;
 
                 _treeModule.Density = TerrainSettings.TreeDensity;
-                _treeModule.PlacementMap = TerrainSettings.PlacementMap;
+                //_treeModule.PlacementMap = TerrainSettings.PlacementMap;
 
-                _treeModule.UpdateSceneCamera(SceneManager.SceneManagerCamera as SceneManagerCamera);
+                //_treeModule.UpdateSceneCamera(SceneManager.SceneManagerCamera as SceneManagerCamera);
             }
 
             if (EnableGrass || EnableTrees)

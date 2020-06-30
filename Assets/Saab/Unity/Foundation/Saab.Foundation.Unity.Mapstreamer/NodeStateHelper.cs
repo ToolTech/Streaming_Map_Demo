@@ -52,7 +52,8 @@ using GizmoSDK.GizmoBase;
 using GizmoSDK.Gizmo3D;
 
 using gzTexture = GizmoSDK.Gizmo3D.Texture;
-
+using Unity.Collections.LowLevel.Unsafe;
+using Unity.Collections;
 
 namespace Saab.Foundation.Unity.MapStreamer
 {
@@ -155,9 +156,17 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                 result = new Texture2D((int)width, (int)height, textureFormat, mipChain);
 
+                //unsafe
+                //{
+                //    void* pointer = nativePtr.ToPointer();
+
+                //    NativeArray<byte> _image_data = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<byte>(pointer, (int)size, Allocator.None);
+
+                //    result.LoadRawTextureData(_image_data);
+                //}
+
                 result.LoadRawTextureData(nativePtr, (int)size);
-
-
+                
                 switch (gzTexture.MinFilter)
                 {
                     case gzTexture.TextureMinFilter.LINEAR:
