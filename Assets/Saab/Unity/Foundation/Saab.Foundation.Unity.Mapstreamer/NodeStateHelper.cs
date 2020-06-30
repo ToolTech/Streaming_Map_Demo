@@ -156,16 +156,21 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                 result = new Texture2D((int)width, (int)height, textureFormat, mipChain);
 
-                //unsafe
-                //{
-                //    void* pointer = nativePtr.ToPointer();
+#if false
+                unsafe
+                {
+                    void* pointer = nativePtr.ToPointer();
 
-                //    NativeArray<byte> _image_data = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<byte>(pointer, (int)size, Allocator.None);
+                    NativeArray<byte> _image_data = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<byte>(pointer, (int)size, Allocator.None);
 
-                //    result.LoadRawTextureData(_image_data);
-                //}
+                    result.LoadRawTextureData(_image_data);
+                }
+
+#else
 
                 result.LoadRawTextureData(nativePtr, (int)size);
+
+#endif
                 
                 switch (gzTexture.MinFilter)
                 {

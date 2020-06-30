@@ -1065,11 +1065,9 @@ namespace Saab.Foundation.Unity.MapStreamer
             {
                 Performance.Enter("SM.Update");
 
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-
                 if (!NodeLock.TryLockEdit(30))      // 30 msek allow latency of other pending editor
                 {
-                    Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Lock contention detected! NodeLock::TryLockEdit() FRAME LOST");
+                    Message.Send(ID,MessageLevel.DEBUG, "Lock contention detected! NodeLock::TryLockEdit() FRAME LOST");
 
                     // We failed to refresh scene in reasonable time but we still need to issue updates;
 
@@ -1082,13 +1080,6 @@ namespace Saab.Foundation.Unity.MapStreamer
                     return;
                 }
 
-                sw.Stop();
-                var timeSpentWaitingForLock = sw.Elapsed.TotalMilliseconds;
-                if (timeSpentWaitingForLock > 1)
-                {
-                    Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Lock contention detected! NodeLock::TryLockEdit() = {0:0.00} ms", timeSpentWaitingForLock);
-                }
-
                 try // We are now locked in edit
                 {
                     Performance.Enter("SM.ProcessPendingUpdates");
@@ -1097,15 +1088,8 @@ namespace Saab.Foundation.Unity.MapStreamer
                 finally
                 {
                     Performance.Leave();
-
-                    sw.Restart();
+          
                     NodeLock.UnLock();
-                    sw.Stop();
-                    timeSpentWaitingForLock = sw.Elapsed.TotalMilliseconds;
-                    if (timeSpentWaitingForLock > 1)
-                    {
-                        Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Lock contention detected! NodeLock::UnLock() = {0:0.00} ms", timeSpentWaitingForLock);
-                    }
                 }
 
                 // Notify about we are starting to traverse -----------------------
@@ -1129,17 +1113,10 @@ namespace Saab.Foundation.Unity.MapStreamer
                 if (UnityCamera == null)
                     return;
 
-                sw.Restart();
                 if (!NodeLock.TryLockRender(30))    // 30 millisek latency allowed
                 {
-                    Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Lock contention detected! NodeLock::TryLockRender() FRAME LOST");
+                    Message.Send(ID, MessageLevel.DEBUG, "Lock contention detected! NodeLock::TryLockRender() FRAME LOST");
                     return;
-                }
-
-                timeSpentWaitingForLock = sw.Elapsed.TotalMilliseconds;
-                if (timeSpentWaitingForLock > 1)
-                {
-                    Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Lock contention detected! NodeLock::TryLockRender() = {0:0.00} ms", timeSpentWaitingForLock);
                 }
 
                 try // We are now locked in read
@@ -1165,19 +1142,12 @@ namespace Saab.Foundation.Unity.MapStreamer
                     _native_camera.Render(_native_context, 1000, 1000, 1000, _native_traverse_action);
 
 #if DEBUG_CAMERA
-                _native_camera.DebugRefresh();
+                     _native_camera.DebugRefresh();
 #endif
                 }
                 finally
                 {
-                    sw.Restart();
                     NodeLock.UnLock();
-
-                    timeSpentWaitingForLock = sw.Elapsed.TotalMilliseconds;
-                    if (timeSpentWaitingForLock > 1)
-                    {
-                        Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Lock contention detected! NodeLock::UnLock() = {0:0.00} ms", timeSpentWaitingForLock);
-                    }
                 }
 
                 UpdateNodeInternals();
