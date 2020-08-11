@@ -88,7 +88,7 @@ namespace Saab.Foundation.Map
         public IntersectQuery   clamp_result;           // non zero if this position is clamped
         public Vec3             normal;                 // Normal in local coordinate system
         public Matrix3          local_orientation;      // East North Up base matrix
-        public Vec3             euler_enu;              // Yaw, Pitch, Roll - euler angles around East,North,Up right ON
+        protected Vec3            _euler_enu;              // Yaw, Pitch, Roll - euler angles around East,North,Up right ON
         public Vec3D            a, b, c;                // Place on triangle
 
         public bool IsLocal()
@@ -147,12 +147,12 @@ namespace Saab.Foundation.Map
 
         public Quaternion Rotation
         {
-            get { return Quaternion.CreateFromYawPitchRoll(euler_enu.x, euler_enu.y, euler_enu.z); }
+            get { return Quaternion.CreateFromYawPitchRoll(_euler_enu.x, _euler_enu.y, _euler_enu.z); }
         }
 
         public Matrix3 Orientation
         {
-            get { return Matrix3.Euler_YXZ(euler_enu.x, euler_enu.y, euler_enu.z); }
+            get { return Matrix3.Euler_YXZ(_euler_enu.x, _euler_enu.y, _euler_enu.z); }
         }
 
         public Matrix3 EnuToLocal(LocationOptions options)
@@ -170,7 +170,7 @@ namespace Saab.Foundation.Map
 
             if (options.RotationOptions.HasFlag(RotationOptions.AlignToSurface))
             {
-                east = east.Orthogonal(up);
+                east = Vec3.Orthogonal(east,up);
                 north = up.Cross(east);
             }
 
@@ -205,42 +205,44 @@ namespace Saab.Foundation.Map
 
         public void SetRotation(float yaw, float pitch, float roll)
         {
-            euler_enu = new Vec3(yaw, pitch, roll);
+            _euler_enu = new Vec3(yaw, pitch, roll);
         }
 
         virtual public Transform Step(double time, LocationOptions options)
         {
             Clamp(options);
 
-            var up = new Vector3(normal.x, normal.y, -normal.z);
+            var up = normal;
 
 
-            Vector3 east = new Vector3(local_orientation.v11, local_orientation.v21, local_orientation.v31); ;
-            Vector3 north;
+            var east = local_orientation.GetCol(0);
+            Vec3 north;
 
             if (options.RotationOptions.HasFlag(RotationOptions.AlignToSurface))
             {
-                east = Vector3.Normalize(east - (Vector3.Dot(east, up) * up));
-                north = Vector3.Cross(east, up);
+                east = Vec3.Normalize(east - (Vec3.Dot(east, up) * up));
+                north = Vec3.Cross(up, east);
             }
             else
             {
-                north = new Vector3(-local_orientation.v12, -local_orientation.v22, -local_orientation.v32);
+                north = local_orientation.GetCol(1);
             }
 
-            var m = new Matrix4x4(east.X, east.Y, east.Z, 0,
-                                    up.X, up.Y, up.Z, 0,
-                                    north.X, north.Y, north.Z, 0,
-                                    0, 0, 0, 1);
+            // TODO: this seems wrong...
+            var m = new Matrix3(east, up, -north);
+            
+            var heading = _euler_enu.x;
+            var pitch = _euler_enu.y;
+            var roll = _euler_enu.z;
 
-            var qm = Quaternion.CreateFromRotationMatrix(m);
+            var local_rotation = GizmoSDK.GizmoBase.Quaternion.CreateFromEulerYXZ(heading, pitch, roll);
 
-            var r = qm * Rotation;
+            var r = m.Quaternion() * local_rotation;
 
             return new Transform
             {
                 Pos = { X = (float)position.x, Y = (float)position.y, Z = (float)position.z },
-                Rot = r
+                Rot = new Quaternion(r.x, r.y, r.z, r.w)
             };
         }
 
@@ -281,7 +283,7 @@ namespace Saab.Foundation.Map
 
     public class DynamicMapPos : MapPos, IDynamicLocation<Node>
     {
-        private Vec3 _pos;
+        private Vec3D _pos;
         private Vec3 _vel;
         private Vec3 _acc;
         private double _time;
@@ -293,20 +295,12 @@ namespace Saab.Foundation.Map
         {
             if (!SetCartPos(posX, posY, posZ))
                 return false;
-            
-            _pos = new Vec3((float)position.x, (float)position.y, (float)position.z);
 
-            var conv = new Coordinate();
-            Matrix3 orientMatrix;
-            conv.GetOrientationMatrix(new CartPos(posX, posY, posZ)).Inverse(out orientMatrix); // TODO, get Transpose instead
+            _pos = new Vec3D(posX, posY, posZ);
 
-            
             _vel = new Vec3(vel.X, vel.Y, vel.Z);
             _acc = new Vec3(acc.X, acc.Y, acc.Z);
             _time = t;
-
-            _vel = local_orientation * orientMatrix * _vel;
-            _acc = local_orientation * orientMatrix * _acc;
 
             return true;
         }
@@ -321,24 +315,35 @@ namespace Saab.Foundation.Map
                 return base.Step(time, options);
             }
 
-            position =  _pos + s;
+            var newPos = _pos + s;
+            SetCartPos(newPos.x, newPos.y, newPos.z);
 
             if (!options.RotationOptions.HasFlag(RotationOptions.AlignToVelocity))
                 return base.Step(time, options);
 
-            var v = _vel + _acc * dt;
-            v.Normalize();
+            var dirWorld = _vel + _acc * dt;
+            dirWorld.Normalize();
 
-            var n = new Vector3(local_orientation.v13, local_orientation.v23, local_orientation.v33);
-            var u = new Vector3(v.x, v.y, v.z);
+            var conv = new Coordinate();
+            Matrix3 worldToENU;
+            var ENUtoWorld = conv.GetOrientationMatrix(new CartPos(newPos.x, newPos.y, newPos.z));
+            ENUtoWorld.Inverse(out worldToENU);
 
-            var proj = u - Vector3.Dot(u, n) * n;
+            var dirENU = worldToENU * dirWorld;
 
-            var north = new Vector3(local_orientation.v12, local_orientation.v22, local_orientation.v32);
-            var dot = Vector3.Dot(proj, north);
-            var det = Vector3.Dot(n, Vector3.Cross(north,proj));
+            //var up = ENUtoWorld.GetCol(2);
+            //var north = ENUtoWorld.GetCol(1);
 
-            euler_enu.x = -(float)Math.Atan2(det,dot);
+            //up = new Vec3(0, 0, 1);
+            //north = new Vec3(0, 1, 0);
+
+            //var projNorthEast = dirENU - Vec3.Dot(dirENU, up) * up;
+            //var dot = Vec3.Dot(projNorthEast, north);
+            //var det = Vec3.Dot(up, Vec3.Cross(north, projNorthEast));
+
+            //_euler_enu.x = (float)Math.Atan2(det, dot);
+            _euler_enu.x = -(float)Math.Atan2(dirENU.x, dirENU.y);
+
 
             return base.Step(time, options);
         }

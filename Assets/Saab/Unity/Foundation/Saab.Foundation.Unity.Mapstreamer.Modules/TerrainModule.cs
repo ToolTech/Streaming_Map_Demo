@@ -87,21 +87,21 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 _grassModule = go.AddComponent<GrassModule>();
 
                 // ********************************
-                _grassModule.UseETC2 = UseETC2;
+                //_grassModule.UseETC2 = UseETC2;
 
                 _grassModule.GrassTextures = TerrainSettings.GrassTextures;
                 _grassModule.PerlinNoise = TerrainSettings.PerlinNoise;
                 _grassModule.DefaultSplatMap = TerrainSettings.DefaultSplatMap;
                 _grassModule.ComputeShader = TerrainSettings.ComputeTerrainShader;
-                _grassModule.GrassShader = TerrainSettings.GrassShader;
+                _grassModule.Shader = TerrainSettings.GrassShader;
 
                 _grassModule.DrawDistance = TerrainSettings.GrassDrawDistance;
-                _grassModule.DrawGrassShadows = TerrainSettings.GrassShadows;
+                _grassModule.DrawShadows = TerrainSettings.GrassShadows;
 
-                _grassModule.GrassWind = TerrainSettings.wind;
+                _grassModule.Wind = TerrainSettings.wind;
 
-                _grassModule.GrassDensity = TerrainSettings.GrassDensity;
-                _grassModule.PlacementMap = TerrainSettings.PlacementMap;
+                _grassModule.Density = TerrainSettings.GrassDensity;
+                //_grassModule.PlacementMap = TerrainSettings.PlacementMap;
 
                 //_grassModule.UpdateSceneCamera(SceneManager.SceneManagerCamera as SceneManagerCamera);
             }
@@ -120,13 +120,13 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 _treeModule.PerlinNoise = TerrainSettings.PerlinNoise;
                 _treeModule.DefaultSplatMap = TerrainSettings.DefaultSplatMap;
                 _treeModule.ComputeShader = TerrainSettings.ComputeTerrainShader;
-                _treeModule.TreeShader = TerrainSettings.TreeShader;
+                _treeModule.Shader = TerrainSettings.TreeShader;
 
                 _treeModule.TestMesh = TerrainSettings.TreeTestMesh;
                 _treeModule.TestMat = TerrainSettings.TreeTestMaterial;
 
                 _treeModule.DrawDistance = TerrainSettings.TreeDrawDistance;
-                _treeModule.DrawTreeShadows = TerrainSettings.TreeShadows;
+                _treeModule.DrawShadows = TerrainSettings.TreeShadows;
 
                 _treeModule.Wind = TerrainSettings.wind / 10;
 

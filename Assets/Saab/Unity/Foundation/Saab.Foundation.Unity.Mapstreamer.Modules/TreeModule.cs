@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Saab.Foundation.Unity.MapStreamer.Modules
 {
-    public class TreeModule : MonoBehaviour
+    public class TreeModule : TerrainFeature
     {
         [Header("****** SETTINGS ******")]
         public TerrainTextures[] TreeTextures;
@@ -14,56 +14,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public Texture2D DefaultSplatMap;
         public ComputeShader ComputeShader; // <-- TODO: Replace with 1 shader per responsibility (generator, culling, rendering)
 
-        // Rendering settings
-        [Header("****** RENDER SETTINGS ******")]
-        public Shader TreeShader;
-        public int DrawDistance = 4500;
-        public float NearFadeStart = 5;
-        public float NearFadeEnd = 5;
-        public bool DrawTreeShadows = true;
-        public float Wind = 0.0f;
-        public float Density = 22.127f;
-
-
-        // Active rendered item
-        private struct Item : IDisposable
-        {
-            // source object
-            public GameObject GameObject;
-
-            // culls instances and output to rendering buffer
-            public CullingShader CullShader;
-
-            // local bounds of the object
-            public Bounds Bounds;
-
-            public void Dispose()
-            {
-                CullShader.Dispose();
-            }
-        }
-
-        // GPU work waiting to be processed by the CPU and placed into the active items list
-        private struct JobOutput
-        {
-            public GameObject GameObject;
-            public ComputeBuffer PointBuffer;
-            public Bounds Bounds;
-            public InstanceGenerator Generator;
-        }
-
-        // Objects not yet processed, will be processed by the GPU in batches during update
-        private struct PendingJob
-        {
-            public GameObject GameObject;
-            public Mesh Mesh;
-            public Texture2D Diffuse;
-        }
-
-
-
         // maximum concurrent GPU jobs, higher values increases memory footprint
-        private const int MAX_JOBS_PER_FRAME = 8;
+        private const int MAX_JOBS_PER_FRAME = 6;
 
         // list of all current jobs being processed by the GPU
         private readonly List<JobOutput> _currentJobs = new List<JobOutput>(MAX_JOBS_PER_FRAME);
@@ -79,9 +31,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         // used to generate instance data from a mesh
         private readonly Stack<InstanceGenerator> _pointGenerators = new Stack<InstanceGenerator>();
-
-        // camera frustum planes, updated in render
-        private readonly Vector4[] _frustum = new Vector4[6];
 
         // TEMP TEST JUNK
         public Mesh TestMesh;
@@ -101,7 +50,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             // Initialize materials
 
 
-            _renderingShader = new RenderingShader(ComputeShader, TreeShader)
+            _renderingShader = new RenderingShader(ComputeShader, Shader)
             {
                 Noise = PerlinNoise,
                 ColorVariance = PerlinNoise,
@@ -118,7 +67,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 TreeTextures.Select(x => x.GetMinMaxWidthHeight).ToArray(),
                 TreeTextures.Select(x => x.Yoffset).ToArray());
 
-            _renderingShader.SetQuads(GetQuads());
+            _renderingShader.SetQuads(GetQuads(TreeTextures));
         }
 
         public void AddTree(GameObject go)
@@ -156,6 +105,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                     continue;
 
                 _currentJobs[i].PointBuffer.SafeRelease();
+                _pointGenerators.Push(_currentJobs[i].Generator);
 
                 if ((i + 1) < _currentJobs.Count)
                     _currentJobs[i] = _currentJobs[_currentJobs.Count - 1];
@@ -195,136 +145,30 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             }
         }
 
-        private void GenerateFrustumPlane(Camera camera)
-        {
-            var planes = GeometryUtility.CalculateFrustumPlanes(camera);
-
-
-            for (int i = 0; i < 6; i++)
-            {
-                _frustum[i] = new Vector4(planes[i].normal.x, planes[i].normal.y, planes[i].normal.z, planes[i].distance);
-            }
-
-            _frustum[5].w = DrawDistance;
-        }
-
-        private static Texture2DArray Create2DArray(TerrainTextures[] texture, TextureFormat targetFormat)
-        {
-            var textureCount = texture.Length;
-
-            var textureResolution = Math.Max(texture.Max(item => item.FeatureTexture.width), texture.Max(item => item.FeatureTexture.height));
-
-            textureResolution = (int)NextPowerOfTwo((uint)textureResolution);
-
-            Texture2DArray textureArray;
-
-            textureArray = new Texture2DArray(textureResolution, textureResolution, textureCount, targetFormat, true)
-            {
-                wrapMode = TextureWrapMode.Clamp
-            };
-
-            RenderTexture temporaryTreeRenderTexture = new RenderTexture(textureResolution, textureResolution, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default)
-            {
-                useMipMap = true,
-                antiAliasing = 1
-            };
-
-            for (int i = 0; i < textureCount; i++)
-            {
-                Graphics.Blit(texture[i].FeatureTexture, temporaryTreeRenderTexture);
-
-                Texture2D temporaryTreeTexture = new Texture2D(textureResolution, textureResolution, TextureFormat.ARGB32, true);
-
-                RenderTexture.active = temporaryTreeRenderTexture;
-
-                temporaryTreeTexture.ReadPixels(new Rect(0, 0, temporaryTreeTexture.width, temporaryTreeTexture.height), 0, 0);
-                RenderTexture.active = null;
-                temporaryTreeTexture.Apply(true);
-                temporaryTreeTexture.Compress(true);
-
-                //TexToFile(temporaryGrassTexture, Application.dataPath + "/../grassTextureArraySaved_" + i + ".png");
-
-                Graphics.CopyTexture(temporaryTreeTexture, 0, textureArray, i);
-                Destroy(temporaryTreeTexture);
-            }
-            textureArray.Apply(false, true);
-
-            Destroy(temporaryTreeRenderTexture);
-
-            return textureArray;
-        }
-        private bool IsInFrustum(Vector3 positionAfterProjection, float treshold = -1)
-        {
-            float cullValue = treshold;
-
-            return (Vector3.Dot(_frustum[0], positionAfterProjection) >= cullValue &&
-                Vector3.Dot(_frustum[1], positionAfterProjection) >= cullValue &&
-                Vector3.Dot(_frustum[2], positionAfterProjection) >= cullValue &&
-                Vector3.Dot(_frustum[3], positionAfterProjection) >= cullValue) &&
-            (_frustum[5].w >= Mathf.Abs(Vector3.Distance(Vector3.zero, positionAfterProjection)));
-        }
-
-        // TODO: Shaders should use the TRANSFORM of the node to 
-        private Transform FindFirstNodeParent(Transform child)
-        {
-            var parent = child.parent;
-            if (parent == null)
-            {
-                return child;
-            }
-
-            var node = parent.GetComponent<NodeHandle>();
-
-            if (node == null)
-            {
-                return child;
-            }
-
-            return FindFirstNodeParent(parent);
-        }
-
-        private Vector4[] GetQuads()
-        {
-            // NOTE: GetPixels() is slowing this down, and we cant use multithreading to help with this,
-            // so instead to improve the performance of this code, try using the GPU
-
-            var quads = new Vector4[TreeTextures.Length * 3];
-
-            var i = 0;
-
-            foreach (TerrainTextures terrain in TreeTextures)
-            {
-                quads[i++] = GetQuad(terrain.FeatureTexture, Sides.Front);
-                quads[i++] = GetQuad(terrain.FeatureTexture, Sides.Side);
-                quads[i++] = GetQuad(terrain.FeatureTexture, Sides.Top);
-            }
-
-            return quads;
-        }
-
-        private static Vector4 GetQuad(Texture2D texture, Sides side)
-        {
-            // get pixel data for a 1/4 'side' sub image
-            var pixels = GrabRect(texture, side);
-
-            // get minimum fit
-            var rc = FitMinimumUV(pixels, texture.width / 2);
-
-            var w = texture.width / 2f;
-            var h = texture.height / 2f;
-
-            return new Vector4(rc.xMin / w, rc.xMax / w, rc.yMin / h, rc.yMax / h);
-        }
-
         private void AddJobs()
         {
+            // TODO: Can we avoid sorting per-frame? Change swap-remove to something else and only sort on
+            // Add/Remove
+
+            //var sw = System.Diagnostics.Stopwatch.StartNew();
+            // sort front to back
+            _pendingJobs.Sort((a, b) =>
+            {
+                var d1 = a.GameObject.transform.position.sqrMagnitude;
+                var d2 = b.GameObject.transform.position.sqrMagnitude;
+                return d1.CompareTo(d2);
+            });
+            //sw.Stop();
+
+            //Debug.LogFormat(LogType.Error, LogOption.NoStacktrace, null, "{0:0.0000} ms", sw.Elapsed.TotalMilliseconds);
+
             for (var i = 0; i < _pendingJobs.Count; ++i)
             {
                 var job = _pendingJobs[i];
                 var go = job.GameObject;
 
                 // get new job, according to certain rules (maybe priority later)
-                if (!go.activeSelf)
+                if (!go.activeInHierarchy)
                     continue;
 
                 var mesh = job.Mesh;
@@ -334,12 +178,17 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 var maxExtent = Mathf.Max(extents.x, extents.y, extents.z);
                 var centerWorld = go.transform.TransformPoint(bounds.center);
 
-                if (!IsInFrustum(centerWorld, -maxExtent * 1.25f))
+                var frustum = _frustum;
+                _frustum[5].w += maxExtent;
+
+                if (!IsInFrustum(centerWorld, -maxExtent * 1.75f))
                     continue;
+
+                _frustum = frustum;
 
                 if (_pointGenerators.Count == 0)
                 {
-                    _pointGenerators.Push(new InstanceGenerator(Instantiate(ComputeShader))
+                    _pointGenerators.Push(new InstanceGenerator(Instantiate(ComputeShader), InstanceGenerator.Feature.Tree)
                     {
                         Density = Density,
                         SplatMap = DefaultSplatMap,
@@ -348,24 +197,19 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
                 var pointGenerator = _pointGenerators.Pop();
 
-                var bufferSize = Math.Max(1, (int)Mathf.Ceil((extents.x * extents.z) / Density) / 2);
+                var triangleCount = mesh.GetIndices(0).Length / 3;
+                var bufferSize = Math.Max(1, (maxExtent * maxExtent) / Density);
+                bufferSize = bufferSize < triangleCount ? triangleCount : bufferSize;
 
-                var outputBuffer = new ComputeBuffer(bufferSize, sizeof(float) * 4, ComputeBufferType.Append);
+                var outputBuffer = new ComputeBuffer((int)bufferSize, sizeof(float) * 4, ComputeBufferType.Append);
                 outputBuffer.SetCounterValue(0);
-
                 pointGenerator.SetMesh(mesh);
 
                 pointGenerator.ColorMap = job.Diffuse;
                 pointGenerator.OutputBuffer = outputBuffer;
 
-
-
-                var triangleCount = mesh.GetIndexCount(0) / 3;
-                var threadGroups = Mathf.CeilToInt(triangleCount / 8.0f);
-
-                pointGenerator.Dispatch(threadGroups);
-
-
+                //var threadGroups = Mathf.CeilToInt(bufferSize);
+                pointGenerator.Dispatch((int)triangleCount / 8);
 
                 // swap remove
                 if ((i + 1) < _pendingJobs.Count)
@@ -392,9 +236,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             if (!camera)
                 return;
 
+            //var size = GetModuleBufferMemory(_items);
+            //Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Tree :: total buffer memory size {0} mb", size / 1000000f);
+
             GenerateFrustumPlane(camera);
 
-            var sw = System.Diagnostics.Stopwatch.StartNew();
+            //var sw = System.Diagnostics.Stopwatch.StartNew();
             for (var i = 0; i < _currentJobs.Count; ++i)
             {
                 var job = _currentJobs[i];
@@ -418,20 +265,18 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
                 _pointGenerators.Push(job.Generator);
             }
-            sw.Stop();
+            //sw.Stop();
 
             //// TODO: stop processing if per-frame budget is broken
             //if (_currentJobs.Count > 0 && sw.Elapsed.TotalMilliseconds > 0.1)
             //{
             //    var e = sw.Elapsed.TotalMilliseconds;
-            //    Debug.LogFormat(LogType.Error, LogOption.NoStacktrace, null, "process completed jobs = {0:0.0000} ms", e);
+            //    Debug.LogFormat(LogType.Error, LogOption.NoStacktrace, null, "Tree process completed jobs = {0:0.0000} ms", e);
             //}
 
             _currentJobs.Clear();
 
             AddJobs();
-
-
 
             var fadeFarAmmount = DrawDistance / 3;
             var fadeFarValue = DrawDistance - fadeFarAmmount;
@@ -445,6 +290,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
 
             GameObject any = null;
+            float maxSide = 0;
 
             // Culling      
             for (var i = 0; i < _items.Count; ++i)
@@ -452,28 +298,35 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 var item = _items[i];
 
                 var go = item.GameObject;
-                if (!go.activeSelf)
+                if (!go.activeInHierarchy)
                     continue;
 
                 any = go;
 
                 var bounds = item.Bounds;
 
-                var maxExtent = Mathf.Max(bounds.extents.x, bounds.extents.y, bounds.extents.z);
+                var maxExtent = Mathf.Max(bounds.extents.x, bounds.extents.y, bounds.extents.z) * 2;
+                maxSide = maxExtent + DrawDistance;
+
                 var centerWorld = go.transform.TransformPoint(bounds.center);
 
-                if (!IsInFrustum(centerWorld, -maxExtent * 1.25f))
+                var frustum = _frustum;
+                _frustum[5].w += maxSide;
+
+                if (!IsInFrustum(centerWorld, (-maxSide * 1.75f)))
                     continue;
 
+                _frustum[5].w = DrawDistance;
+
                 var cullShader = item.CullShader;
-
                 cullShader.LocalToWorld = go.transform.localToWorldMatrix;
-                cullShader.Frustum = _frustum;
+                cullShader.Frustum = frustum;
 
-                var bufferSize = Math.Max(1, (int)Mathf.Ceil((bounds.extents.x * bounds.extents.z) / Density) / 2);
-                var threadGroups = Mathf.CeilToInt(bufferSize / 128.0f);
+                //var triangleCount = go.GetComponent<MeshFilter>().mesh.GetIndices(0).Length / 3;
+                //var bufferSize = Math.Max(1, (maxExtent * maxExtent) / Density);
+                //bufferSize = bufferSize < triangleCount ? triangleCount : bufferSize;
 
-                cullShader.Dispatch(threadGroups);
+                cullShader.Dispatch();
             }
 
             if (any == null)
@@ -487,90 +340,15 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _renderingShader.WorldToLocal = worldToLocal;
             _renderingShader.ViewDirection = Camera.main.transform.forward;
 
-            var renderBounds = new Bounds(Vector3.zero, new Vector3(DrawDistance + DrawDistance / 3, DrawDistance + DrawDistance / 3, DrawDistance + DrawDistance / 3) * 1.5f);
+            var renderBounds = new Bounds(Vector3.zero, new Vector3(maxSide, maxSide, maxSide));
+            //var renderBounds = new Bounds(Vector3.zero, new Vector3(DrawDistance + DrawDistance / 3, DrawDistance + DrawDistance / 3, DrawDistance + DrawDistance / 3) * 1.5f);
 
-            var shadows = DrawTreeShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
+            var shadows = DrawShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
             _renderingShader.ShadowCastingMode = shadows;
 
             _renderingShader.RenderEnd(renderBounds);
 
             //Graphics.DrawMeshInstancedIndirect(TestMesh, 0, TestMat, bounds, _closeInderectBuffer, 0, null, DrawTreeShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
-        }
-
-        private enum Sides
-        {
-            Front = 1 << 0,
-            Side = 1 << 1,
-            Top = 1 << 2,
-        };
-
-        private static Color[] GrabRect(Texture2D source, Sides side)
-        {
-            int sx = 0;
-            int sy = 0;
-
-            switch (side)
-            {
-                case Sides.Front:
-                    sx = 0;
-                    sy = source.height / 2;
-                    break;
-                case Sides.Side:
-                    sx = 0;
-                    sy = 0;
-                    break;
-                case Sides.Top:
-                    sx = source.width / 2;
-                    sy = 0;
-                    break;
-            }
-
-            return source.GetPixels(sx, sy, source.width / 2, source.height / 2, 0);
-        }
-
-        private static RectInt FitMinimumUV(Color[] data, int width)
-        {
-            var height = data.Length / width;
-
-            const float cutoff = 0.9f;
-
-            int maxX = 0;
-            int maxY = 0;
-            int minX = width - 1;
-            int minY = height - 1;
-
-            for (int y = 0; y < height; y++)
-            {
-                int lx = 0;
-
-                var p = y * width;
-
-                for (; lx < width; lx++)
-                {
-                    var color = data[p++];
-                    if (color.a > cutoff)
-                    {
-                        minX = lx < minX ? lx : minX;
-                        minY = y < minY ? y : minY;
-                        maxY = y > maxY ? y : maxY;
-                        break;
-                    }
-                }
-
-                p = (y + 1) * width - 1;
-
-                for (var rx = width - 1; rx >= lx; rx--)
-                {
-                    var color = data[p--];
-                    if (color.a > cutoff)
-                    {
-                        maxX = rx > maxX ? rx : maxX;
-                        break;
-                    }
-                }
-            }
-
-            return new RectInt(minX, minY, maxX - minX, maxY - minY);
         }
 
         public void Camera_OnPostTraverse()
@@ -592,20 +370,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             while (_pointGenerators.Count > 0)
                 _pointGenerators.Pop().Dispose();
 
-            if(_renderingShader!=null)
+            if (_renderingShader != null)
                 _renderingShader.Dispose();
-        }
-
-        private static uint NextPowerOfTwo(uint v)
-        {
-            v--;
-            v |= v >> 1;
-            v |= v >> 2;
-            v |= v >> 4;
-            v |= v >> 8;
-            v |= v >> 16;
-
-            return v + 1;
         }
     }
 }

@@ -33,10 +33,10 @@ Shader "Terrain/DynamicTerrain/Tree"
 {
 	Properties
 	{
-		_MainTexGrass("Albedo (RGB)", 2DArray) = "white" {}
+		_MainTex("Albedo (RGB)", 2DArray) = "white" {}
 		_NormalTex("Normal", 2DArray) = "bump" {}
 		_Cutoff("Cutoff", float) = 0.62
-		_GrassTextureWaving("Grass Texture Waving ", float) = 0.01
+		_TextureWaving("Grass Texture Waving ", float) = 0.01
 		_ColorIntensity("Color Intensity", Range(0, 1)) = 1
 		_FadeNear("Fade Near value", float) = 100.0
 		_FadeFar("Fade Far value", float) = 500.0
@@ -65,7 +65,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 			#define PI2 6.283185307
 
 			// ****** Textures ******
-			UNITY_DECLARE_TEX2DARRAY(_MainTexGrass);
+			UNITY_DECLARE_TEX2DARRAY(_MainTex);
 			UNITY_DECLARE_TEX2DARRAY(_NormalTex);
 			sampler2D _PerlinNoise;
 			sampler2D _ColorVariance;
@@ -73,7 +73,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 			// ****** Properties ******
 			fixed _Cutoff;
 			fixed _ColorIntensity;
-			half _GrassTextureWaving;
+			half _TextureWaving;
 
 			half _FadeNear;
 			half _FadeFar;
@@ -91,7 +91,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 			//float4x4 _worldToScreen;
 
 			// ****** Grass point cloud ******
-			StructuredBuffer<float4> _GrassBuffer;
+			StructuredBuffer<float4> _PointBuffer;
 
 			// Vertex shader
 			uint vert(uint id : SV_VertexID, uint instanceID : SV_InstanceID) : TEXCOORD
@@ -149,7 +149,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 			inline bool GemerateGeometry(in uint p, inout half4 grassPosition, inout half4 displacement, inout half4 displacementx, inout half4 size, inout half tilt, inout half tiltx, inout fixed4 bottomColor, inout fixed4 topColor, inout float2 uvDistortion, inout fixed2 textureWaving, inout int index)
 			{
 				// Get grass position from compute buffer
-				grassPosition = _GrassBuffer[p];
+				grassPosition = _PointBuffer[p];
 				half4 objPos = mul(_worldToObj, half4(grassPosition.xyz, 1));
 				half2 _uv = objPos.xz;
 				half4 uv = half4(_uv.xy, 1, 1);
@@ -181,7 +181,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 				uvDistortion = ((uint) (grassPosition.w * 1000.0f)) % 2 ? fixed2(1.0f, 0) : fixed2(0.0f, 1.0f);
 
 				// Wind
-				textureWaving = fixed2(sin(_Time.w + PI * grassPosition.w), cos(_Time.w + PI * grassPosition.x)) * _GrassTextureWaving;
+				textureWaving = fixed2(sin(_Time.w + PI * grassPosition.w), cos(_Time.w + PI * grassPosition.x)) * _TextureWaving;
 
 				// Generate grass quad
 				grassPosition = half4(grassPosition.xyz, 1.0f);
@@ -401,7 +401,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 				void frag(FramentInput IN, out half4 outGBuffer0 : SV_Target0, out half4 outGBuffer1 : SV_Target1, out half4 outGBuffer2 : SV_Target2, out half4 outEmission : SV_Target3)
 				{
 					// Sample texture and multiply color
-					fixed4 c = UNITY_SAMPLE_TEX2DARRAY(_MainTexGrass, IN.texcoord);
+					fixed4 c = UNITY_SAMPLE_TEX2DARRAY(_MainTex, IN.texcoord);
 					fixed3 n = UNITY_SAMPLE_TEX2DARRAY(_NormalTex, IN.texcoord);
 
 					const half4x4 thresholdMatrix =
@@ -608,7 +608,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 					half4 frag(FramentInput IN) : SV_Target
 					{
 						// Sample texture and multiply color
-						fixed4 c = UNITY_SAMPLE_TEX2DARRAY(_MainTexGrass, IN.texcoord);
+						fixed4 c = UNITY_SAMPLE_TEX2DARRAY(_MainTex, IN.texcoord);
 
 					// Cutoff
 					clip((c.a - _Cutoff));

@@ -261,13 +261,11 @@ namespace GizmoSDK
                 return new Vec3(a.x * b.x, a.y * b.y, a.z * b.z);
             }
 
-            public Vec3 Orthogonal(Vec3 base_)
+            public static Vec3 Orthogonal(Vec3 self_,Vec3 base_)
             {
-                Vec3 result = base_;
+                Vec3_orthogonal(ref self_, ref base_);
 
-                Vec3_orthogonal(ref result, ref base_);
-
-                return result;
+                return self_;
             }
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]

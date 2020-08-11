@@ -6,91 +6,36 @@ using UnityEngine;
 
 namespace Saab.Foundation.Unity.MapStreamer.Modules
 {
-    public class Grass
+    public class GrassModule : TerrainFeature
     {
-        public ComputeShader ComputeShader;
-        public Guid ID;
-        public bool Initlized = false;
+        [Header("****** SETTINGS ******")]
+        public TerrainTextures[] GrassTextures;
+        public Texture2D PerlinNoise;
+        public Texture2D DefaultSplatMap;
+        public ComputeShader ComputeShader; // <-- TODO: Replace with 1 shader per responsibility (generator, culling, rendering)
 
-        //Compute kernels
-        public ComputeKernel MeshGrassGeneratorKernel;
-        public ComputeKernel IndirectGrassKernel;
-        public ComputeKernel CullKernal;
+        // maximum concurrent GPU jobs, higher values increases memory footprint
+        private const int MAX_JOBS_PER_FRAME = 2;
 
-        public GameObject GameObject;
-        public Texture2D SplatMap;
-        public Texture2D NodeTexture;
-        public Texture2D PlacementMap;
+        // list of all current jobs being processed by the GPU
+        private readonly List<JobOutput> _currentJobs = new List<JobOutput>(MAX_JOBS_PER_FRAME);
 
-        //Compute buffers
-        public ComputeBuffer GrassBuffer;
-        public ComputeBuffer SurfaceVertices;
-        public ComputeBuffer SurfaceIndices;
-        public ComputeBuffer SurfaceUVs;
+        // list of all jobs not yet processed
+        private readonly List<PendingJob> _pendingJobs = new List<PendingJob>();
 
-        //public Mesh PointMeshGrass;
-        public Mesh SurfaceMesh;
+        // list of all instances currently being rendered
+        private readonly List<Item> _items = new List<Item>(128);
 
-        public Vector3 SurfaceSize;
-        public int SurfaceTriangles;
+        // used to draw all instances
+        private RenderingShader _renderingShader;
 
-        public int MaxGrass;
-    }
+        // used to generate instance data from a mesh
+        private readonly Stack<InstanceGenerator> _pointGenerators = new Stack<InstanceGenerator>();
 
-    public struct ComputeShaderID
-    {
-        // Buffers
-        static public int surfaceVertices = Shader.PropertyToID("surfaceVertices");
-        static public int surfaceIndices = Shader.PropertyToID("surfaceIndices");
-        static public int surfaceUVs = Shader.PropertyToID("surfaceUVs");
+        // TEMP TEST JUNK
+        public Mesh TestMesh;
+        public Material TestMat;
 
-        // Calculated points
-        static public int terrainBuffer = Shader.PropertyToID("terrainPoints");
-        //cull
-        static public int cullInBuffer = Shader.PropertyToID("Input");
-        static public int cullOutBuffer = Shader.PropertyToID("Output");
-
-        static public int closeBuffer = Shader.PropertyToID("closeBuffer");
-
-        // Indirect buffer
-        static public int indirectBuffer = Shader.PropertyToID("indirectBuffer");
-
-        // Textures           
-        static public int splatMap = Shader.PropertyToID("splatMap");
-        static public int nodeTexture = Shader.PropertyToID("NodeTexture");
-        static public int placementMap = Shader.PropertyToID("PlacementMap");
-
-        // Scalars & vectors
-        static public int objToWorld = Shader.PropertyToID("ObjToWorld");
-
-        static public int surfaceGridStep = Shader.PropertyToID("surfaceGridStep");
-        static public int cullCount = Shader.PropertyToID("cullCount");
-        static public int indexCount = Shader.PropertyToID("indexCount");
-
-        static public int frustumPlanes = Shader.PropertyToID("frustumPlanes");
-        static public int terrainResolution = Shader.PropertyToID("terrainResolution");
-    }
-
-    [Serializable]
-    public struct TerrainTextures
-    {
-        public Texture2D FeatureTexture;
-
-        public Vector2 Height;
-        public Vector2 Width;
-        public float Yoffset;
-
-        public Vector4 GetMinMaxWidthHeight
-        {
-            get
-            {
-                return new Vector4(Width.x, Width.y, Height.x, Height.y);
-            }
-        }
-    }
-
-    public class GrassModule : MonoBehaviour
-    {
         private void Start()
         {
             if (PerlinNoise == null)
@@ -98,476 +43,337 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 PerlinNoise = Resources.Load("Textures/PerlinNoiseRGB") as Texture2D;
             }
 
-            _grassTextures = Create2DArray(GrassTextures, UseETC2);
-            _minMaxWidthHeight = GetMinMaxWidthHeight(GrassTextures);
-
-            _megaBuffer = new ComputeBuffer(2000000, sizeof(float) * 4, ComputeBufferType.Append);
-            _inderectBuffer = new ComputeBuffer(4, sizeof(uint), ComputeBufferType.IndirectArguments);
-            _inderectBuffer.SetData(new uint[] { 0, 1, 0, 0 });
-
+            //var subMeshIndex = 0;
+            //subMeshIndex = Mathf.Clamp(subMeshIndex, 0, TestMesh.subMeshCount - 1);
+            //_closeInderectBuffer.SetData(new uint[5] { TestMesh.GetIndexCount(subMeshIndex), 0, TestMesh.GetIndexStart(subMeshIndex), //TestMesh.GetBaseVertex(subMeshIndex), 0 });
+            //
             // Initialize materials
-            InitializeMaterial();
-        }
 
-        public void UpdateSceneCamera(ISceneManagerCamera newCam)
-        {
-            _sceneCamera = newCam;
-            _frustumPlanes = GenerateFrustumPlane();
-        }
 
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            _renderingShader = new RenderingShader(ComputeShader, Shader)
+            {
+                Noise = PerlinNoise,
+                ColorVariance = PerlinNoise,
+            };
+
+#if UNITY_ANDROID
+            var format = TextureFormat.ARGB32;
+#else
+            var format = TextureFormat.DXT5;
+#endif
+
+            // ...
+            _renderingShader.SetBillboardData(Create2DArray(GrassTextures, format),
+                GrassTextures.Select(x => x.GetMinMaxWidthHeight).ToArray(),
+                GrassTextures.Select(x => x.Yoffset).ToArray());
+
+            _renderingShader.SetQuads(GetQuads(GrassTextures, true));
+        }
 
         public void AddGrass(GameObject go)
         {
-            var _mesh = go.GetComponent<MeshFilter>().mesh;
-            var _texture = go.GetComponent<MeshRenderer>().material.mainTexture;
+            var meshFilter = go.GetComponent<MeshFilter>();
+            if (!meshFilter)
+                return;
 
-            Grass grass = new Grass
+            var meshRenderer = go.GetComponent<MeshRenderer>();
+            if (!meshRenderer)
+                return;
+
+            var material = meshRenderer.material;
+            if (!material)
+                return;
+
+            var diffuse = material.mainTexture as Texture2D;
+            if (diffuse == null)
+                return;
+
+            System.Diagnostics.Debug.Assert(meshFilter.mesh.GetTopology(0) == MeshTopology.Triangles);
+
+            _pendingJobs.Add(new PendingJob()
             {
-                ID = Guid.NewGuid(),
                 GameObject = go,
-                SurfaceMesh = _mesh,
-                SplatMap = DefaultSplatMap,
-                NodeTexture = (Texture2D)_texture,
-                PlacementMap = PlacementMap,
-                ComputeShader = Instantiate(ComputeShader),
-                SurfaceSize = new Vector3(_mesh.bounds.size.x, _mesh.bounds.size.y, _mesh.bounds.size.z)
-            };
-
-            //grass.SurfaceSize = new Vector3(grass.SurfaceMesh.bounds.size.x, grass.SurfaceMesh.bounds.size.y, grass.SurfaceMesh.bounds.size.z);
-
-            //Initialize(grass);
-
-            //add grass to list
-            _drawGrass.Add(grass);
+                Mesh = meshFilter.mesh,
+                Diffuse = diffuse,
+            });
         }
         public void RemoveGrass(GameObject gameobj)
         {
-            if (_drawGrass.Count == 0) { return; }
-            var grass = _drawGrass.Where(go => go.GameObject == gameobj).FirstOrDefault();
-            if (grass == null) { return; }
-            _drawGrass.Remove(grass);
-
-            SafeRelease(grass);
-        }
-
-        public void RemoveGrass(Grass grass)
-        {
-            _drawGrass.Remove(grass);
-            SafeRelease(grass);
-        }
-
-        private Vector4[] GenerateFrustumPlane()
-        {
-            var planes = GeometryUtility.CalculateFrustumPlanes(Camera.main);
-            var frustumVector4 = new Vector4[6];
-
-            for (int i = 0; i < 6; i++)
+            for (var i = 0; i < _currentJobs.Count; ++i)
             {
-                frustumVector4[i] = new Vector4(planes[i].normal.x, planes[i].normal.y, planes[i].normal.z, planes[i].distance);
+                if (_currentJobs[i].GameObject != gameobj)
+                    continue;
+
+                _currentJobs[i].PointBuffer.SafeRelease();
+                _pointGenerators.Push(_currentJobs[i].Generator);
+
+                if ((i + 1) < _currentJobs.Count)
+                    _currentJobs[i] = _currentJobs[_currentJobs.Count - 1];
+
+                _currentJobs.RemoveAt(_currentJobs.Count - 1);
+
+                return;
             }
 
-            frustumVector4[5].w = DrawDistance;
 
-            return frustumVector4;
-        }
-
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        private struct ShaderID
-        {
-            // Bufers
-            static public int grassBuffer = Shader.PropertyToID("_GrassBuffer");
-
-            // Textures
-            static public int nodeTexture = Shader.PropertyToID("_NodeTexture");
-            static public int grassTexture = Shader.PropertyToID("_MainTexGrass");
-            static public int perlinNoise = Shader.PropertyToID("_PerlinNoise");
-
-            // Matrix
-            static public int worldToObj = Shader.PropertyToID("_worldToObj");
-
-            // wind
-            static public int grassWind = Shader.PropertyToID("_GrassTextureWaving");
-
-            static public int frustumPlanes = Shader.PropertyToID("_FrustumPlanes");
-
-            static public int minMaxWidthHeight = Shader.PropertyToID("_MinMaxWidthHeight");
-
-            static public int viewDir = Shader.PropertyToID("_ViewDir");
-        }
-
-        //////////////////////////////////////////////////// Grass Settings ////////////////////////////////////////////////////
-
-        private List<Grass> _drawGrass = new List<Grass>();
-
-        public TerrainTextures[] GrassTextures;
-        private Vector4[] _minMaxWidthHeight;
-
-        public Texture2D PerlinNoise;
-        public Texture2D DefaultSplatMap;
-        public Texture2D PlacementMap;
-
-        public Texture2D GetSplatMap
-        {
-            get
+            for (var i = 0; i < _items.Count; ++i)
             {
-                return DefaultSplatMap;
+                if (_items[i].GameObject != gameobj)
+                    continue;
+
+                _items[i].Dispose();
+
+                if ((i + 1) < _items.Count)
+                    _items[i] = _items[_items.Count - 1];
+
+                _items.RemoveAt(_items.Count - 1);
+
+                return;
+            }
+
+            for (var i = 0; i < _pendingJobs.Count; ++i)
+            {
+                if (_pendingJobs[i].GameObject != gameobj)
+                    continue;
+
+                if ((i + 1) < _pendingJobs.Count)
+                    _pendingJobs[i] = _pendingJobs[_pendingJobs.Count - 1];
+
+                _pendingJobs.RemoveAt(_pendingJobs.Count - 1);
+
+                return;
             }
         }
 
-
-        // ********** frustum/Cull **********
-        public int DrawDistance = 250;
-        private Vector4[] _frustumPlanes;
-
-        private ISceneManagerCamera _sceneCamera;
-
-        public bool UpdateGrass = true;
-        public bool DrawGrassShadows = false;
-        public float GrassWind = 0.01f;
-        public float GrassDensity = 0.0413f;
-
-        [Header("****** SHADERS ******")]
-        public ComputeShader ComputeShader;
-        public Shader GrassShader;
-
-        private Material _grassMaterial;
-
-        private ComputeBuffer _megaBuffer;
-        private ComputeBuffer _inderectBuffer;
-
-        private Texture2DArray _grassTextures;
-        private Transform _roiTransform;
-        public bool UseETC2 = false;
-
-        // Compute kernel names
-        private const string _indirectGrassKernelName = "IndirectGrass";
-        private const string _meshGrassGeneratorKernelName = "MeshGrassGenerator";
-        private const string _cullKernelName = "Cull";
-
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        private static Texture2DArray Create2DArray(TerrainTextures[] texture, bool etc2)
+        private void AddJobs()
         {
-            var textureCount = texture.Length;
+            // TODO: Can we avoid sorting per-frame? Change swap-remove to something else and only sort on
+            // Add/Remove
 
-            var textureResolution = Math.Max(texture.Max(item => item.FeatureTexture.width), texture.Max(item => item.FeatureTexture.height));
-
-            int[] availableGrassResolutions = new int[] { 64, 128, 256, 512, 1024, 2048, 4096 };
-
-            textureResolution = Mathf.Min(textureResolution, availableGrassResolutions[availableGrassResolutions.Length - 1]);
-            for (int i = 0; i < availableGrassResolutions.Length; i++)
+            //var sw = System.Diagnostics.Stopwatch.StartNew();
+            // sort front to back
+            _pendingJobs.Sort((a, b) =>
             {
-                if (textureResolution <= availableGrassResolutions[i])
+                var d1 = a.GameObject.transform.position.sqrMagnitude;
+                var d2 = b.GameObject.transform.position.sqrMagnitude;
+                return d1.CompareTo(d2);
+            });
+            //sw.Stop();
+
+            //Debug.LogFormat(LogType.Error, LogOption.NoStacktrace, null, "{0:0.0000} ms", sw.Elapsed.TotalMilliseconds);
+
+            for (var i = 0; i < _pendingJobs.Count; ++i)
+            {
+                var job = _pendingJobs[i];
+                var go = job.GameObject;
+
+                // get new job, according to certain rules (maybe priority later)
+                if (!go.activeInHierarchy)
+                    continue;
+
+                var mesh = job.Mesh;
+                var bounds = mesh.bounds;
+
+                var extents = bounds.extents;
+                var maxExtent = Mathf.Max(extents.x, extents.y, extents.z) * 2;
+                var centerWorld = go.transform.TransformPoint(bounds.center);
+
+                var frustum = _frustum;
+                _frustum[5].w += maxExtent;
+
+                if (!IsInFrustum(centerWorld, -maxExtent * 1.75f))
+                    continue;
+
+                _frustum = frustum;
+
+                //GenerateFrustumPlane(Camera.main);
+
+                if (_pointGenerators.Count == 0)
                 {
-                    textureResolution = availableGrassResolutions[i];
-                    break;
+                    _pointGenerators.Push(new InstanceGenerator(Instantiate(ComputeShader), InstanceGenerator.Feature.Grass)
+                    {
+                        Density = Density,
+                        SplatMap = DefaultSplatMap,
+                    });
                 }
-            }
 
-            Texture2DArray textureArray;
+                var pointGenerator = _pointGenerators.Pop();
 
-            if (etc2)
-            {
-                textureArray = new Texture2DArray(textureResolution, textureResolution, textureCount, TextureFormat.ARGB32, true)
+                var triangleCount = mesh.GetIndexCount(0) / 3;
+                var bufferSize = Math.Max(1, (maxExtent * maxExtent) / Density);
+                bufferSize = bufferSize < triangleCount ? triangleCount : bufferSize;
+
+                var outputBuffer = new ComputeBuffer((int)bufferSize, sizeof(float) * 4, ComputeBufferType.Append);
+                outputBuffer.SetCounterValue(0);
+                pointGenerator.SetMesh(mesh);
+
+                pointGenerator.ColorMap = job.Diffuse;
+                pointGenerator.OutputBuffer = outputBuffer;
+
+                //var threadGroups = Mathf.CeilToInt(triangleCount / 8.0f);
+                pointGenerator.Dispatch((int)triangleCount / 8);
+
+                // swap remove
+                if ((i + 1) < _pendingJobs.Count)
+                    _pendingJobs[i--] = _pendingJobs[_pendingJobs.Count - 1];
+                _pendingJobs.RemoveAt(_pendingJobs.Count - 1);
+
+                _currentJobs.Add(new JobOutput()
                 {
-                    wrapMode = TextureWrapMode.Clamp
+                    GameObject = go,
+                    Bounds = bounds,
+                    PointBuffer = outputBuffer,
+                    Generator = pointGenerator,
+                });
+
+                if (_currentJobs.Count == MAX_JOBS_PER_FRAME)
+                    return;
+            }
+        }
+
+        private void Render()
+        {
+            var camera = Camera.main;
+
+            if (!camera)
+                return;
+
+            GenerateFrustumPlane(camera);
+
+            //var size = GetModuleBufferMemory(_items);
+            //Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Grass :: total buffer memory size {0} mb", size / 1000000f);
+            _frustum[5].w = DrawDistance;
+
+
+            //var sw = System.Diagnostics.Stopwatch.StartNew();
+            for (var i = 0; i < _currentJobs.Count; ++i)
+            {
+                var job = _currentJobs[i];
+
+                var cullShader = new CullingShader(Instantiate(ComputeShader), CullingShader.CullingType.Fade)
+                {
+                    InputBuffer = job.PointBuffer,
+                    RenderBufferNear = _renderingShader.RenderBufferNear,
+                    RenderBufferFar = _renderingShader.RenderBufferFar,
                 };
-            }
-            else
-            {
-                textureArray = new Texture2DArray(textureResolution, textureResolution, textureCount, TextureFormat.DXT5, true)
+
+                var item = new Item()
                 {
-                    wrapMode = TextureWrapMode.Clamp
+                    GameObject = job.GameObject,
+                    CullShader = cullShader,
+                    Bounds = job.Bounds,
                 };
+
+                _items.Add(item);
+
+                _pointGenerators.Push(job.Generator);
+            }
+            //sw.Stop();
+
+            //// TODO: stop processing if per-frame budget is broken
+            //if (_currentJobs.Count > 0 && sw.Elapsed.TotalMilliseconds > 0.1)
+            //{
+            //    var e = sw.Elapsed.TotalMilliseconds;
+            //    Debug.LogFormat(LogType.Error, LogOption.NoStacktrace, null, "grass process completed jobs = {0:0.0000} ms", e);
+            //}
+
+            _currentJobs.Clear();
+
+            AddJobs();
+
+            var fadeFarAmmount = DrawDistance / 3;
+            var fadeFarValue = DrawDistance - fadeFarAmmount;
+
+            _renderingShader.SetNearFade(NearFadeStart, NearFadeEnd);
+            _renderingShader.SetFarFade(fadeFarValue, fadeFarAmmount);
+            _renderingShader.Wind = Wind;
+
+            _renderingShader.Frustum = _frustum;
+
+            _renderingShader.RenderBegin();
+
+            GameObject any = null;
+            var maxSide = 0f;
+
+            // Culling      
+            for (var i = 0; i < _items.Count; ++i)
+            {
+                var item = _items[i];
+
+                var go = item.GameObject;
+                if (!go.activeInHierarchy)
+                    continue;
+
+                any = go;
+
+                var bounds = item.Bounds;
+
+                var maxExtent = Mathf.Max(bounds.extents.x, bounds.extents.y, bounds.extents.z) * 2;
+                maxSide = maxExtent + DrawDistance;
+
+                var centerWorld = go.transform.TransformPoint(bounds.center);
+
+                var frustum = _frustum;
+                _frustum[5].w += maxSide;
+
+                if (!IsInFrustum(centerWorld, (-maxSide * 1.75f)))
+                    continue;
+
+                _frustum[5].w = DrawDistance;
+
+                var cullShader = item.CullShader;
+
+                cullShader.LocalToWorld = go.transform.localToWorldMatrix;
+                cullShader.Frustum = frustum;
+
+                //var triangleCount = go.GetComponent<MeshFilter>().mesh.GetIndices(0).Length / 3;
+                //var bufferSize = Math.Max(1, (maxExtent * maxExtent) / Density);
+                //bufferSize = bufferSize < triangleCount ? triangleCount : bufferSize;
+
+                cullShader.Dispatch();
             }
 
+            if (any == null)
+                return;
 
-            RenderTexture temporaryGrassRenderTexture = new RenderTexture(textureResolution, textureResolution, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default)
-            {
-                useMipMap = true,
-                antiAliasing = 1
-            };
+            // TODO: 
+            var roiTransform = FindFirstNodeParent(any.transform);
 
-            for (int i = 0; i < textureCount; i++)
-            {
-                Graphics.Blit(texture[i].FeatureTexture, temporaryGrassRenderTexture);
-                Texture2D temporaryGrassTexture = new Texture2D(textureResolution, textureResolution, TextureFormat.ARGB32, true);
-                RenderTexture.active = temporaryGrassRenderTexture;
-                temporaryGrassTexture.ReadPixels(new Rect(0, 0, temporaryGrassTexture.width, temporaryGrassTexture.height), 0, 0);
-                RenderTexture.active = null;
-                temporaryGrassTexture.Apply(true);
-                temporaryGrassTexture.Compress(true);
+            var worldToLocal = roiTransform == null ? Matrix4x4.identity : roiTransform.worldToLocalMatrix;
 
-                //TexToFile(temporaryGrassTexture, Application.dataPath + "/../grassTextureArraySaved_" + i + ".png");
+            _renderingShader.WorldToLocal = worldToLocal;
+            _renderingShader.ViewDirection = Camera.main.transform.forward;
 
-                Graphics.CopyTexture(temporaryGrassTexture, 0, textureArray, i);
-                Destroy(temporaryGrassTexture);
-            }
-            textureArray.Apply(false, true);
+            var renderBounds = new Bounds(Vector3.zero, new Vector3(maxSide, maxSide, maxSide));
+            //var renderBounds = new Bounds(Vector3.zero, new Vector3(DrawDistance + DrawDistance / 3, DrawDistance + DrawDistance / 3, DrawDistance + DrawDistance / 3) * 1.5f);
 
-            Destroy(temporaryGrassRenderTexture);
+            var shadows = DrawShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
+            _renderingShader.ShadowCastingMode = shadows;
 
-            return textureArray;
+            _renderingShader.RenderEnd(renderBounds);
         }
-        private bool IsInFrustum(Vector3 positionAfterProjection, float treshold = -1)
-        {
-            float cullValue = treshold;
-
-            return (Vector3.Dot(_frustumPlanes[0], positionAfterProjection) >= cullValue &&
-                Vector3.Dot(_frustumPlanes[1], positionAfterProjection) >= cullValue &&
-                Vector3.Dot(_frustumPlanes[2], positionAfterProjection) >= cullValue &&
-                Vector3.Dot(_frustumPlanes[3], positionAfterProjection) >= cullValue) &&
-            (_frustumPlanes[5].w >= Mathf.Abs(Vector3.Distance(Vector3.zero, positionAfterProjection)));
-        }
-        private Vector4[] GetMinMaxWidthHeight(TerrainTextures[] textures)
-        {
-            List<Vector4> MinMaxWidthHeight = new List<Vector4>();
-
-            foreach (TerrainTextures item in textures)
-            {
-                MinMaxWidthHeight.Add(item.GetMinMaxWidthHeight);
-            }
-
-            return MinMaxWidthHeight.ToArray();
-        }
-        private Transform FindFirstNodeParent(Transform child)
-        {
-            var parent = child.parent;
-            if (parent == null)
-            {
-                return child;
-            }
-
-            var node = parent.GetComponent<NodeHandle>();
-
-            if (node == null)
-            {
-                return child;
-            }
-
-            return FindFirstNodeParent(parent);
-        }
-
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        // --- GrassComponent ---
-        private void Initialize(Grass grass)
-        {
-            //Init shaders
-            //grass.ComputeShader = Instantiate(ComputeShader);
-
-            // Init kernels
-            grass.MeshGrassGeneratorKernel = new ComputeKernel(_meshGrassGeneratorKernelName, grass.ComputeShader);
-            grass.IndirectGrassKernel = new ComputeKernel(_indirectGrassKernelName, grass.ComputeShader);
-            grass.CullKernal = new ComputeKernel(_cullKernelName, grass.ComputeShader);
-
-            grass.SurfaceSize = new Vector3(grass.SurfaceMesh.bounds.size.x, grass.SurfaceMesh.bounds.size.y, grass.SurfaceMesh.bounds.size.z);
-            grass.SurfaceTriangles = grass.SurfaceMesh.triangles.Length;
-
-            var maxGrassMesh = (int)Mathf.Ceil((grass.SurfaceSize.x * grass.SurfaceSize.z) / GrassDensity) / 2;
-            grass.MaxGrass = maxGrassMesh > 0 ? maxGrassMesh : 1;
-
-            //Debug.LogWarning("About to add to memory: " + (grass.MaxGrass / 1000000.0).ToString("F4") + " mb");
-            //PrintTotalBufferSize();
-
-            grass.GrassBuffer = new ComputeBuffer(grass.MaxGrass, sizeof(float) * 4, ComputeBufferType.Append);
-
-            var surfaceVertices = grass.SurfaceMesh.vertices;
-            var surfaceIndices = grass.SurfaceMesh.GetIndices(0);
-            var surfaceUVs = grass.SurfaceMesh.uv;
-
-            //Destroy(grass.SurfaceMesh);
-
-            grass.SurfaceVertices = new ComputeBuffer(surfaceVertices.Length, sizeof(float) * 3, ComputeBufferType.Default);
-            grass.SurfaceIndices = new ComputeBuffer(surfaceIndices.Length, sizeof(int), ComputeBufferType.Default);
-            grass.SurfaceUVs = new ComputeBuffer(surfaceUVs.Length, sizeof(float) * 2, ComputeBufferType.Default);
-
-            grass.ComputeShader.SetInt(ComputeShaderID.cullCount, grass.MaxGrass);
-            grass.ComputeShader.SetInt(ComputeShaderID.indexCount, surfaceIndices.Length);
-
-            // fill surface vertices
-            grass.SurfaceVertices.SetData(surfaceVertices);
-            grass.MeshGrassGeneratorKernel.SetBuffer(ComputeShaderID.surfaceVertices, grass.SurfaceVertices);
-            grass.SurfaceIndices.SetData(surfaceIndices);
-            grass.MeshGrassGeneratorKernel.SetBuffer(ComputeShaderID.surfaceIndices, grass.SurfaceIndices);
-            grass.SurfaceUVs.SetData(surfaceUVs);
-            grass.MeshGrassGeneratorKernel.SetBuffer(ComputeShaderID.surfaceUVs, grass.SurfaceUVs);
-
-        }
-        // --- GrassComponent ---
-        private void InitializeMaterial()
-        {
-            _grassMaterial = new Material(GrassShader);
-
-            // ********************** Grass material **********************
-            _grassMaterial.SetBuffer(ShaderID.grassBuffer, _megaBuffer);
-
-            _grassMaterial.SetTexture(ShaderID.grassTexture, _grassTextures);
-            _grassMaterial.SetTexture(ShaderID.perlinNoise, PerlinNoise);
-
-            _grassMaterial.SetVectorArray(ShaderID.minMaxWidthHeight, _minMaxWidthHeight);
-        }
-
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        private void PrintTotalBufferSize()
-        {
-            int size = 0;
-            int extra = 0;
-            foreach (Grass grass in _drawGrass)
-            {
-                if (grass.Initlized)
-                {
-                    size += grass.MaxGrass * sizeof(float) * 4;
-                    extra++;
-                }
-                if (grass.SurfaceVertices != null)
-                {
-                    size += grass.SurfaceMesh.vertices.Length * sizeof(float) * 3;
-                    size += grass.SurfaceMesh.GetIndices(0).Length * sizeof(int);
-                    size += grass.SurfaceMesh.uv.Length * sizeof(float) * 2;
-                }
-            }
-            Debug.LogFormat("buffer grass memory: " + (size / 1000000.0).ToString("F4") + " mb buffers: " + extra + " average: " + ((size / 1000000.0) / extra).ToString("F4"));
-        }
-
-        private void Render(List<Grass> grassList)
-        {
-            //PrintTotalBufferSize();
-            if (Camera.main != null)
-            {
-                // Reset grass buffer and run generation
-                _megaBuffer.SetCounterValue(0);
-                _frustumPlanes = GenerateFrustumPlane();
-
-                //int current = 0;
-                //int active = grassList.Where(p => p.Initlized == true).Count();
-
-                for (int i = 0; i < grassList.Count; i++)
-                {
-                    var grass = grassList[i];
-
-                    if (grass.GameObject == null)
-                    {
-                        RemoveGrass(grass);
-                        continue;
-                    }
-                    if (!grass.GameObject.activeSelf) { continue; }
-
-                    UpdatePlanePos(grass);
-
-                    var longestSide = Mathf.Max(grass.SurfaceSize.x, grass.SurfaceSize.z, grass.SurfaceSize.y);
-                    _frustumPlanes[5].w = DrawDistance + longestSide * 1.25f;
-
-                    if (!IsInFrustum(grass.GameObject.transform.position, -longestSide * 1.25f))
-                    {
-                        continue;
-                    }
-
-                    UpdateShaderValues(grass);
-
-                    if (!grass.Initlized)
-                    {
-                        Initialize(grass);
-
-                        grass.MeshGrassGeneratorKernel.SetTexture(ComputeShaderID.splatMap, grass.SplatMap);
-                        grass.MeshGrassGeneratorKernel.SetTexture(ComputeShaderID.nodeTexture, grass.NodeTexture);
-                        grass.MeshGrassGeneratorKernel.SetTexture(ComputeShaderID.placementMap, grass.PlacementMap);
-                        grass.CullKernal.SetBuffer(ComputeShaderID.cullOutBuffer, _megaBuffer);
-
-                        grass.MeshGrassGeneratorKernel.SetBuffer(ComputeShaderID.terrainBuffer, grass.GrassBuffer);                 // Grass generator output
-                        grass.GrassBuffer.SetCounterValue(0);
-                        var GenX = Mathf.CeilToInt(grass.SurfaceTriangles / 8.0f);
-
-                        grass.MeshGrassGeneratorKernel.Dispatch(GenX, 1, 1);
-                        grass.Initlized = true;
-
-                        grass.CullKernal.SetBuffer(ComputeShaderID.cullInBuffer, grass.GrassBuffer);
-
-                        grass.SurfaceVertices.SafeRelease();
-                        grass.SurfaceIndices.SafeRelease();
-                        grass.SurfaceUVs.SafeRelease();
-
-                        _roiTransform = FindFirstNodeParent(grass.GameObject.transform);
-                    }
-                    //current++;
-
-                    _frustumPlanes[5].w = DrawDistance;
-
-                    grass.ComputeShader.SetVectorArray(ComputeShaderID.frustumPlanes, _frustumPlanes);
-
-                    // TODO: move entirely to GPU with DispatchIndirect 
-                    grass.CullKernal.SetBuffer(ComputeShaderID.indirectBuffer, _inderectBuffer);
-                    ComputeBuffer.CopyCount(grass.GrassBuffer, _inderectBuffer, 0);
-
-                    var x = Mathf.CeilToInt(grass.MaxGrass / 128.0f);
-                    grass.CullKernal.Dispatch(x, 1, 1);
-                }
-
-                //Debug.LogFormat("grass buffers total: " + grassList.Count() + "  intlized: " + active + " Drawn: " + current);
-                //Debug.LogFormat("active grass buffers: " + active + " drawn: " + current + " total: " + grassList.Count());
-
-                // ********* Update grassmaterial *********
-                _grassMaterial.SetFloat(ShaderID.grassWind, GrassWind);
-                if (_roiTransform != null)
-                {
-                    _grassMaterial.SetMatrix(ShaderID.worldToObj, _roiTransform.worldToLocalMatrix);
-                }
-                _grassMaterial.SetVector(ShaderID.viewDir, Camera.main.transform.forward);
-
-                // Culling      
-                ComputeBuffer.CopyCount(_megaBuffer, _inderectBuffer, 0);
-                var bounds = new Bounds(Vector3.zero, new Vector3(DrawDistance + DrawDistance / 3, DrawDistance + DrawDistance / 3, DrawDistance + DrawDistance / 3) * 1.5f);
-                Graphics.DrawProceduralIndirect(_grassMaterial, bounds, MeshTopology.Points, _inderectBuffer, 0, null, null, DrawGrassShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
-                //Graphics.DrawMeshInstancedIndirect(_mesh, 0, grass.GrassMaterial, new Bounds(Vector3.zero, new Vector3(float.MaxValue, float.MaxValue, float.MaxValue)), grass.ArgsBufferGrass, 0, null, DrawGrassShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
-            }
-        }
-        private void UpdateShaderValues(Grass grass)
-        {
-            grass.ComputeShader.SetInt(ComputeShaderID.terrainResolution, grass.SplatMap.height);
-            grass.ComputeShader.SetMatrix(ComputeShaderID.objToWorld, grass.GameObject.transform.localToWorldMatrix);
-            grass.ComputeShader.SetFloat(ComputeShaderID.surfaceGridStep, GrassDensity);
-
-            //grass.MeshGrassGeneratorKernel.SetTexture(ComputeShaderID.splatMap, grass.SplatMap);
-            //grass.MeshGrassGeneratorKernel.SetTexture(ComputeShaderID.nodeTexture, grass.NodeTexture);
-            //grass.MeshGrassGeneratorKernel.SetTexture(ComputeShaderID.placementMap, grass.PlacementMap);
-
-            //grass.CullKernal.SetBuffer(ComputeShaderID.cullOutBuffer, _megaBuffer);
-        }
-        private void UpdatePlanePos(Grass grass)
-        {
-            grass.ComputeShader.SetVectorArray(ComputeShaderID.frustumPlanes, _frustumPlanes);
-        }
-
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         public void Camera_OnPostTraverse()
         {
-            Render(_drawGrass);
+            Render();
         }
 
         private void OnDestroy()
         {
-            foreach (Grass grass in _drawGrass)
+            for (var i = 0; i < _items.Count; ++i)
+                _items[i].Dispose();
+
+            for (var i = 0; i < _currentJobs.Count; ++i)
             {
-                SafeRelease(grass);
+                _currentJobs[i].PointBuffer.SafeRelease();
+                _currentJobs[i].Generator.Dispose();
             }
 
-            _inderectBuffer.SafeRelease();
-            _megaBuffer.SafeRelease();
-        }
+            while (_pointGenerators.Count > 0)
+                _pointGenerators.Pop().Dispose();
 
-        private void SafeRelease(Grass grass)
-        {
-            grass.GrassBuffer.SafeRelease();
-
-            Destroy(grass.ComputeShader);
-
-            grass.SurfaceVertices.SafeRelease();
-            grass.SurfaceIndices.SafeRelease();
-            grass.SurfaceUVs.SafeRelease();
+            if (_renderingShader != null)
+                _renderingShader.Dispose();
         }
     }
 }

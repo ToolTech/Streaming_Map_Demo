@@ -89,6 +89,16 @@ namespace GizmoSDK
                 return quat;
             }
 
+            public static Quaternion operator*(Quaternion lhs, Quaternion rhs)
+            {
+                return new Quaternion(
+                        lhs.w * rhs.w - lhs.x * rhs.x - lhs.y * rhs.y - lhs.z * rhs.z,
+                        lhs.w * rhs.x + lhs.x * rhs.w + lhs.y * rhs.z - lhs.z * rhs.y,
+                        lhs.w * rhs.y - lhs.x * rhs.z + lhs.y * rhs.w + lhs.z * rhs.x,
+                        lhs.w * rhs.z + lhs.x * rhs.y - lhs.y * rhs.x + lhs.z * rhs.w);
+            }
+
+
             public float w, x, y, z;
 
             #region // --------------------- Native calls -----------------------
@@ -96,6 +106,7 @@ namespace GizmoSDK
             private static extern IntPtr Quaternion_asString(ref Quaternion quat);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void Quaternion_from_euler_yxz(ref Quaternion quat,float heading, float pitch,float roll);
+
             #endregion
 
         }
@@ -130,6 +141,15 @@ namespace GizmoSDK
                 {
                     w = x = y = z = 0;
                 }
+            }
+
+            public static QuaternionD operator *(QuaternionD lhs, QuaternionD rhs)
+            {
+                return new QuaternionD(
+                        lhs.w * rhs.w - lhs.x * rhs.x - lhs.y * rhs.y - lhs.z * rhs.z,
+                        lhs.w * rhs.x + lhs.x * rhs.w + lhs.y * rhs.z - lhs.z * rhs.y,
+                        lhs.w * rhs.y - lhs.x * rhs.z + lhs.y * rhs.w + lhs.z * rhs.x,
+                        lhs.w * rhs.z + lhs.x * rhs.y - lhs.y * rhs.x + lhs.z * rhs.w);
             }
 
 

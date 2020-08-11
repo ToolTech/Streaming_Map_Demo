@@ -71,6 +71,7 @@ Texture2D<float4> BillboardPlane;               // Billboard
 
 // Variables
 float surfaceGridStep;
+float surfaceSize;
 uint cullCount;
 uint indexCount;
 uint BillboardPlaneResolution;
@@ -269,7 +270,7 @@ void MeshGrassGenerator(int3 id : SV_DispatchThreadID)
 	float density = surfaceGridStep;
 	uint index = id.x * 3;
 
-	if (index > indexCount) { return; }
+	if (index >= indexCount) { return; }
 
 	float3 v1 = surfaceVertices[surfaceIndices[index]];
 	float3 v2 = surfaceVertices[surfaceIndices[index + 1]];
@@ -280,13 +281,17 @@ void MeshGrassGenerator(int3 id : SV_DispatchThreadID)
 	float2 uv3 = surfaceUVs[surfaceIndices[index + 2]];
 
 	// Area
-	float area = length(cross((v2 - v1), (v3 - v1)) / 2);
+	float area = length(cross((v2 - v1), (v3 - v1))) / 2;
 	if (area < density) { return; }
-	int grassAmount = ceil(area / density);
-	float halfDensity = density / 2;
+	int grassAmount = area / density;
+
+	//float t = grassAmount;
+	//float end = (t * id.y);
+	//float start = end - t;
 
 	// ************* Barycentric coordinate *************
-	for (float i = 0; i < (grassAmount); i += 1.0f)
+	//float i = 0;
+	for (int i = 0; i < grassAmount; i += 1.0f)
 	{
 		float a1 = 1 / (plasticConstant);
 		float a2 = 1 / ((plasticConstant) * (plasticConstant));
@@ -298,9 +303,10 @@ void MeshGrassGenerator(int3 id : SV_DispatchThreadID)
 		float3 newPoint = (1 - sqrt(r1)) * v1 + (sqrt(r1) * (1 - r2)) * v2 + (sqrt(r1) * r2) * v3;
 		float3 finalPoint = newPoint.xyz;
 
+
 		float4 color = splatMap[uv * terrainResolution];
 		float4 nodeColor = NodeTexture[uv * 512];
-		float3 placement = PlacementMap[uv * 512];
+		//float3 placement = PlacementMap[uv * 512];
 
 		//int chance = intToByte(placement, 0);
 		// ****** 1 <=> 0.004 ******
@@ -336,9 +342,8 @@ void MeshGrassGenerator(int3 id : SV_DispatchThreadID)
 void MeshTreeGenerator(int3 id : SV_DispatchThreadID)
 {
 	float density = surfaceGridStep;
-	uint index = id.x * 3;
-
-	if (index > indexCount) { return; }
+	uint index = (id.x * 3);
+	if (index >= indexCount) { return; }
 
 	float3 v1 = surfaceVertices[surfaceIndices[index]];
 	float3 v2 = surfaceVertices[surfaceIndices[index + 1]];
@@ -347,19 +352,16 @@ void MeshTreeGenerator(int3 id : SV_DispatchThreadID)
 	float2 uv1 = surfaceUVs[surfaceIndices[index]];
 	float2 uv2 = surfaceUVs[surfaceIndices[index + 1]];
 	float2 uv3 = surfaceUVs[surfaceIndices[index + 2]];
-
 	// Area
-	float area = length(cross((v2 - v1), (v3 - v1)) / 2);
-	//if (area < density) { return; }
+
+	float area = length(cross((v2 - v1), (v3 - v1))) / 2;
+	if (area < density) { return; }
 	float grassAmount = area / density;
-	float halfDensity = density / 2;
+	//float halfDensity = density / 2;
 
 	// ************* Barycentric coordinate *************
-	for (float i = 0; i < grassAmount; i += 1.0f)
+	for (int i = 0; i < grassAmount; i++)
 	{
-		//float r1 = frac(tan((i + 1) / density) + halfDensity);
-		//float r2 = frac(tan(i + 1) + halfDensity);
-
 		float a1 = 1 / (plasticConstant);
 		float a2 = 1 / ((plasticConstant) * (plasticConstant));
 
@@ -387,7 +389,7 @@ void MeshTreeGenerator(int3 id : SV_DispatchThreadID)
 				uint blueColor = (color.z >= 1.0 ? 255 : color.z * 256.0);
 
 				int valid = GetType(blueColor, i);
-				if (valid != -1)
+				//if (valid != -1)
 				{
 					float3 HSV = RGBToHSV(nodeColor.xyz);
 
@@ -400,6 +402,24 @@ void MeshTreeGenerator(int3 id : SV_DispatchThreadID)
 			}
 		}
 	}
+}
+
+// ************* 2D projection *************
+[numthreads(8, 8, 1)]
+void ProjectionGenerator(int3 id : SV_DispatchThreadID)
+{
+	int x = id.x;
+	int y = id.y;
+
+	float density = surfaceGridStep;
+	// node size
+	float size = surfaceSize;
+
+	float width = size / density;
+	float height = width;
+
+	// place points evenly on plane
+	// project points on mesh
 }
 
 // ************* Cull shader *************
@@ -436,7 +456,6 @@ void TreeCull(uint3 id : SV_DispatchThreadID)
 	if (index >= indirectBuffer[0]) { return; }
 
 	float4 data = Input[index];
-
 	float4 pos = mul(ObjToWorld, float4(data.xyz, 1));
 
 	if (IsInFrustum(pos.xyz, -15))

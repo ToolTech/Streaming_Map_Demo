@@ -33,7 +33,7 @@ Shader "Terrain/DynamicTerrain/Tree/Mesh"
 {
 	Properties
 	{
-		_MainTexGrass("Albedo (RGB)", 2D) = "white" {}
+		_MainTex("Albedo (RGB)", 2D) = "white" {}
 		_ColorIntensity("Color Intensity", Range(0, 1)) = 1.0
 		_Fade("Fade in out", float) = 15.0
 	}
@@ -58,7 +58,7 @@ Shader "Terrain/DynamicTerrain/Tree/Mesh"
 			#define PI2 6.283185307
 
 			// ****** Textures ******
-			sampler2D _MainTexGrass;
+			sampler2D _MainTex;
 			sampler2D _ColorVariance;
 
 			// ****** Properties ******
@@ -123,7 +123,7 @@ Shader "Terrain/DynamicTerrain/Tree/Mesh"
 				void frag(FramentInput IN, out half4 outGBuffer0 : SV_Target0, out half4 outGBuffer1 : SV_Target1, out half4 outGBuffer2 : SV_Target2, out half4 outEmission : SV_Target3)
 				{
 					// Sample texture and multiply color
-					fixed4 c = tex2Dlod(_MainTexGrass, half4(IN.texcoord.xy, 1,1));
+					fixed4 c = tex2Dlod(_MainTex, half4(IN.texcoord.xy, 1,1));
 
 					const half4x4 thresholdMatrix =
 					{
@@ -249,7 +249,7 @@ Shader "Terrain/DynamicTerrain/Tree/Mesh"
 				half4 frag(FramentInput IN) : SV_Target
 				{
 					// Sample texture and multiply color
-					fixed4 c = tex2Dlod(_MainTexGrass, half4(IN.texcoord.xy, 1,1));
+					fixed4 c = tex2Dlod(_MainTex, half4(IN.texcoord.xy, 1,1));
 
 				// Cutoff
 				//clip((c.a - _Cutoff));

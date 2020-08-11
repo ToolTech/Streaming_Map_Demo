@@ -15,7 +15,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private readonly ComputeBuffer _renderBufferNear = new ComputeBuffer(1000000, sizeof(float) * 4, ComputeBufferType.Append);
         private readonly ComputeBuffer _indirectBufferNear = new ComputeBuffer(5, sizeof(uint), ComputeBufferType.IndirectArguments);
 
-        private readonly ComputeBuffer _renderBufferFar = new ComputeBuffer(1500000, sizeof(float) * 4, ComputeBufferType.Append);
+        private readonly ComputeBuffer _renderBufferFar = new ComputeBuffer(4000000, sizeof(float) * 4, ComputeBufferType.Append);
         private readonly ComputeBuffer _indirectBufferFar = new ComputeBuffer(4, sizeof(uint), ComputeBufferType.IndirectArguments);
 
         public ComputeBuffer RenderBufferNear
@@ -68,20 +68,19 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private struct ShaderID
         {
             // Bufers
-            public static readonly int treeBuffer = Shader.PropertyToID("_GrassBuffer");
+            public static readonly int pointBuffer = Shader.PropertyToID("_PointBuffer");
 
             // Textures   const 
             public static readonly int nodeTexture = Shader.PropertyToID("_NodeTexture");
-            public static readonly int treeTexture = Shader.PropertyToID("_MainTexGrass");
+            public static readonly int mainTexture = Shader.PropertyToID("_MainTex");
             public static readonly int perlinNoise = Shader.PropertyToID("_PerlinNoise");
             public static readonly int colorVariance = Shader.PropertyToID("_ColorVariance");
 
             // Matrix     const 
             public static readonly int worldToObj = Shader.PropertyToID("_worldToObj");
-            //static publ const c int worldToScreen = Shader.PropertyToID("_worldToScreen");
 
             // wind       const 
-            public static readonly int Wind = Shader.PropertyToID("_GrassTextureWaving");
+            public static readonly int Wind = Shader.PropertyToID("_TextureWaving");
             public static readonly int Yoffset = Shader.PropertyToID("_Yoffset");
 
             public static readonly int frustumPlanes = Shader.PropertyToID("_FrustumPlanes");
@@ -103,7 +102,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             _material = new Material(materialShader);
 
-            _material.SetBuffer(ShaderID.treeBuffer, _renderBufferFar);
+            _material.SetBuffer(ShaderID.pointBuffer, _renderBufferFar);
 
             _indirectBufferFar.SetData(new uint[] { 0, 1, 0, 0 });
         }
@@ -129,7 +128,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             System.Diagnostics.Debug.Assert(textureArray.depth == sizeDesc.Length);
             System.Diagnostics.Debug.Assert(textureArray.depth == offsets.Length);
 
-            _material.SetTexture(ShaderID.treeTexture, textureArray);
+            _material.SetTexture(ShaderID.mainTexture, textureArray);
             _material.SetVectorArray(ShaderID.minMaxWidthHeight, sizeDesc);
             _material.SetFloatArray(ShaderID.Yoffset, offsets);
         }
@@ -150,6 +149,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         {
             ComputeBuffer.CopyCount(_renderBufferFar, _indirectBufferFar, 0);
             ComputeBuffer.CopyCount(_renderBufferNear, _indirectBufferNear, 4 * 1);
+
+            //int[] array = new int[4];
+            //_indirectBufferFar.GetData(array);
+            //Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, this, "Current buffer size :: {0}", array[0].ToString());
+            //Debug.LogWarning("Buffer size :: " + array[0].ToString());
+
 
             Graphics.DrawProceduralIndirect(_material, renderBounds, MeshTopology.Points, _indirectBufferFar, 0, null, null, ShadowCastingMode);
         }
