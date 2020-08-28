@@ -32,6 +32,7 @@
 // Who	Date	Description						
 //									
 // AMO	180816	Created file 	
+// AMO  200826  Added checksum test for local registry
 //
 //******************************************************************************
 
@@ -46,19 +47,19 @@ namespace GizmoSDK
        
         public class KeyDatabase
         {
-            static public bool SetLocalRegistry(string url, string password = "")
+            static public bool SetLocalRegistry(string url, string password = "", bool useCheckSum = false)
             {
                 SerializeAdapter.AdapterError error = SerializeAdapter.AdapterError.NO_ERROR;
                 IntPtr nativeErrorString = IntPtr.Zero;
 
-                return KeyDatabase_setLocalRegistry(url,password,ref nativeErrorString,ref error);
+                return KeyDatabase_setLocalRegistry(url,password,ref nativeErrorString,ref error,useCheckSum);
             }
 
-            static public bool SetLocalRegistry(string url, ref string errorString, ref SerializeAdapter.AdapterError error, string password="")
+            static public bool SetLocalRegistry(string url, ref string errorString, ref SerializeAdapter.AdapterError error, string password="",bool useCheckSum=false)
             {
                 IntPtr nativeErrorString = IntPtr.Zero;
 
-                bool result=KeyDatabase_setLocalRegistry(url, password, ref nativeErrorString, ref error);
+                bool result=KeyDatabase_setLocalRegistry(url, password, ref nativeErrorString, ref error,useCheckSum);
 
                 if (nativeErrorString != IntPtr.Zero)
                     errorString = Marshal.PtrToStringUni(nativeErrorString);
@@ -172,7 +173,7 @@ namespace GizmoSDK
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool KeyDatabase_setDefaultRegistry(string url, string password, ref IntPtr nativeErrorString, ref SerializeAdapter.AdapterError error);
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern bool KeyDatabase_setLocalRegistry(string url, string password, ref IntPtr nativeErrorString, ref SerializeAdapter.AdapterError error);
+            private static extern bool KeyDatabase_setLocalRegistry(string url, string password, ref IntPtr nativeErrorString, ref SerializeAdapter.AdapterError error,bool useCheckSum);
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr KeyDatabase_getUserKey(string key, string password , bool onlyUserKey);
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]

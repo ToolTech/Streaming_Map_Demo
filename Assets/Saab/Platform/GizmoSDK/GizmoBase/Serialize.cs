@@ -161,6 +161,7 @@ namespace GizmoSDK
                 IntPtr p = Marshal.AllocHGlobal(data.Length);
 
                 Marshal.Copy(data,0,p,data.Length); // Transfer to unmanaged memory
+
                 try
                 {
                     SerializeAdapter_write_buffer(GetNativeReference(), p, 0, (uint)data.Length, (uint)data.Length);
@@ -185,6 +186,7 @@ namespace GizmoSDK
             public uint Read(ref byte[] data)
             {
                 IntPtr p = Marshal.AllocHGlobal(data.Length);
+
                 try
                 {
                     UInt32 count = SerializeAdapter_read_buffer(GetNativeReference(), p, 0, (uint)data.Length, (uint)data.Length);

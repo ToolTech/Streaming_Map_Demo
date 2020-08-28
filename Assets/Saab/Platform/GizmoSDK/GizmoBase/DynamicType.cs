@@ -64,6 +64,8 @@ namespace GizmoSDK
                 public static string CHAIN = "chain";
                 public static string GUID = "guid";
                 public static string TIME_TAGGED = "ttag";
+
+                public static string UBYTE_ARRAY = "UByteArray";
             }
 
             const string TYPE_REFLECT = "_type_";
@@ -633,6 +635,11 @@ namespace GizmoSDK
                 return DynamicType_getDataSize(GetNativeReference(),adapter?.GetNativeReference()??IntPtr.Zero);
             }
 
+            public bool ValueCompare(DynamicType b)
+            {
+                return DynamicType_valueCompare(GetNativeReference(), b.GetNativeReference());
+            }
+
             // -------------- Native calls ------------------
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
@@ -689,6 +696,8 @@ namespace GizmoSDK
             private static extern IntPtr DynamicType_fromXML(string xml,bool skipDynTag);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DynamicType_fromJSON(string json);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool DynamicType_valueCompare(IntPtr dynamic_reference_a, IntPtr dynamic_reference_b);
 
         }
     }

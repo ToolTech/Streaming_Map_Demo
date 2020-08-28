@@ -198,7 +198,7 @@ namespace GizmoSDK
                 if (Texture_getMipMapImageArray(GetNativeReference(), useMipMaps, uncompress,ref size, ref native_image_data,ref format,ref componentType, ref components,ref width, ref height, ref depth))
                 {
                     // Check alloc memory return
-                    if(image_data == null || image_data.Length != size)
+                    if(image_data == null || image_data.Length < size)
                         image_data = new byte[size];
 
                     Marshal.Copy(native_image_data, image_data, (int)0, (int)size);

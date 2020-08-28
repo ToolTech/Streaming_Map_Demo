@@ -40,7 +40,6 @@ using System;
 using GizmoSDK.Gizmo3D;
 using GizmoSDK.GizmoBase;
 using GizmoSDK.Coordinate;
-using Saab.Utility.Map;
 
 namespace Saab.Foundation.Map
 {
@@ -56,19 +55,19 @@ namespace Saab.Foundation.Map
     public enum GroundClampType
     {
         NONE,
-        GROUND,
-        GROUND_NORMAL_TO_SURFACE,
-        BUILDING,
+        GROUND      = 1<<0,
+        BUILDING    = 1<<1,
     }
 
     [Flags]
     public enum ClampFlags
     {
-        NONE                    = 0,
-        WAIT_FOR_DATA           = 1<<0,
-        ISECT_LOD_QUALITY       = 1<<1,
-        FRUSTRUM_CULL           = 1<<2,
-        UPDATE_DATA               = 1<<3,
+        NONE,               
+        ALIGN_NORMAL_TO_SURFACE = 1<<0,
+        WAIT_FOR_DATA           = 1<<1,
+        ISECT_LOD_QUALITY       = 1<<2,
+        FRUSTRUM_CULL           = 1<<3,    
+        UPDATE_DATA             = 1<<4,        
 
         DEFAULT = FRUSTRUM_CULL,
     }
@@ -82,6 +81,7 @@ namespace Saab.Foundation.Map
         const string DBI_PROJECTION_SPHERE          = "Sphere";
         const string DBI_ORIGIN                     = "DbI-Database Origin";
         const string DBI_MAX_LOD_RANGE			    = "DbI-LR";
+        const string DBI_COORD_SYS                  = "DbI-CoordSystem";
 
 
         public delegate void EventHandler_MapInfo(string url,MapType type,Node root);
@@ -99,9 +99,16 @@ namespace Saab.Foundation.Map
                 NodeLock.WaitLockEdit();        // All change of map parameters shall be done in locked edit mode
 
                 _mapType = MapType.UNKNOWN;
+
                 _topRoi = null;
                 _currentMap = null;
                 _nodeURL = null;
+
+                _north = false;
+                _origin = new Vec3D(0, 0, 0);
+                _utmZone = 0;
+
+                _coordSystem = new CoordinateSystem();
             }
             finally
             {
@@ -359,7 +366,11 @@ namespace Saab.Foundation.Map
             isect.SetStartPosition((Vec3)global_position);
             isect.SetDirection(direction);
 
-            if (isect.Intersect(_currentMap, IntersectQuery.ABC_TRI | IntersectQuery.NEAREST_POINT | IntersectQuery.NORMAL | (flags.HasFlag(ClampFlags.WAIT_FOR_DATA) ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0), 1, true, origo))
+            if (isect.Intersect(_currentMap,  IntersectQuery.ABC_TRI | 
+                                                    IntersectQuery.NEAREST_POINT |
+                                                     (flags.HasFlag(ClampFlags.ALIGN_NORMAL_TO_SURFACE) ? IntersectQuery.NORMAL : 0) | //IntersectQuery.NORMAL | 
+                                                    (flags.HasFlag(ClampFlags.WAIT_FOR_DATA) ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0),
+                                                    1, true, origo))
             {
                 IntersectorResult res = isect.GetResult();
 
@@ -377,16 +388,16 @@ namespace Saab.Foundation.Map
                     result.c = data.c + origo;
                 }
 
-                result.clamp_result = data.resultMask;
+                result.clampResult = data.resultMask;
             }
             else
-                result.clamp_result = IntersectQuery.NULL;
+                result.clampResult = IntersectQuery.NULL;
 
             isect.Dispose();   // Drop handle and ignore GC
 
             result.local_orientation = GetLocalOrientation(result.position);
 
-            if (result.clamp_result == IntersectQuery.NULL)
+            if (result.clampResult == IntersectQuery.NULL)
                 result.normal = result.local_orientation.GetCol(2);
 
             return ToLocal(result);
@@ -479,6 +490,8 @@ namespace Saab.Foundation.Map
             if (_currentMap == null)    // No map
                 return false;
 
+            result.normal = result.local_orientation.GetCol(2);
+
             if (groundClamp != GroundClampType.NONE)
             {
 
@@ -496,7 +509,7 @@ namespace Saab.Foundation.Map
 
                 // Check triangel ground
 
-                if (result.clamp_result.HasFlag(IntersectQuery.ABC_TRI))
+                if (result.clampResult.HasFlag(IntersectQuery.ABC_TRI))
                 {
                     if (Intersect(result.position, down, result.a, result.b, result.c, out Vec3D p))
                     {
@@ -532,7 +545,7 @@ namespace Saab.Foundation.Map
                 isect.SetDirection(down);
 
                 if (isect.Intersect(_currentMap, IntersectQuery.NEAREST_POINT | IntersectQuery.ABC_TRI |
-                                                    IntersectQuery.NORMAL |
+                                                    (flags.HasFlag(ClampFlags.ALIGN_NORMAL_TO_SURFACE) ? IntersectQuery.NORMAL : 0) | //IntersectQuery.NORMAL |
                                                     (flags.HasFlag(ClampFlags.WAIT_FOR_DATA) ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0) |
                                                     (flags.HasFlag(ClampFlags.UPDATE_DATA) ? IntersectQuery.UPDATE_DYNAMIC_DATA : 0)
                                                     , 1, true, origo))
@@ -553,15 +566,15 @@ namespace Saab.Foundation.Map
                         result.c = data.c + origo;
                     }
 
-                    result.clamp_result = data.resultMask;
+                    result.clampResult = data.resultMask;
                 }
                 else
-                    result.clamp_result = IntersectQuery.NULL;
+                    result.clampResult = IntersectQuery.NULL;
 
-                if (groundClamp == GroundClampType.GROUND)
-                {
-                    result.normal = result.local_orientation.GetCol(2);
-                }
+                //if (groundClamp == GroundClampType.GROUND)
+                //{
+                //    result.normal = result.local_orientation.GetCol(2);
+                //}
 
 
                 isect.Dispose();    // Drop handle and ignore GC
@@ -571,6 +584,8 @@ namespace Saab.Foundation.Map
                 ToLocal(result);
             }
 
+            result.clampFlags = flags;
+            result.clampType = groundClamp;
 
             return true;
         }
@@ -792,20 +807,40 @@ namespace Saab.Foundation.Map
                             _origin = new Vec3D(utmOrigin.Easting, utmOrigin.H, -utmOrigin.Northing);
                             _north = utmOrigin.North;
                             _utmZone = utmOrigin.Zone;
+
+                            _coordSystem = new CoordinateSystem(Datum.WGS84_ELLIPSOID, FlatGaussProjection.UTM, GizmoSDK.Coordinate.Type.UTM);
                         }
                         else if (projection == DBI_PROJECTION_FLAT_EARTH)   // To run a 3D world without world coordinates
                         {
                             _mapType = MapType.PLAIN;
                             _origin = (Vec3D)_currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_ORIGIN).GetVec3();
+                            _north = false;
+                            _utmZone = 0;
+
+                            _coordSystem = new CoordinateSystem();
                         }
                         else if (projection == DBI_PROJECTION_SPHERE)
                         {
                             _mapType = MapType.GEOCENTRIC;
                             CartPos cartOrigin = _currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_ORIGIN);
                             _origin = new Vec3D(cartOrigin.X, cartOrigin.Y, cartOrigin.Z);
+                            _north = false;
+                            _utmZone = 0;
+
+                            _coordSystem = new CoordinateSystem(Datum.WGS84_ELLIPSOID, FlatGaussProjection.NOT_DEFINED, GizmoSDK.Coordinate.Type.GEOCENTRIC);
                         }
                         else
+                        {
                             _mapType = MapType.UNKNOWN;
+                            _origin = new Vec3D(0, 0, 0);
+                            _north = false;
+                            _utmZone = 0;
+
+                            _coordSystem = new CoordinateSystem();
+                        }
+
+                        if(_currentMap.HasAttribute(USER_DATA_DB_INFO, DBI_COORD_SYS))
+                            _coordSystem = new CoordinateSystem(_currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_COORD_SYS));
 
                         var maxLodDistance = _currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_MAX_LOD_RANGE).GetNumber();
 
@@ -884,12 +919,44 @@ namespace Saab.Foundation.Map
         {
             get
             {
-                return _nodeURL;
+                try
+                {
+                    NodeLock.WaitLockEdit();
+                    return _nodeURL;
+                }
+                finally
+                {
+                    NodeLock.UnLock();
+                }
             }
 
             set
             {
-                _nodeURL = value;
+                try
+                {
+                    NodeLock.WaitLockEdit();
+                    _nodeURL = value;
+                }
+                finally
+                {
+                    NodeLock.UnLock();
+                }
+            }
+        }
+
+        public CoordinateSystem CoordinateSystem
+        {
+            get
+            {
+                try
+                {
+                    NodeLock.WaitLockEdit();
+                    return _coordSystem;
+                }
+                finally
+                {
+                    NodeLock.UnLock();
+                }
             }
         }
 
@@ -929,13 +996,17 @@ namespace Saab.Foundation.Map
 
         #region ----- Private variables ----------------
 
-        private MapType _mapType;
-        private Node    _currentMap;
+        private MapType             _mapType;
+        private Node                _currentMap;
+        private CoordinateSystem    _coordSystem;
 
         private Vec3D   _origin;
         private Roi     _topRoi;
+
+        // UTM Specific data for offset
         private int     _utmZone;
         private bool    _north;
+
         private Camera  _camera;
         private string  _nodeURL;
         

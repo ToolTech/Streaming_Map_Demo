@@ -89,6 +89,15 @@ namespace GizmoSDK
                 return quat;
             }
 
+            public static Quaternion CreateFromEulerZXY(float heading, float pitch, float roll)
+            {
+                Quaternion quat = new Quaternion();
+
+                Quaternion_from_euler_zxy(ref quat, heading, pitch, roll);
+
+                return quat;
+            }
+
             public static Quaternion operator*(Quaternion lhs, Quaternion rhs)
             {
                 return new Quaternion(
@@ -106,6 +115,8 @@ namespace GizmoSDK
             private static extern IntPtr Quaternion_asString(ref Quaternion quat);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern void Quaternion_from_euler_yxz(ref Quaternion quat,float heading, float pitch,float roll);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Quaternion_from_euler_zxy(ref Quaternion quat, float heading, float pitch, float roll);
 
             #endregion
 

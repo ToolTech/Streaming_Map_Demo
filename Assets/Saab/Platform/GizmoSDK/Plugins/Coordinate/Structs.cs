@@ -239,13 +239,30 @@ namespace GizmoSDK
 
         }
 
+        public enum Type
+        {
+            GEOCENTRIC,
+            GEODETIC,
+            PROJECTED,
+            UTM,
+            MGRS,
+            STATE_COUNT,
+            NOT_DEFINED,
+        };
+
         public enum Datum
         {
-            WGS84,
-            GRS80,
-            RR92,
-            CLARKE_1866,
+            WGS84_ELLIPSOID,            // Datums for ellipsoid height
+            GRS80_ELLIPSOID,
+            BESSEL_1841_ELLIPSOID,
+            CLARKE_1866_ELLIPSOID,
+            AIRY_1830_ELLIPSOID,
+
+            WGS84_EGM2008,              // Additional datums for each alt model
+            BESSEL_RR92,
+
             USER_DEFINED,
+            NOT_DEFINED,
         }
         public enum Ellipsoid
         {
@@ -253,6 +270,8 @@ namespace GizmoSDK
             GRS80,
             BESSEL_1841,
             CLARKE_1866,
+            AIRY_1830,
+
             USER_DEFINED,
         }
 
@@ -260,10 +279,23 @@ namespace GizmoSDK
         {
             RT90,
             SWEREF99,
+            UTM,
 
             USER_DEFINED,
             NOT_DEFINED,
+        }
+
+        public enum HeightModel
+        {
+            ELLIPSOID,
+            EGM2008,
+            RR92,
+            EGM96,
+            RH2000,
+            RH70,
+            NOT_DEFINED
         };
+
 
     }
 }

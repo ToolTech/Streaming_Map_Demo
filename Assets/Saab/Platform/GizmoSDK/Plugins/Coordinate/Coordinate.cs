@@ -43,6 +43,52 @@ namespace GizmoSDK
 {
     namespace Coordinate
     {
+        public class CoordinateSystem : Reference
+        {
+            public CoordinateSystem(Datum datum=Datum.NOT_DEFINED, FlatGaussProjection proj=FlatGaussProjection.NOT_DEFINED, Type type=Type.NOT_DEFINED) : base(CoordinateSystem_create(datum,proj,type)) { }
+
+            public CoordinateSystem(string definition) : base(CoordinateSystem_parse(definition)) { }
+
+            public Datum Datum
+            {
+                get
+                {
+                    return CoordinateSystem_getDatum(GetNativeReference());
+                }
+
+                set
+                {
+                    CoordinateSystem_setDatum(GetNativeReference(),value);
+                }
+            }
+
+            public HeightModel HeightModel
+            {
+                get
+                {
+                    return CoordinateSystem_getHeightModel(GetNativeReference());
+                }
+            }
+            
+            #region -------------- Native calls ------------------
+
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr CoordinateSystem_create(Datum datum,FlatGaussProjection proj,Type type);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr CoordinateSystem_parse(string definition);
+
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern Datum CoordinateSystem_getDatum(IntPtr reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void CoordinateSystem_setDatum(IntPtr reference,Datum value);
+
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern HeightModel CoordinateSystem_getHeightModel(IntPtr reference);
+
+            #endregion
+        }
+        
+
         /// <summary>
         /// Coordinate conversion instance. Converts between geodetic, projected and geocentric coordinate systems
         /// </summary>
@@ -50,15 +96,7 @@ namespace GizmoSDK
         {
             public static double DEG2RAD = Math.PI / 180.0;
             public static double RAD2DEG = 180.0 / Math.PI;
-
-            public static class Type
-            {
-                public static string LATPOS = "LatPos";
-                public static string CARTPOS = "CartPos";
-                public static string PROJPOS = "ProjPos";
-                public static string UTMPOS = "UTMPos";
-            }
-
+            
             public Coordinate() : base(Coordinate_create()) { }
             public Coordinate(IntPtr nativeReference) : base(nativeReference) { }
 
@@ -68,24 +106,24 @@ namespace GizmoSDK
                 return reference == IntPtr.Zero ? null : new Coordinate(reference);
             }
 
-            public void SetLatPos(LatPos pos, Datum datum = Datum.WGS84)
+            public void SetLatPos(LatPos pos, Datum datum = Datum.WGS84_ELLIPSOID)
             {
                 Coordinate_setLatPos(GetNativeReference(), ref pos, datum);
             }
 
-            public bool GetLatPos(out LatPos pos, Datum datum = Datum.WGS84)
+            public bool GetLatPos(out LatPos pos, Datum datum = Datum.WGS84_ELLIPSOID)
             {
                 pos = new LatPos();
 
                 return Coordinate_getLatPos(GetNativeReference(), ref pos, datum);
             }
 
-            public void SetCartPos(CartPos pos, Datum datum = Datum.WGS84)
+            public void SetCartPos(CartPos pos, Datum datum = Datum.WGS84_ELLIPSOID)
             {
                 Coordinate_setCartPos(GetNativeReference(), ref pos, datum);
             }
 
-            public bool GetCartPos(out CartPos pos, Datum datum = Datum.WGS84)
+            public bool GetCartPos(out CartPos pos, Datum datum = Datum.WGS84_ELLIPSOID)
             {
                 pos = new CartPos();
 
@@ -104,24 +142,24 @@ namespace GizmoSDK
                 return Coordinate_getProjPos(GetNativeReference(), ref pos, projection);
             }
 
-            public void SetUTMPos(UTMPos pos, Datum datum = Datum.WGS84)
+            public void SetUTMPos(UTMPos pos, Datum datum = Datum.WGS84_ELLIPSOID)
             {
                 Coordinate_setUTMPos(GetNativeReference(),ref  pos, datum);
             }
 
-            public bool GetUTMPos(out UTMPos pos, Datum datum = Datum.WGS84)
+            public bool GetUTMPos(out UTMPos pos, Datum datum = Datum.WGS84_ELLIPSOID)
             {
                 pos = new UTMPos();
 
                 return Coordinate_getUTMPos(GetNativeReference(), ref pos, datum);
             }
 
-            public void SetMGRS(string pos, Datum datum = Datum.WGS84)
+            public void SetMGRS(string pos, Datum datum = Datum.WGS84_ELLIPSOID)
             {
                 Coordinate_setMGRSPos(GetNativeReference(), pos, datum);
             }
 
-            public bool GetMGRS(out string pos, Datum datum = Datum.WGS84)
+            public bool GetMGRS(out string pos, Datum datum = Datum.WGS84_ELLIPSOID)
             {
                 IntPtr result=Coordinate_getMGRSPos(GetNativeReference(), datum);
 

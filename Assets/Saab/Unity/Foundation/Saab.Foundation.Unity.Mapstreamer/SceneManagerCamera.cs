@@ -48,7 +48,6 @@ using GizmoSDK.Coordinate;
 using GizmoSDK.GizmoBase;
 using Saab.Foundation.Map;
 using Saab.Unity.Extensions;
-using Saab.Utility.Map;
 using UnityEngine;
 
 namespace Saab.Foundation.Unity.MapStreamer
@@ -111,8 +110,6 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         public virtual void PreTraverse()
         {
-            _position.Step(0, default(LocationOptions));
-
             OnPreTraverse?.Invoke();
         }
 

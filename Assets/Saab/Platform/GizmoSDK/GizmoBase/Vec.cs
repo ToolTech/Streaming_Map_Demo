@@ -99,6 +99,11 @@ namespace GizmoSDK
                 return (float)Math.Sqrt(x * x + y * y );
             }
 
+            public float Magnitude()
+            {
+                return x * x + y * y;
+            }
+
             public static Vec2 Normalize(Vec2 v)
             {
                 var result = v;
@@ -200,6 +205,11 @@ namespace GizmoSDK
             public float Length()
             {
                 return (float)Math.Sqrt(x * x + y * y + z * z);
+            }
+
+            public float Magnitude()
+            {
+                return x * x + y * y + z * z;
             }
 
             public static Vec3 Normalize(Vec3 v)
@@ -331,6 +341,11 @@ namespace GizmoSDK
                 return (float)Math.Sqrt(x * x + y * y + z * z + w * w);
             }
 
+            public float Magnitude()
+            {
+                return x * x + y * y + z * z + w * w;
+            }
+
             public static Vec4 Normalize(Vec4 v)
             {
                 var result = v;
@@ -418,6 +433,11 @@ namespace GizmoSDK
             public double Length()
             {
                 return Math.Sqrt(x * x + y * y );
+            }
+
+            public double Magnitude()
+            {
+                return x * x + y * y ;
             }
 
             public static Vec2D Normalize(Vec2D v)
@@ -532,6 +552,11 @@ namespace GizmoSDK
                 return Math.Sqrt(x * x + y * y + z * z);
             }
 
+            public double Magnitude()
+            {
+                return x * x + y * y + z * z;
+            }
+
             public static Vec3D Normalize(Vec3D v)
             {
                 var result = v;
@@ -628,7 +653,12 @@ namespace GizmoSDK
 
             public double Length()
             {
-                return Math.Sqrt(x * x + y * y + z * z+w*w);
+                return Math.Sqrt(x * x + y * y + z * z + w * w);
+            }
+
+            public double Magnitude()
+            {
+                return x * x + y * y + z * z + w * w;
             }
 
             public static Vec4D Normalize(Vec4D v)
