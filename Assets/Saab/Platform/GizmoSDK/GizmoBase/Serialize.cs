@@ -19,7 +19,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge to gzSerialize.cpp
 // Author		: Anders Modén		
-// Product		: GizmoBase 2.10.6
+// Product		: GizmoBase 2.10.7
 //		
 //
 //			
@@ -71,8 +71,9 @@ namespace GizmoSDK
                 BIG_ENDIAN                  = (1 << 2),
                 NO_PROGRESS_REPORT          = (1 << 3),
                 NO_ALTERNATE_SEARCH_PATH    = (1 << 4),
+                RETRY_WAIT_LOAD             = (1 << 5),
 
-                FLAG_MAX_SIZE = 5,
+                FLAG_MAX_SIZE = 6,
             }
 
             public enum SeekOrigin

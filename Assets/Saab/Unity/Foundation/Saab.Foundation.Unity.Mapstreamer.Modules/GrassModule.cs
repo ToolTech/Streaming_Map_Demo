@@ -1,4 +1,20 @@
-﻿using Saab.Unity.Core.ComputeExtension;
+﻿/* 
+ * Copyright (C) SAAB AB
+ *
+ * All rights, including the copyright, to the computer program(s) 
+ * herein belong to Saab AB. The program(s) may be used and/or
+ * copied only with the written permission of Saab AB, or in
+ * accordance with the terms and conditions stipulated in the
+ * agreement/contract under which the program(s) have been
+ * supplied. 
+ * 
+ * Information Class:          COMPANY RESTRICTED
+ * Defence Secrecy:            UNCLASSIFIED
+ * Export Control:             NOT EXPORT CONTROLLED
+ * 
+ */
+
+using Saab.Unity.Core.ComputeExtension;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,6 +29,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public Texture2D PerlinNoise;
         public Texture2D DefaultSplatMap;
         public ComputeShader ComputeShader; // <-- TODO: Replace with 1 shader per responsibility (generator, culling, rendering)
+        public int BufferLimit = 1000000;
+        public bool UsePlacementMap;
 
         // maximum concurrent GPU jobs, higher values increases memory footprint
         private const int MAX_JOBS_PER_FRAME = 2;
@@ -43,21 +61,17 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 PerlinNoise = Resources.Load("Textures/PerlinNoiseRGB") as Texture2D;
             }
 
-            //var subMeshIndex = 0;
-            //subMeshIndex = Mathf.Clamp(subMeshIndex, 0, TestMesh.subMeshCount - 1);
-            //_closeInderectBuffer.SetData(new uint[5] { TestMesh.GetIndexCount(subMeshIndex), 0, TestMesh.GetIndexStart(subMeshIndex), //TestMesh.GetBaseVertex(subMeshIndex), 0 });
-            //
-            // Initialize materials
-
-
-            _renderingShader = new RenderingShader(ComputeShader, Shader)
+            _renderingShader = new RenderingShader(ComputeShader, Shader, BufferLimit)
             {
                 Noise = PerlinNoise,
                 ColorVariance = PerlinNoise,
             };
 
+            _renderingShader.DebugMode = DebugMode;
+
 #if UNITY_ANDROID
             var format = TextureFormat.ARGB32;
+            Debug.Log("Grass Use ETC2");
 #else
             var format = TextureFormat.DXT5;
 #endif
@@ -70,7 +84,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _renderingShader.SetQuads(GetQuads(GrassTextures, true));
         }
 
-        public void AddGrass(GameObject go)
+        public void AddGrass(GameObject go, Texture2D placementMap = null)
         {
             var meshFilter = go.GetComponent<MeshFilter>();
             if (!meshFilter)
@@ -95,6 +109,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 GameObject = go,
                 Mesh = meshFilter.mesh,
                 Diffuse = diffuse,
+                PlacementMap = placementMap
             });
         }
         public void RemoveGrass(GameObject gameobj)
@@ -144,23 +159,19 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 return;
             }
         }
-
         private void AddJobs()
         {
             // TODO: Can we avoid sorting per-frame? Change swap-remove to something else and only sort on
-            // Add/Remove
 
-            //var sw = System.Diagnostics.Stopwatch.StartNew();
-            // sort front to back
-            _pendingJobs.Sort((a, b) =>
+            if (SortByDistance)
             {
-                var d1 = a.GameObject.transform.position.sqrMagnitude;
-                var d2 = b.GameObject.transform.position.sqrMagnitude;
-                return d1.CompareTo(d2);
-            });
-            //sw.Stop();
-
-            //Debug.LogFormat(LogType.Error, LogOption.NoStacktrace, null, "{0:0.0000} ms", sw.Elapsed.TotalMilliseconds);
+                _pendingJobs.Sort((a, b) =>
+                {
+                    var d1 = a.GameObject.transform.position.sqrMagnitude;
+                    var d2 = b.GameObject.transform.position.sqrMagnitude;
+                    return d1.CompareTo(d2);
+                });
+            }
 
             for (var i = 0; i < _pendingJobs.Count; ++i)
             {
@@ -179,39 +190,48 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 var centerWorld = go.transform.TransformPoint(bounds.center);
 
                 var frustum = _frustum;
-                _frustum[5].w += maxExtent;
+                _frustum[5].w += maxExtent + DrawDistance;
 
-                if (!IsInFrustum(centerWorld, -maxExtent * 1.75f))
+                if (!IsInFrustum(centerWorld - CameraPosition, -maxExtent * 1.75f))
                     continue;
 
-                _frustum = frustum;
+                var triangleCount = mesh.GetIndexCount(0) / 3f;
+                var bufferSize = Math.Max(1, (maxExtent * maxExtent) / Density);
+                bufferSize = bufferSize < triangleCount ? triangleCount : bufferSize;
 
-                //GenerateFrustumPlane(Camera.main);
+                _frustum = frustum;
 
                 if (_pointGenerators.Count == 0)
                 {
                     _pointGenerators.Push(new InstanceGenerator(Instantiate(ComputeShader), InstanceGenerator.Feature.Grass)
                     {
                         Density = Density,
-                        SplatMap = DefaultSplatMap,
+                        SplatMap = DefaultSplatMap
                     });
                 }
 
                 var pointGenerator = _pointGenerators.Pop();
+                var outputBuffer = new ComputeBuffer(Mathf.CeilToInt(bufferSize), sizeof(float) * 4, ComputeBufferType.Append);
 
-                var triangleCount = mesh.GetIndexCount(0) / 3;
-                var bufferSize = Math.Max(1, (maxExtent * maxExtent) / Density);
-                bufferSize = bufferSize < triangleCount ? triangleCount : bufferSize;
-
-                var outputBuffer = new ComputeBuffer((int)bufferSize, sizeof(float) * 4, ComputeBufferType.Append);
                 outputBuffer.SetCounterValue(0);
                 pointGenerator.SetMesh(mesh);
+                pointGenerator.PlacementMapEnabled = false;
+
+                if (job.PlacementMap != null && UsePlacementMap)
+                {
+                    pointGenerator.PlacementMap = job.PlacementMap;
+                    pointGenerator.PlacementMapEnabled = true;
+                }
+                else
+                {
+                    pointGenerator.PlacementMap = new Texture2D(job.Diffuse.width, job.Diffuse.height);
+                }
 
                 pointGenerator.ColorMap = job.Diffuse;
                 pointGenerator.OutputBuffer = outputBuffer;
 
-                //var threadGroups = Mathf.CeilToInt(triangleCount / 8.0f);
-                pointGenerator.Dispatch((int)triangleCount / 8);
+                var threadGroups = Mathf.CeilToInt(triangleCount / 16f);
+                pointGenerator.Dispatch(threadGroups > 0 ? threadGroups : 1);
 
                 // swap remove
                 if ((i + 1) < _pendingJobs.Count)
@@ -223,29 +243,32 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                     GameObject = go,
                     Bounds = bounds,
                     PointBuffer = outputBuffer,
-                    Generator = pointGenerator,
+                    Generator = pointGenerator
                 });
 
-                if (_currentJobs.Count == MAX_JOBS_PER_FRAME)
+                if (_currentJobs.Count >= MAX_JOBS_PER_FRAME)
                     return;
             }
         }
-
+        public int GetMemoryFootprint
+        {
+            get
+            {
+                var size = GetModuleBufferMemory(_items);
+                size += GetModuleBufferMemory(_currentJobs);
+                size += _renderingShader.GetMemoryFootPrint;
+                return size;
+            }
+        }
         private void Render()
         {
-            var camera = Camera.main;
+            var camera = CurrentCamera;
 
             if (!camera)
                 return;
 
-            GenerateFrustumPlane(camera);
+            _renderingShader.Depth = DepthTexture;
 
-            //var size = GetModuleBufferMemory(_items);
-            //Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Grass :: total buffer memory size {0} mb", size / 1000000f);
-            _frustum[5].w = DrawDistance;
-
-
-            //var sw = System.Diagnostics.Stopwatch.StartNew();
             for (var i = 0; i < _currentJobs.Count; ++i)
             {
                 var job = _currentJobs[i];
@@ -268,14 +291,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
                 _pointGenerators.Push(job.Generator);
             }
-            //sw.Stop();
-
-            //// TODO: stop processing if per-frame budget is broken
-            //if (_currentJobs.Count > 0 && sw.Elapsed.TotalMilliseconds > 0.1)
-            //{
-            //    var e = sw.Elapsed.TotalMilliseconds;
-            //    Debug.LogFormat(LogType.Error, LogOption.NoStacktrace, null, "grass process completed jobs = {0:0.0000} ms", e);
-            //}
 
             _currentJobs.Clear();
 
@@ -283,6 +298,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             var fadeFarAmmount = DrawDistance / 3;
             var fadeFarValue = DrawDistance - fadeFarAmmount;
+
+            fadeFarAmmount = fadeFarAmmount > 0 ? fadeFarAmmount : 1;
+            fadeFarValue = fadeFarValue > 0 ? fadeFarValue : 1;
 
             _renderingShader.SetNearFade(NearFadeStart, NearFadeEnd);
             _renderingShader.SetFarFade(fadeFarValue, fadeFarAmmount);
@@ -316,7 +334,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 var frustum = _frustum;
                 _frustum[5].w += maxSide;
 
-                if (!IsInFrustum(centerWorld, (-maxSide * 1.75f)))
+                if (!IsInFrustum(centerWorld - CameraPosition, (-maxSide * 1.75f)))
                     continue;
 
                 _frustum[5].w = DrawDistance;
@@ -325,10 +343,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
                 cullShader.LocalToWorld = go.transform.localToWorldMatrix;
                 cullShader.Frustum = frustum;
-
-                //var triangleCount = go.GetComponent<MeshFilter>().mesh.GetIndices(0).Length / 3;
-                //var bufferSize = Math.Max(1, (maxExtent * maxExtent) / Density);
-                //bufferSize = bufferSize < triangleCount ? triangleCount : bufferSize;
+                cullShader.CameraPosition = CameraPosition;
 
                 cullShader.Dispatch();
             }
@@ -342,19 +357,18 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             var worldToLocal = roiTransform == null ? Matrix4x4.identity : roiTransform.worldToLocalMatrix;
 
             _renderingShader.WorldToLocal = worldToLocal;
-            _renderingShader.ViewDirection = Camera.main.transform.forward;
+            _renderingShader.ViewDirection = CurrentCamera.transform.forward;
 
             var renderBounds = new Bounds(Vector3.zero, new Vector3(maxSide, maxSide, maxSide));
-            //var renderBounds = new Bounds(Vector3.zero, new Vector3(DrawDistance + DrawDistance / 3, DrawDistance + DrawDistance / 3, DrawDistance + DrawDistance / 3) * 1.5f);
 
             var shadows = DrawShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
             _renderingShader.ShadowCastingMode = shadows;
 
             _renderingShader.RenderEnd(renderBounds);
         }
-
         public void Camera_OnPostTraverse()
         {
+            _renderingShader.DebugMode = DebugMode;
             Render();
         }
 

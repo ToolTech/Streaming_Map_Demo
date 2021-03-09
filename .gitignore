@@ -51,3 +51,4 @@ Logs/
 *.ipdb
 [Tt]ools/*/*.lib
 [Tt]ools/*/*.txt
+*.recipe

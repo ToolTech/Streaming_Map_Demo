@@ -67,10 +67,12 @@ Shader "Terrain/DynamicTerrain/Tree"
 			// ****** Textures ******
 			UNITY_DECLARE_TEX2DARRAY(_MainTex);
 			UNITY_DECLARE_TEX2DARRAY(_NormalTex);
+			sampler2D _DepthTexture;
 			sampler2D _PerlinNoise;
 			sampler2D _ColorVariance;
 
 			// ****** Properties ******
+
 			fixed _Cutoff;
 			fixed _ColorIntensity;
 			half _TextureWaving;
@@ -88,7 +90,6 @@ Shader "Terrain/DynamicTerrain/Tree"
 			half4 _Quads[24];
 			fixed4 _FrustumPlanes[6];						// Frustum planes (6 planes * 4 floats: [ normal.x, normal.y, normal.z, distance ])
 			float4x4 _worldToObj;
-			//float4x4 _worldToScreen;
 
 			// ****** Grass point cloud ******
 			StructuredBuffer<float4> _PointBuffer;
@@ -145,12 +146,65 @@ Shader "Terrain/DynamicTerrain/Tree"
 				return half3(h, s, (v / 255));
 			}
 
+			inline fixed2 WorldToScreenPos(fixed3 pos)
+			{
+				pos = normalize(pos - _WorldSpaceCameraPos) * (_ProjectionParams.y + (_ProjectionParams.z - _ProjectionParams.y)) + _WorldSpaceCameraPos;
+				fixed2 uv = 0;
+				fixed3 toCam = mul(unity_WorldToCamera, pos);
+				fixed camPosZ = toCam.z;
+				fixed height = 2 * camPosZ / unity_CameraProjection._m11;
+				fixed width = _ScreenParams.x / _ScreenParams.y * height;
+				uv.x = (toCam.x + width / 2) / width;
+				uv.y = (toCam.y + height / 2) / height;
+				return uv;
+			}
+
+			inline bool IsVisable(half4 position, half dist, float farClip, half3 offset)
+			{
+				half2 screenPosUV = WorldToScreenPos(position.xyz + offset);
+
+				half2 pixel = half2(1 / _ScreenParams.x, 1 / _ScreenParams.y);
+
+				float depth = tex2Dlod(_DepthTexture, half4(screenPosUV, 1, 1)).g;
+				depth = (depth * farClip);
+
+				if (depth < dist - 50)
+				{
+					return false;
+				}
+				return true;
+			}
+
+			inline bool Cull(half4 position, half4 size)
+			{
+				float farClip = _ProjectionParams.z;
+				float3 forward = mul((float3x3)unity_CameraToWorld, float3(0, 0, 1));
+
+				half dist = dot(forward, position.xyz);
+			
+				bool mid = IsVisable(position, dist, farClip, half3(0, size.y / 2, 0));
+				bool top = IsVisable(position, dist, farClip, half3(0, size.y, 0));
+
+				if (dist > 500)
+				{
+					return !(mid || top);
+				}
+
+				bool bottom = IsVisable(position, dist, farClip, half3(0, 0, 0));
+				bool bottom2 = IsVisable(position, dist, farClip, half3(0, size.y / 4, 0));
+				bool right = IsVisable(position, dist, farClip, half3(2 * (size.x / 3), size.y / 2, 0));
+				bool left = IsVisable(position, dist, farClip, half3(-2 * (size.x / 3), size.y / 2, 0));
+				
+				return !(mid || top || bottom || bottom2 || right || left);
+			}
+
 			// Grass mesh generation
-			inline bool GemerateGeometry(in uint p, inout half4 grassPosition, inout half4 displacement, inout half4 displacementx, inout half4 size, inout half tilt, inout half tiltx, inout fixed4 bottomColor, inout fixed4 topColor, inout float2 uvDistortion, inout fixed2 textureWaving, inout int index)
+			inline bool GemerateGeometry(in uint p, inout half4 grassPosition, inout half4 displacement, inout half4 displacementx, inout half4 size, inout half tilt, inout half tiltx, inout fixed4 bottomColor, inout fixed4 topColor, inout float2 uvDistortion, inout fixed2 textureWaving, inout int index, bool Culling)
 			{
 				// Get grass position from compute buffer
 				grassPosition = _PointBuffer[p];
 				half4 objPos = mul(_worldToObj, half4(grassPosition.xyz, 1));
+
 				half2 _uv = objPos.xz;
 				half4 uv = half4(_uv.xy, 1, 1);
 
@@ -180,6 +234,13 @@ Shader "Terrain/DynamicTerrain/Tree"
 				size = half4(s.x, s.y, s.x, random);
 				uvDistortion = ((uint) (grassPosition.w * 1000.0f)) % 2 ? fixed2(1.0f, 0) : fixed2(0.0f, 1.0f);
 
+				// cull
+				if (Culling)
+				{
+					if (Cull(grassPosition, size))
+						return false;
+				}
+
 				// Wind
 				textureWaving = fixed2(sin(_Time.w + PI * grassPosition.w), cos(_Time.w + PI * grassPosition.x)) * _TextureWaving;
 
@@ -202,7 +263,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 
 				//tilt = dot(float3(0, 1, 0), -_ViewDir) * saturate(cameraDistance / 3);
 
-				fixed3 lookview = normalize(fixed3(0,0,0) - grassPosition.xyz);
+				fixed3 lookview = normalize(_WorldSpaceCameraPos - grassPosition.xyz);
 				lookview.y = 0;
 
 				tilt = dot(lookview, normal);
@@ -239,7 +300,6 @@ Shader "Terrain/DynamicTerrain/Tree"
 				#pragma target 5.0
 				//#pragma only_renderers d3d11
 				#pragma multi_compile_prepassfinal noshadowmask nodynlightmap nodirlightmap nolightmap noshadow 
-
 
 				// Fragment input
 				struct FramentInput
@@ -285,6 +345,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 					fixed2 uvDistortion, textureWaving;
 					fixed4 displacement, displacementx;
 					fixed4 bottomColor, topColor;
+					bool culling = false;
 
 					grassPosition = 0;
 					displacement = 0;
@@ -301,9 +362,9 @@ Shader "Terrain/DynamicTerrain/Tree"
 					fixed3 upNormal = fixed3(0, 1, 0);
 
 					// Generate grass mesh
-					if (GemerateGeometry(p[0], grassPosition, displacement, displacementx, size, tilt, tiltx, bottomColor, topColor, uvDistortion, textureWaving, index))
+					if (GemerateGeometry(p[0], grassPosition, displacement, displacementx, size, tilt, tiltx, bottomColor, topColor, uvDistortion, textureWaving, index, culling))
 					{
-						half dist = distance(grassPosition.xyz, fixed3(0, 0, 0));
+						half dist = distance(grassPosition.xyz, _WorldSpaceCameraPos);
 
 						half fadeAmount = _FadeNearAmount;
 						half maxdist = 30000;
@@ -312,7 +373,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 
 						grassPosition.y -= _Yoffset[index] * size.y;
 
-						fixed yaw = dot(normalize(grassPosition + size.y / 2), upNormal);
+						fixed yaw = dot(normalize((grassPosition + size.y / 2) - _WorldSpaceCameraPos), upNormal);
 
 						if (dist < fade)
 						{
@@ -377,7 +438,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 						{
 							if (dist < maxdist)
 							{
-								transparency = (abs(yaw * 4)) > 1 ? 1 : (abs(yaw* 4));
+								transparency = (abs(yaw * 4)) > 1 ? 1 : (abs(yaw * 4));
 								topColor.a = transparency < fade ? transparency : fade;
 								bottomColor.a = topColor.a;
 							}
@@ -411,8 +472,6 @@ Shader "Terrain/DynamicTerrain/Tree"
 						4, 12, 2, 10,
 						16, 8, 14, 6
 					};
-
-					//float3 screenPos = mul(_worldToScreen, IN.position);
 
 					fixed threshold = thresholdMatrix[IN.position.x % 4][IN.position.y % 4] / 17;
 
@@ -552,6 +611,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 						fixed2 uvDistortion, textureWaving;
 						fixed4 displacement, displacementx;
 						fixed4 bottomColor, topColor;
+						bool culling = false;
 
 						grassPosition = 0;
 						displacement = 0;
@@ -568,9 +628,9 @@ Shader "Terrain/DynamicTerrain/Tree"
 						fixed3 upNormal = fixed3(0, 1, 0);
 
 						// Generate grass mesh
-						if (GemerateGeometry(p[0], grassPosition, displacement, displacementx, size, tilt, tiltx, bottomColor, topColor, uvDistortion, textureWaving, index))
+						if (GemerateGeometry(p[0], grassPosition, displacement, displacementx, size, tilt, tiltx, bottomColor, topColor, uvDistortion, textureWaving, index, culling))
 						{
-							half dist = distance(grassPosition.xyz, fixed3(0, 0, 0));
+							half dist = distance(grassPosition.xyz, _WorldSpaceCameraPos);
 							grassPosition.y -= _Yoffset[index] * size.y;
 
 							half yaw = dot(normalize(grassPosition + size.y / 2), upNormal);

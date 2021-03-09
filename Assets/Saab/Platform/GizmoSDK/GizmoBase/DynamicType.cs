@@ -19,7 +19,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge to gzDynamicType class
 // Author		: Anders Modén		
-// Product		: GizmoBase 2.10.6
+// Product		: GizmoBase 2.10.7
 //		
 //
 //			
@@ -640,7 +640,7 @@ namespace GizmoSDK
                 return DynamicType_valueCompare(GetNativeReference(), b.GetNativeReference());
             }
 
-            // -------------- Native calls ------------------
+            #region // --------------------- Native calls -----------------------
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DynamicType_create_void();
@@ -699,6 +699,7 @@ namespace GizmoSDK
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool DynamicType_valueCompare(IntPtr dynamic_reference_a, IntPtr dynamic_reference_b);
 
+            #endregion
         }
     }
 }

@@ -19,7 +19,7 @@
 // Module		: Gizmo3D C#
 // Description	: C# Bridge to gzDbManager class
 // Author		: Anders Modén		
-// Product		: Gizmo3D 2.10.6
+// Product		: Gizmo3D 2.10.7
 //		
 //
 //			
@@ -54,15 +54,14 @@ namespace GizmoSDK
             [Flags]
             public enum AdapterFlags : UInt64
             {
-                FLIP_FLIPPED_IMAGES     = Image.AdapterFlags.FLIP_FLIPPED_IMAGES,
+                FLIP_FLIPPED_IMAGES     = ImageManager.AdapterFlags.FLIP_FLIPPED_IMAGES,
 
-                USE_ANIMATION           = 1 << (0 + (int)SerializeAdapter.AdapterFlags.FLAG_MAX_SIZE + (int)Image.AdapterFlags.FLAG_MAX_SIZE),
+                USE_ANIMATION           = 1 << (0 + (int)SerializeAdapter.AdapterFlags.FLAG_MAX_SIZE + (int)ImageManager.AdapterFlags.FLAG_MAX_SIZE),
 
-                RETRY_WAIT_LOAD         = 1 << (34 + (int)SerializeAdapter.AdapterFlags.FLAG_MAX_SIZE + (int)Image.AdapterFlags.FLAG_MAX_SIZE),
-                DYN_LOAD_RETRY_WAIT     = 1 << (35 + (int)SerializeAdapter.AdapterFlags.FLAG_MAX_SIZE + (int)Image.AdapterFlags.FLAG_MAX_SIZE),
+                DYN_LOAD_RETRY_WAIT     = 1 << (34 + (int)SerializeAdapter.AdapterFlags.FLAG_MAX_SIZE + (int)ImageManager.AdapterFlags.FLAG_MAX_SIZE),
                
 
-                FLAG_MAX_SIZE = 36,
+                FLAG_MAX_SIZE = 35,
 
                 DEFAULT = DYN_LOAD_RETRY_WAIT,
             }

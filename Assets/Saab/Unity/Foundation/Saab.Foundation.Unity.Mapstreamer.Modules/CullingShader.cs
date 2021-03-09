@@ -1,4 +1,19 @@
-﻿using Saab.Unity.Core.ComputeExtension;
+﻿/* 
+ * Copyright (C) SAAB AB
+ *
+ * All rights, including the copyright, to the computer program(s) 
+ * herein belong to Saab AB. The program(s) may be used and/or
+ * copied only with the written permission of Saab AB, or in
+ * accordance with the terms and conditions stipulated in the
+ * agreement/contract under which the program(s) have been
+ * supplied. 
+ * 
+ * Information Class:          COMPANY RESTRICTED
+ * Defence Secrecy:            UNCLASSIFIED
+ * Export Control:             NOT EXPORT CONTROLLED
+ */
+
+using Saab.Unity.Core.ComputeExtension;
 using System;
 using UnityEngine;
 
@@ -32,6 +47,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         {
             get
             {
+                if (_inputBuffer == null)
+                    return 0;
                 return _inputBuffer.count;
             }
         }
@@ -41,20 +58,52 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             set
             {
                 System.Diagnostics.Debug.Assert(_inputBuffer == null);
-
-                _cullKernel.SetBuffer(ComputeShaderID.cullInBuffer, value);
                 ComputeBuffer.CopyCount(value, _indirectInputBuffer, 0);
 
-                //var sw = System.Diagnostics.Stopwatch.StartNew();
+                // ***************************************** Small buffer ***************************************** //
 
-                int[] size = new int[4];
-                _indirectInputBuffer.GetData(size);
-                _bufferSize = size[0];
+                //int[] size = new int[4];
+                //_indirectInputBuffer.GetData(size);
+                //_bufferSize = size[0];
 
-                //sw.Stop();
-                //Debug.LogFormat(LogType.Error, LogOption.NoStacktrace, null, "{0:0.0000} ms", sw.Elapsed.TotalMilliseconds);
+                //if (_bufferSize == 0)
+                //{
+                //    _inputBuffer = null;
+                //    return;
+                //}
+
+                //// ************ Create new smaller buffer ************
+
+                //var _copyBuffer = new ComputeKernel("Resize", _shader);
+                //var _temp = new ComputeBuffer(_bufferSize, sizeof(float) * 4, ComputeBufferType.Append);
+
+                //_temp.SetCounterValue(0);
+
+                //_copyBuffer.SetBuffer(ComputeShaderID.BigBuffer, value);
+                //_copyBuffer.SetBuffer(ComputeShaderID.SmallBuffer, _temp);
+                //_copyBuffer.Dispatch(Mathf.CeilToInt(_bufferSize / 64f), 1, 1);
+
+                //_cullKernel.SetBuffer(ComputeShaderID.cullInBuffer, _temp);
+                ////value.SafeRelease();
+
+                ////_inputBuffer = _temp;
+                //_temp.SetCounterValue(0);
+
+                //_shader.SetInt(ComputeShaderID.CopyCount, _bufferSize);
+
+                //_inputBuffer = _temp;
+                //_inputBuffer.SetCounterValue(0);
+                //_cullKernel.SetBuffer(ComputeShaderID.cullInBuffer, _inputBuffer);
+                //_inputBuffer.SetCounterValue(0);
+
+                // ***************************************** ************** ***************************************** //
+
+                _bufferSize = value.count;
+                _shader.SetInt(ComputeShaderID.CopyCount, _bufferSize);
 
                 _inputBuffer = value;
+                _cullKernel.SetBuffer(ComputeShaderID.cullInBuffer, _inputBuffer);
+                _inputBuffer.SetCounterValue(0);
             }
         }
 
@@ -78,6 +127,11 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             set { _shader.SetVectorArray(ComputeShaderID.frustumPlanes, value); }
         }
 
+        public Vector3 CameraPosition
+        {
+            set { _shader.SetVector(ComputeShaderID.CameraPosition, value); }
+        }
+
         public CullingShader(ComputeShader shader, CullingType type = CullingType.Remove)
         {
             _shader = shader;
@@ -98,8 +152,10 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public void Dispatch()
         {
             //Debug.LogError("buffer size calc failed! :: " + _bufferSize);
+            var threadgroup = Mathf.CeilToInt(_bufferSize / 128f);
+
             if (_bufferSize != 0)
-                _cullKernel.Dispatch(Mathf.CeilToInt(_bufferSize / 128f), 1, 1);
+                _cullKernel.Dispatch(threadgroup > 0 ? threadgroup : 1, 1, 1);
         }
 
         public void Dispose()

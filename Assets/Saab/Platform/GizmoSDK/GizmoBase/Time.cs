@@ -19,7 +19,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge to gzTime class
 // Author		: Anders Modén		
-// Product		: GizmoBase 2.10.6
+// Product		: GizmoBase 2.10.7
 //		
 //
 //			
@@ -104,6 +104,11 @@ namespace GizmoSDK
                 get { return Time_year(GetNativeReference()); }
             }
 
+            public static bool IsSystemSynchronized
+            {
+                get { return Time_isSystemSynchronized(); }
+            }
+
             #region -------------- Native calls ------------------
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
@@ -137,6 +142,8 @@ namespace GizmoSDK
             private static extern UInt16 Time_month(IntPtr time_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern UInt32 Time_year(IntPtr time_reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool Time_isSystemSynchronized();
 
             #endregion
         }

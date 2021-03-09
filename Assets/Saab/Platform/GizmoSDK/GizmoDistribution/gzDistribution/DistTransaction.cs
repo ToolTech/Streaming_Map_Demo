@@ -19,7 +19,7 @@
 // Module		: GizmoDistribution C#
 // Description	: C# Bridge to gzDistTransaction class
 // Author		: Anders Modén		
-// Product		: GizmoDistribution 2.10.6
+// Product		: GizmoDistribution 2.10.7
 //		
 //
 //			
@@ -52,19 +52,19 @@ namespace GizmoSDK
 
             public DistTransaction() : base(DistTransaction_createDefaultTransaction()) { }
 
-            public bool SetAttributeValue(string name, DynamicType value)
+            public bool SetAttributeValue(NativeString name, DynamicType value)
             {
-                return DistTransaction_setAttributeValue(GetNativeReference(), name, value.GetNativeReference());
+                return DistTransaction_setAttributeValue(GetNativeReference(), name.GetNativeReference(), value.GetNativeReference());
             }
 
-            public DynamicType GetAttributeValue(string name)
+            public DynamicType GetAttributeValue(NativeString name)
             {
-                return new DynamicType(DistTransaction_getAttributeValue(GetNativeReference(), name));
+                return new DynamicType(DistTransaction_getAttributeValue(GetNativeReference(), name.GetNativeReference()));
             }
 
-            public bool HasAttribute(string name)
+            public bool HasAttribute(NativeString name)
             {
-                return DistTransaction_hasAttribute(GetNativeReference(), name);
+                return DistTransaction_hasAttribute(GetNativeReference(), name.GetNativeReference());
             }
 
             public void NewTransaction()
@@ -82,11 +82,11 @@ namespace GizmoSDK
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DistTransaction_createDefaultTransaction();
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern bool DistTransaction_setAttributeValue(IntPtr event_reference, string name, IntPtr dynamic_reference);
+            private static extern bool DistTransaction_setAttributeValue(IntPtr event_reference, IntPtr name, IntPtr dynamic_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr DistTransaction_getAttributeValue(IntPtr event_reference, string name);
+            private static extern IntPtr DistTransaction_getAttributeValue(IntPtr event_reference, IntPtr name);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern bool DistTransaction_hasAttribute(IntPtr event_reference, string name);
+            private static extern bool DistTransaction_hasAttribute(IntPtr event_reference, IntPtr name);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool DistTransaction_isEditable(IntPtr event_reference);
 

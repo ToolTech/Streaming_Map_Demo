@@ -19,7 +19,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge to gzKeyDatabase class
 // Author		: Anders Modén		
-// Product		: GizmoBase 2.10.6
+// Product		: GizmoBase 2.10.7
 //		
 //
 //			
@@ -39,6 +39,8 @@
 using System.Runtime.InteropServices;
 using System;
 using System.ComponentModel;
+
+// TODO: 2020-09-30 AMO Add methods for writing to key database as native does
 
 namespace GizmoSDK
 {
@@ -85,6 +87,11 @@ namespace GizmoSDK
                     errorString = Marshal.PtrToStringUni(nativeErrorString);
 
                 return result;
+            }
+
+            static public bool SetUserKey<T>(string key, T value, string password = "")
+            {
+                return KeyDatabase_setUserKey(key, value.ToString(), password);
             }
 
             static public T GetUserKey<T>(string key, string password="", bool onlyUserKey=false)
@@ -174,6 +181,8 @@ namespace GizmoSDK
             private static extern bool KeyDatabase_setDefaultRegistry(string url, string password, ref IntPtr nativeErrorString, ref SerializeAdapter.AdapterError error);
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool KeyDatabase_setLocalRegistry(string url, string password, ref IntPtr nativeErrorString, ref SerializeAdapter.AdapterError error,bool useCheckSum);
+            [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool KeyDatabase_setUserKey(string key, string value, string password);
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr KeyDatabase_getUserKey(string key, string password , bool onlyUserKey);
             [DllImport(GizmoSDK.GizmoBase.Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]

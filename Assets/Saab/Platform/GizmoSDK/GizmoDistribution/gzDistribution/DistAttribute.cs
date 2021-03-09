@@ -19,7 +19,7 @@
 // Module		: GizmoDistribution C#
 // Description	: C# Bridge to gzDistAttribute class
 // Author		: Anders Modén		
-// Product		: GizmoDistribution 2.10.6
+// Product		: GizmoDistribution 2.10.7
 //		
 //
 //			
@@ -49,9 +49,9 @@ namespace GizmoSDK
         {
             public DistAttribute(IntPtr nativeReference) : base(nativeReference) { }
 
-            public string GetName()
+            public NativeString GetName()
             {
-                return Marshal.PtrToStringUni(DistAttribute_getName(GetNativeReference()));
+                return new NativeString(DistAttribute_getName(GetNativeReference()));
             }
 
             public DynamicType GetValue()

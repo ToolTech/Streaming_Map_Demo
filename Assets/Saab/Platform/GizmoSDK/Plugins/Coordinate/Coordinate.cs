@@ -19,7 +19,7 @@
 // Module		: Coordinate C#
 // Description	: C# Bridge to gzCoordinate class
 // Author		: Anders Modén		
-// Product		: Coordinate 2.9.1
+// Product		: Coordinate 2.10.7
 //		
 //
 //			

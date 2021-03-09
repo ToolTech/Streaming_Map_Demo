@@ -1,4 +1,19 @@
-﻿using Saab.Unity.Core.ComputeExtension;
+﻿/* 
+ * Copyright (C) SAAB AB
+ *
+ * All rights, including the copyright, to the computer program(s) 
+ * herein belong to Saab AB. The program(s) may be used and/or
+ * copied only with the written permission of Saab AB, or in
+ * accordance with the terms and conditions stipulated in the
+ * agreement/contract under which the program(s) have been
+ * supplied. 
+ * 
+ * Information Class:          COMPANY RESTRICTED
+ * Defence Secrecy:            UNCLASSIFIED
+ * Export Control:             NOT EXPORT CONTROLLED
+ */
+
+using Saab.Unity.Core.ComputeExtension;
 using System;
 using System.Linq;
 using UnityEngine;
@@ -35,6 +50,17 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         /// <summary>
         /// 
         /// </summary>
+        public int GetBufferSize
+        {
+            get
+            {
+                return (_vertices.count * sizeof(float) * 3) + (_indices.count * sizeof(int)) + (_texcoords.count * sizeof(float) * 2);
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
         public Texture2D PlacementMap
         {
             set { _generatorKernel.SetTexture(ComputeShaderID.placementMap, value); }
@@ -46,6 +72,11 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public Texture2D ColorMap
         {
             set { _generatorKernel.SetTexture(ComputeShaderID.nodeTexture, value); }
+        }
+
+        public bool PlacementMapEnabled
+        {
+            set { _shader.SetBool(ComputeShaderID.PlacementMapEnabled, value); }
         }
 
         /// <summary>
@@ -74,12 +105,14 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         {
             Tree,
             Grass,
+            PointCloud,
         }
 
         private struct ShaderFunctions
         {
             public const string GeneratorGrass = "MeshGrassGenerator";
             public const string GeneratorTree = "MeshTreeGenerator";
+            public const string PointCloudPlacement = "PointCloudPlacement";
         }
 
         // TODO: fixed dynamic maxVertices
@@ -94,6 +127,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                     break;
                 case Feature.Tree:
                     _generatorKernel = new ComputeKernel(ShaderFunctions.GeneratorTree, shader);
+                    break;
+                case Feature.PointCloud:
+                    _generatorKernel = new ComputeKernel(ShaderFunctions.PointCloudPlacement, shader);
                     break;
             }
             _maxIndices = maxVertecis * 3;
@@ -126,7 +162,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _generatorKernel.SetBuffer(ComputeShaderID.surfaceUVs, _texcoords);
         }
 
-        public void SetMesh(Mesh mesh)
+        public void SetMesh(Mesh mesh, bool pointCloud = false)
         {
             var surfaceVertices = mesh.vertices;
             var surfaceIndices = mesh.GetIndices(0);
@@ -144,10 +180,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 GenerateBuffers(_maxVertices, _maxIndices);
             }
 
-            //System.Diagnostics.Debug.Assert(surfaceVertices.Length > _vertices.count, "_vertices buffer to small");
-            //System.Diagnostics.Debug.Assert(surfaceIndices.Length > _indices.count, "_indices buffer to small");
-            //System.Diagnostics.Debug.Assert(surfaceUVs.Length > _texcoords.count, "_texcoords buffer to small");
-
             // maybe remove this*?
             _vertices.SetCounterValue(0);
             _indices.SetCounterValue(0);
@@ -158,7 +190,15 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _indices.SetData(surfaceIndices);
             _texcoords.SetData(surfaceUVs);
 
-            _shader.SetInt(ComputeShaderID.indexCount, surfaceIndices.Length);
+            if(pointCloud)
+            {
+                _shader.SetInt(ComputeShaderID.indexCount, surfaceVertices.Length);
+            }
+            else
+            {
+                _shader.SetInt(ComputeShaderID.indexCount, surfaceIndices.Length);
+            }
+            
 
             var extents = bounds.extents;
             var maxExtent = Mathf.Max(extents.x, extents.y, extents.z);
@@ -168,7 +208,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public void Dispatch(int threadGroups)
         {
             //Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "dispatch with :: {0} / 65535", threadGroups);
-            _generatorKernel.Dispatch(threadGroups, 1, 1);
+            _generatorKernel.Dispatch(threadGroups, 16, 1);
         }
 
         public void Dispose()

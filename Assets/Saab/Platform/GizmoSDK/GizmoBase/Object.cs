@@ -19,7 +19,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge to gzObject class
 // Author		: Anders Modén		
-// Product		: GizmoBase 2.10.6
+// Product		: GizmoBase 2.10.7
 //		
 //
 //			

@@ -19,7 +19,7 @@
 // Module		: GizmoDistribution C#
 // Description	: C# Bridge to gzDistEvent class
 // Author		: Anders Modén		
-// Product		: GizmoDistribution 2.10.6
+// Product		: GizmoDistribution 2.10.7
 //		
 //
 //			
@@ -108,19 +108,19 @@ namespace GizmoSDK
                 return GetAttributeValues(typeof(T), allProperties) as T;
             }
 
-            public bool SetAttributeValue(string name, DynamicType value)
+            public bool SetAttributeValue(NativeString name, DynamicType value)
             {
-                return DistEvent_setAttributeValue(GetNativeReference(), name, value.GetNativeReference());
+                return DistEvent_setAttributeValue(GetNativeReference(), name.GetNativeReference(), value.GetNativeReference());
             }
 
-            public DynamicType GetAttributeValue(string name)
+            public DynamicType GetAttributeValue(NativeString name)
             {
-                return new DynamicType(DistEvent_getAttributeValue(GetNativeReference(), name));
+                return new DynamicType(DistEvent_getAttributeValue(GetNativeReference(), name.GetNativeReference()));
             }
 
-            public bool HasAttribute(string name)
+            public bool HasAttribute(NativeString name)
             {
-                return DistEvent_hasAttribute(GetNativeReference(), name);
+                return DistEvent_hasAttribute(GetNativeReference(), name.GetNativeReference());
             }
 
             public DistInstanceID GetSource()
@@ -227,11 +227,11 @@ namespace GizmoSDK
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DistEvent_createDefaultEvent();
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern bool DistEvent_setAttributeValue(IntPtr event_reference,string name,IntPtr dynamic_reference);
+            private static extern bool DistEvent_setAttributeValue(IntPtr event_reference, IntPtr name,IntPtr dynamic_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr DistEvent_getAttributeValue(IntPtr event_reference, string name);
+            private static extern IntPtr DistEvent_getAttributeValue(IntPtr event_reference, IntPtr name);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern bool DistEvent_hasAttribute(IntPtr event_reference, string name);
+            private static extern bool DistEvent_hasAttribute(IntPtr event_reference, IntPtr name);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DistEvent_asString(IntPtr event_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]

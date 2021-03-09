@@ -19,7 +19,7 @@
 // Module		: GizmoDistribution C#
 // Description	: C# Bridge to gzDistRemoteChannel class
 // Author		: Anders Modén		
-// Product		: GizmoDistribution 2.10.6
+// Product		: GizmoDistribution 2.10.7
 //		
 //
 //			

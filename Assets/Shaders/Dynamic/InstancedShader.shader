@@ -1,16 +1,20 @@
 ﻿Shader "Instanced/InstancedShader" {
 	Properties{
 		_MainTex("Albedo (RGB)", 2D) = "white" {}
-		_FadeFar("fade Far value", float) = 50
+		_FadeFar("fade Far value", float) = 3000
 		_FadeNear("fade Near value", float) = 20
 		_FadeDistance("Fade Distance", float) = 50
 	}
 		SubShader{
 
-			//Tags { "Queue" = "AlphaTest" "RenderType" = "TransparentCutout"}
-			Pass {
+			Tags
+			{
+				"Queue" = "AlphaTest"
+				"RenderType" = "Opaque"
+				"DisableBatching" = "True"
+			}
 
-			//Tags {"LightMode" = "Deferred"}
+			Pass {
 
 			CGPROGRAM
 
@@ -122,9 +126,9 @@
 				float3 lighting = i.diffuse * shadow + i.ambient;
 				fixed4 output = fixed4(albedo.rgb * i.color * lighting, albedo.w);
 
-				output.a = fade;
+				//output.a = fade;
 
-				UNITY_APPLY_FOG(i.fogCoord, output);
+				//UNITY_APPLY_FOG(i.fogCoord, output);
 				return output;
 			}
 

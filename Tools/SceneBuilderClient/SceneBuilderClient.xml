@@ -4,7 +4,8 @@
 
      <communication>
        <!-- Default command communication channel -->
-       <url>udp::65432?blocking=no</url>
+         <!--<url info="ok">udp:235.6.6.6:65432?blocking=no</url>-->
+		 <url info="debug">udp:235.6.6.7:65432?blocking=no&amp;nic=127.0.0.1</url>
      </communication>
 
      <connection>

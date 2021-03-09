@@ -293,7 +293,7 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 534669902}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: 0.17586473, y: -0.52834785, z: 0.11291359, w: 0.8229038}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
@@ -314,9 +314,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   speed: 200
   rotspeed: 10
-  X: 7026.984477070621
-  Y: 16.08311892804426
-  Z: -21668.3150641441
+  X: 3598.6389988320843
+  Y: 771.1196643695995
+  Z: -4294.422745347383
 --- !u!114 &534669907
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -331,12 +331,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Settings:
     DefaultShader: {fileID: 7, guid: 0000000000000000f000000000000000, type: 0}
-    CrossboardShader: {fileID: 4800000, guid: 6cc22e1327a6086419049fb82f479ecb, type: 3}
     ComputeShader: {fileID: 7200000, guid: 75616827e64e7bd478340a97f80a1da0, type: 3}
     FrameCleanupInterval: 1000
     MaxBuildTime: 0.01
     DynamicLoaders: 4
-  MapUrl: Maps/jkg_small/roi.gzl
+  MapUrl: http:/www.gizmosdk.se/archives/maps/sweden/eksjo/processed/map.gzd?nic=${wlan0}
 --- !u!114 &534669908
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -362,9 +361,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SceneManager: {fileID: 534669907}
+  DepthShader: {fileID: 0}
+  OcclusionCulling: 0
   EnableTrees: 1
   EnableGrass: 0
-  UseETC2: 0
   TerrainSettings:
     GrassTextures:
     - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
@@ -436,15 +436,20 @@ MonoBehaviour:
     DefaultSplatMap: {fileID: 2800000, guid: 4ae789d2ed9128d4fb4f00384e672ce9, type: 3}
     PlacementMap: {fileID: 2800000, guid: 0b35cd2ec975cae4297a5700bb887c3c, type: 3}
     wind: 0.02
+    SortByDistance: 0
     GrassDensity: 0.0912
     TreeDensity: 29.123
-    GrassShadows: 0
-    TreeShadows: 0
-    GrassDrawDistance: 300
-    TreeDrawDistance: 5000
     TreeTestMesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 3}
     TreeTestMaterial: {fileID: 2100000, guid: 250724218cbc6e743b8c647cf0951eaf, type: 2}
+    GrassDrawDistance: 300
+    TreeDrawDistance: 5000
+    GrassShadows: 0
+    TreeShadows: 0
     ComputeTerrainShader: {fileID: 7200000, guid: 513988170bf57ee4487af2231d625bad,
       type: 3}
     GrassShader: {fileID: 4800000, guid: cd675d8109e34104fa2267afa707fa09, type: 3}
     TreeShader: {fileID: 4800000, guid: 124091d5347c85c408f244879bf65e3f, type: 3}
+  PointCloud: 0
+  TreeMesh: 0
+  _outputTex: {fileID: 0}
+  _whiteTex: {fileID: 0}

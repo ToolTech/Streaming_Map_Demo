@@ -19,7 +19,7 @@
 // Module		: GizmoBase C#
 // Description	: C# Bridge to gzImage class
 // Author		: Anders Modén		
-// Product		: GizmoBase 2.10.6
+// Product		: GizmoBase 2.10.7
 //		
 //
 //			
@@ -129,25 +129,9 @@ namespace GizmoSDK
 
         public class Image : Object , INameInterface
         {
-
-            [Flags]
-            public enum AdapterFlags : UInt64
-            {
-                DEFAULT = 0,
-
-                FLIP_FLIPPED_IMAGES = 1 << (0 + (int)SerializeAdapter.AdapterFlags.FLAG_MAX_SIZE),
-                NO_CACHED_IMAGE = 1 << (1 + (int)SerializeAdapter.AdapterFlags.FLAG_MAX_SIZE),
-                NO_ALTERNATE_IMAGE_EXT = 1 << (2 + (int)SerializeAdapter.AdapterFlags.FLAG_MAX_SIZE),
-                IGNORE_IMAGE_MIPMAPS = 1 << (3 + (int)SerializeAdapter.AdapterFlags.FLAG_MAX_SIZE),
-                NO_DXT1_ALPHA = 1 << (4 + (int)SerializeAdapter.AdapterFlags.FLAG_MAX_SIZE),
-                NO_MISSING_REF_IMAGE_WARN = 1 << (5 + (int)SerializeAdapter.AdapterFlags.FLAG_MAX_SIZE),
-
-                FLAG_MAX_SIZE = 6,
-            }
-
             protected Image(IntPtr nativeReference) : base(nativeReference) { }
 
-            public Image(string name) : base(Image_create(name)) { }
+            public Image(string name=default) : base(Image_create(name)) { }
 
             static new public void InitializeFactory()
             {
@@ -162,6 +146,16 @@ namespace GizmoSDK
             public override Reference Create(IntPtr nativeReference)
             {
                 return new Image(nativeReference) as Reference;
+            }
+
+            public static Image CreateImage(ImageType type,string name=default)
+            {
+                IntPtr _image = Image_createImage(type, name);
+
+                if(_image==IntPtr.Zero)
+                    throw new InvalidOperationException("Invalid Image Type");
+
+                return new Image(_image);
             }
 
             public string GetName()
@@ -184,19 +178,68 @@ namespace GizmoSDK
                 return Image_getImageType(GetNativeReference());
             }
 
-            public UInt32 GetWidth()
+            public UInt32 GetRowSize()
             {
-                return Image_getWidth(GetNativeReference());
+                return Image_getRowSize(GetNativeReference());
             }
 
-            public UInt32 GetHeight()
+            public UInt32 Width
             {
-                return Image_getHeight(GetNativeReference());
+                get { return Image_getWidth(GetNativeReference()); }
+                set { Image_setWidth(GetNativeReference(), value); }
             }
 
-            public UInt32 GetDepth()
+            public UInt32 Height
             {
-                return Image_getDepth(GetNativeReference());
+                get { return Image_getHeight(GetNativeReference()); }
+                set { Image_setHeight(GetNativeReference(), value); }
+            }
+
+            public UInt32 Depth
+            {
+                get { return Image_getDepth(GetNativeReference()); }
+                set { Image_setDepth(GetNativeReference(), value); }
+            }
+
+            public byte Alignment
+            {
+                get { return Image_getAlignment(GetNativeReference()); }
+                set { Image_setAlignment(GetNativeReference(), value); }
+            }
+
+            public void CreateArray(bool clear=false)
+            {
+                Image_createArray(GetNativeReference(),clear);
+            }
+
+            public RGBA GetPixel(UInt32 x,UInt32 y,UInt32 z=0)
+            {
+                RGBA color=new RGBA();
+
+                if(!Image_getPixel(GetNativeReference(),ref color,x,y,z))
+                    throw new ArgumentOutOfRangeException("GetPixel is not VALID");
+
+                return color;
+            }
+
+            public RGBA Sample(float x, float y, UInt32 z = 0)
+            {
+                RGBA color = new RGBA();
+
+                if (!Image_sample(GetNativeReference(), ref color, x, y, z))
+                    throw new ArgumentOutOfRangeException("Sample is not VALID");
+
+                return color;
+            }
+
+            public bool SetPixel(UInt32 x,UInt32 y,RGBA color,UInt32 depth=0)
+            {
+                return Image_setPixel(GetNativeReference(), x, y, ref color, depth);
+            }
+
+            public void Resize(UInt32 width , UInt32 height)
+            {
+                Reset(Image_resize(GetNativeReference(), width, height));
             }
 
             public bool GetImageArray(ref byte[] image_data)
@@ -237,15 +280,43 @@ namespace GizmoSDK
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern ImageType Image_getImageType(IntPtr image_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Image_setWidth(IntPtr image_reference,UInt32 width);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern UInt32 Image_getWidth(IntPtr image_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Image_setHeight(IntPtr image_reference, UInt32 height);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern UInt32 Image_getHeight(IntPtr image_reference);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Image_setDepth(IntPtr image_reference, UInt32 depth);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern UInt32 Image_getDepth(IntPtr image_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool Image_getImageArray(IntPtr image_reference, ref UInt32 size, ref IntPtr native_image_data);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern UInt64 Image_getRegisteredImageData();
+
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool Image_getPixel(IntPtr image_reference,ref RGBA color,UInt32 x,UInt32 y,UInt32 z);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool Image_sample(IntPtr image_reference, ref RGBA color, float x, float y, UInt32 z);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr Image_createImage(ImageType type,string name);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Image_createArray(IntPtr image_reference,bool clearData);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern bool Image_setPixel(IntPtr image_reference, UInt32 x, UInt32 y, ref RGBA color, UInt32 depth);
+
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern UInt32 Image_getRowSize(IntPtr image_reference);
+
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void Image_setAlignment(IntPtr image_reference, byte align);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern byte Image_getAlignment(IntPtr image_reference);
+
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern IntPtr Image_resize(IntPtr image_reference,UInt32 width,UInt32 height);
 
 
             #endregion

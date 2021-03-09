@@ -71,6 +71,7 @@ using System.Collections.Generic;
 using System;
 using System.Collections;
 using UnityEngine.Networking;
+using System.Diagnostics;
 
 namespace Saab.Foundation.Unity.MapStreamer
 {
@@ -94,7 +95,8 @@ namespace Saab.Foundation.Unity.MapStreamer
     public struct SceneManagerSettings
     {
         public UnityEngine.Shader DefaultShader;
-        public UnityEngine.Shader CrossboardShader;
+        // ************* [Deprecated] *************
+        //public UnityEngine.Shader CrossboardShader;
         public UnityEngine.ComputeShader ComputeShader;
         public int FrameCleanupInterval;
         public double MaxBuildTime;
@@ -719,8 +721,9 @@ namespace Saab.Foundation.Unity.MapStreamer
             // initialize node builders
             AddBuilder(new DefaultGeometryNodeBuilder(Settings.DefaultShader));
 
-            if (GfxCaps.CurrentCaps.HasFlag(Capability.UseTreeCrossboards))
-                AddBuilder(new CrossboardNodeBuilder(Settings.CrossboardShader, Settings.ComputeShader));
+            // ************* [Deprecated] *************
+            //if (GfxCaps.CurrentCaps.HasFlag(Capability.UseTreeCrossboards))
+            //AddBuilder(new CrossboardNodeBuilder(Settings.CrossboardShader, Settings.ComputeShader));
         }
 
 
@@ -912,9 +915,13 @@ namespace Saab.Foundation.Unity.MapStreamer
                 node?.ReleaseNoDelete();
             }
         }
-       
+
+        Stopwatch _sw = new Stopwatch();
+
         private void ProcessPendingUpdates()
         {
+            if (!_sw.IsRunning)
+                _sw.Start();
             // We must be called in edit lock
 
             var timer = System.Diagnostics.Stopwatch.StartNew();
@@ -949,14 +956,20 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             Performance.Leave();
 
-#endregion
+            #endregion
 
-            // Right now we use this as a dirty fix to handle unused shared materials
+            // Right now we use this as a dirty fix to handle unused shared materials            
 
-            _unusedCounter = (_unusedCounter + 1) % Settings.FrameCleanupInterval;
-            if (_unusedCounter == 0)
-            {
+            //_unusedCounter = (_unusedCounter + 1) % Settings.FrameCleanupInterval;
+            //if (_unusedCounter == 0)
+            if(_sw.ElapsedMilliseconds >= Settings.FrameCleanupInterval)
+            {             
                 Performance.Enter("SM.ProcessPendingUpdates.Cleanup");
+
+                //debug Remove unused Variable
+                //UnityEngine.Debug.LogFormat(LogType.Error, LogOption.NoStacktrace, this, "clean up! {0}", _sw.ElapsedMilliseconds);
+                _sw.Restart();
+
                 Resources.UnloadUnusedAssets();
                 Performance.Leave();
             }

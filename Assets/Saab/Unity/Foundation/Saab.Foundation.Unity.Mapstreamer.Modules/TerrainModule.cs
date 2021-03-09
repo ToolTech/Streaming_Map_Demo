@@ -1,10 +1,26 @@
-﻿using UnityEngine;
+﻿/* 
+ * Copyright (C) SAAB AB
+ *
+ * All rights, including the copyright, to the computer program(s) 
+ * herein belong to Saab AB. The program(s) may be used and/or
+ * copied only with the written permission of Saab AB, or in
+ * accordance with the terms and conditions stipulated in the
+ * agreement/contract under which the program(s) have been
+ * supplied. 
+ * 
+ * Information Class:          COMPANY RESTRICTED
+ * Defence Secrecy:            UNCLASSIFIED
+ * Export Control:             NOT EXPORT CONTROLLED
+ */
+
+using UnityEngine;
+using System.Collections;
 using System;
 
 namespace Saab.Foundation.Unity.MapStreamer.Modules
 {
     [Serializable]
-    public struct Settings
+    public struct TerrainSetting
     {
         public TerrainTextures[] GrassTextures;
         public TerrainTextures[] TreeTextures;
@@ -14,18 +30,19 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public Texture2D PlacementMap;
 
         public float wind;
+        public bool SortByDistance;
 
         public float GrassDensity;      // 0.0413
         public float TreeDensity;       // 22.127
 
-        public bool GrassShadows;
-        public bool TreeShadows;
+        public Mesh TreeTestMesh;
+        public Material TreeTestMaterial;
 
         public int GrassDrawDistance;
         public int TreeDrawDistance;
 
-        public Mesh TreeTestMesh;
-        public Material TreeTestMaterial;
+        public bool GrassShadows;
+        public bool TreeShadows;
 
         public ComputeShader ComputeTerrainShader;
         public Shader GrassShader;
@@ -35,20 +52,44 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
     public class TerrainModule : MonoBehaviour
     {
         public SceneManager SceneManager;
-        private GrassModule _grassModule;
-        private TreeModule _treeModule;
 
-        private GameObject _modulesParent;
+        [Header("Compute Shader Settings")]
+        public ComputeShader DepthShader;
+        public bool OcclusionCulling;
 
+        [Header("Main Settings")]
         public bool EnableTrees = false;
         public bool EnableGrass = false;
-        public bool UseETC2 = false;
 
-        public Settings TerrainSettings;
+        [Header("Module Settings")]
+        public TerrainSetting TerrainSettings;
 
-        private void Start()
+        [Header("Debug/Test Settings")]
+        public bool PointCloud;
+        public bool TreeMesh;
+
+        private GrassModule _grassModule;
+        private TreeModule _treeModule;
+        private GameObject _modulesParent;
+        private Camera _camera;
+        
+        [SerializeField]
+        private RenderTexture _outputTex;
+        [SerializeField]
+        private RenderTexture _whiteTex;
+
+        private Vector4[] _frustum = new Vector4[6];
+        private int _kernelHandle;
+
+        private void Awake()
         {
-            _modulesParent = new GameObject("Terrain Modules");
+            _whiteTex = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+            _whiteTex.enableRandomWrite = true;
+            _whiteTex.Create();
+
+            RenderTexture.active = _whiteTex;
+            GL.Clear(true, true, Color.white);
+            RenderTexture.active = null;
 
             if (SceneManager == null) { return; }
 
@@ -57,23 +98,119 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public void InitializeModule(SceneManager sceneManager)
         {
             SceneManager = sceneManager;
+            _modulesParent = this.gameObject;
+
+            
 
             if (SceneManager)
             {
+
                 InitMapModules();
+                if (_treeModule != null || _grassModule != null)
+                    SceneManager.OnPostTraverse += SceneManager_OnPostTraverse;
+
 
                 if (_treeModule != null)
                 {
-                    SceneManager.OnPostTraverse += _treeModule.Camera_OnPostTraverse;
                     SceneManager.OnEnterPool += _treeModule.RemoveTree;
                 }
 
                 if (_grassModule != null)
                 {
-                    SceneManager.OnPostTraverse += _grassModule.Camera_OnPostTraverse;
                     SceneManager.OnEnterPool += _grassModule.RemoveGrass;
                 }
 
+            }
+        }
+
+        public void GenerateFrustumPlane(Camera camera)
+        {
+            var planes = GeometryUtility.CalculateFrustumPlanes(camera);
+
+            for (int i = 0; i < 6; i++)
+            {
+                _frustum[i] = new Vector4(planes[i].normal.x, planes[i].normal.y, planes[i].normal.z, planes[i].distance);
+            }
+        }
+
+        public void GetDepthTexture(Camera camera)
+        {
+            if (_outputTex == null || (_outputTex.width != camera.pixelWidth || _outputTex.height != camera.pixelHeight))
+            {
+                _outputTex = new RenderTexture(camera.pixelWidth, camera.pixelHeight, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+                _outputTex.enableRandomWrite = true;
+                _outputTex.Create();
+
+                _whiteTex = new RenderTexture(camera.pixelWidth, camera.pixelHeight, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+                _whiteTex.enableRandomWrite = true;
+                _whiteTex.Create();
+
+                RenderTexture.active = _whiteTex;
+                GL.Clear(true, true, Color.white);
+                RenderTexture.active = null;
+            }
+
+            _kernelHandle = DepthShader.FindKernel("Depth");
+            DepthShader.SetTextureFromGlobal(_kernelHandle, "_DepthTexture", "_CameraDepthTexture");
+            DepthShader.SetTexture(_kernelHandle, "_OutputTexture", _outputTex);
+            DepthShader.Dispatch(_kernelHandle, Mathf.CeilToInt(camera.pixelWidth / 32), Mathf.CeilToInt(camera.pixelHeight / 32), 1);
+        }
+
+        private void SceneManager_OnPostTraverse()
+        {
+            _camera = Camera.main;
+
+            if (_camera == null)
+                return;
+
+            if (_camera.depthTextureMode != DepthTextureMode.Depth)
+                _camera.depthTextureMode = _camera.depthTextureMode | DepthTextureMode.Depth;
+
+            GenerateFrustumPlane(_camera);
+
+            if(OcclusionCulling)
+                GetDepthTexture(_camera);
+
+            if (_treeModule != null && EnableTrees)
+            {
+                if (OcclusionCulling)
+                    _treeModule.DepthTexture = _outputTex;
+                else
+                    _treeModule.DepthTexture = _whiteTex;
+
+                _treeModule.FrustumPlane = _frustum;
+                _treeModule.CurrentCamera = _camera;
+                _treeModule.Camera_OnPostTraverse();
+            }
+
+            if (_grassModule != null && EnableGrass)
+            {
+                if (OcclusionCulling)
+                    _grassModule.DepthTexture = _outputTex;
+                else
+                    _grassModule.DepthTexture = _whiteTex;
+
+                _grassModule.FrustumPlane = _frustum;
+                _grassModule.CurrentCamera = _camera;
+                _grassModule.Camera_OnPostTraverse();
+            }
+        }
+
+        private IEnumerator GetTerrainMemory()
+        {
+            while (true)
+            {
+                yield return new WaitForSeconds(2f); // wait two seconds
+                int size = 0;
+                if (_grassModule != null)
+                {
+                    size += _grassModule.GetMemoryFootprint;
+                }
+
+                if (_treeModule != null)
+                    size += _treeModule.GetMemoryFootprint;
+
+                Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Memory Footprint {0} MB", (size / 1000000f).ToString("F2"));
             }
         }
 
@@ -87,8 +224,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 _grassModule = go.AddComponent<GrassModule>();
 
                 // ********************************
-                //_grassModule.UseETC2 = UseETC2;
-
                 _grassModule.GrassTextures = TerrainSettings.GrassTextures;
                 _grassModule.PerlinNoise = TerrainSettings.PerlinNoise;
                 _grassModule.DefaultSplatMap = TerrainSettings.DefaultSplatMap;
@@ -97,13 +232,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
                 _grassModule.DrawDistance = TerrainSettings.GrassDrawDistance;
                 _grassModule.DrawShadows = TerrainSettings.GrassShadows;
+                _grassModule.SortByDistance = TerrainSettings.SortByDistance;
 
                 _grassModule.Wind = TerrainSettings.wind;
 
                 _grassModule.Density = TerrainSettings.GrassDensity;
                 //_grassModule.PlacementMap = TerrainSettings.PlacementMap;
-
-                //_grassModule.UpdateSceneCamera(SceneManager.SceneManagerCamera as SceneManagerCamera);
             }
 
             if (EnableTrees)
@@ -114,7 +248,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 _treeModule = go.AddComponent<TreeModule>();
 
                 // ********************************
-                //_treeModule.UseETC2 = UseETC2;
+                _treeModule.PointCloud = PointCloud;
+                _treeModule.MeshTree = TreeMesh;
 
                 _treeModule.TreeTextures = TerrainSettings.TreeTextures;
                 _treeModule.PerlinNoise = TerrainSettings.PerlinNoise;
@@ -127,13 +262,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
                 _treeModule.DrawDistance = TerrainSettings.TreeDrawDistance;
                 _treeModule.DrawShadows = TerrainSettings.TreeShadows;
+                _treeModule.SortByDistance = TerrainSettings.SortByDistance;
 
-                _treeModule.Wind = TerrainSettings.wind / 10;
+                _treeModule.Wind = TerrainSettings.wind / 100;
 
                 _treeModule.Density = TerrainSettings.TreeDensity;
                 //_treeModule.PlacementMap = TerrainSettings.PlacementMap;
-
-                //_treeModule.UpdateSceneCamera(SceneManager.SceneManagerCamera as SceneManagerCamera);
             }
 
             if (EnableGrass || EnableTrees)

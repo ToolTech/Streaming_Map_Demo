@@ -1,6 +1,22 @@
-﻿using System;
+﻿/* 
+ * Copyright (C) SAAB AB
+ *
+ * All rights, including the copyright, to the computer program(s) 
+ * herein belong to Saab AB. The program(s) may be used and/or
+ * copied only with the written permission of Saab AB, or in
+ * accordance with the terms and conditions stipulated in the
+ * agreement/contract under which the program(s) have been
+ * supplied. 
+ * 
+ * Information Class:          COMPANY RESTRICTED
+ * Defence Secrecy:            UNCLASSIFIED
+ * Export Control:             NOT EXPORT CONTROLLED
+ */
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using UnityEngine;
 
 namespace Saab.Foundation.Unity.MapStreamer.Modules
@@ -31,6 +47,15 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         // Calculated points
         static public int terrainBuffer = Shader.PropertyToID("terrainPoints");
+
+        //resize
+        static public int BigBuffer = Shader.PropertyToID("BigBuffer");
+        static public int SmallBuffer = Shader.PropertyToID("SmallBuffer");
+        static public int CopyCount = Shader.PropertyToID("CopyCount");
+
+        //camera
+        static public int CameraPosition = Shader.PropertyToID("CameraPosition");
+
         //cull
         static public int cullInBuffer = Shader.PropertyToID("Input");
         static public int cullOutBuffer = Shader.PropertyToID("Output");
@@ -44,6 +69,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         static public int splatMap = Shader.PropertyToID("splatMap");
         static public int nodeTexture = Shader.PropertyToID("NodeTexture");
         static public int placementMap = Shader.PropertyToID("PlacementMap");
+        static public int PlacementMapEnabled = Shader.PropertyToID("PlacementMapEnabled");
 
         // Scalars & vectors
         static public int objToWorld = Shader.PropertyToID("ObjToWorld");
@@ -63,15 +89,22 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
     {
         // camera frustum planes, updated in render
         public Vector4[] _frustum = new Vector4[6];
+        public bool DebugMode = false;
         // Rendering settings
         [Header("****** RENDER SETTINGS ******")]
         public Shader Shader;
+
         public int DrawDistance = 500;
-        public float NearFadeStart = 5;
-        public float NearFadeEnd = 5;
+        public float NearFadeStart = 35;
+        public float NearFadeEnd = 1;
         public bool DrawShadows = true;
         public float Wind = 0.0f;
         public float Density = 22.127f;
+
+        public bool SortByDistance;
+
+        private RenderTexture _outputTex;
+        private int _kernelHandle = -1;
 
         private enum Sides
         {
@@ -81,6 +114,54 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             Top = 1 << 2,
         };
 
+        public bool CanAllocate(int Bytes)
+        {
+            try
+            {
+                Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "current allocate memory ({0} MB)", GC.GetTotalMemory(false) / 1000000f);
+
+                //Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Trying to allocate memory for TerrainFeature ({0} MB)", (Bytes * 2) / 1000000f);
+                IntPtr Memory = Marshal.AllocHGlobal(Bytes);
+                Marshal.FreeHGlobal(Memory);
+                //Memory = Marshal.AllocCoTaskMem(Bytes * 2);
+                //Marshal.FreeCoTaskMem(Memory);
+
+                //byte[] array = new byte[Bytes * 2];
+                //MemSet(array, 0);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Failed to allocate memory for TerrainFeature ({0} MB) :: {1}", (Bytes * 2) / 1000000f, ex.ToString());
+                return false;
+            }
+        }
+
+        public bool ExceedBufferLimit(int buffersize, List<Item> items)
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+
+            float TotalBuffer = buffersize;
+
+            foreach (var item in items)
+            {
+                TotalBuffer += item.CullShader.GetBufferSize;
+            }
+
+            TotalBuffer = ((TotalBuffer * sizeof(float) * 4) / 1000000f);
+
+            sw.Stop();
+
+            Debug.LogFormat(LogType.Error, LogOption.NoStacktrace, null, "Check Buffer: {0:0.0000} ms", sw.Elapsed.TotalMilliseconds);
+
+            if (TotalBuffer > 256)
+            {
+                Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, this, "Current Grass memory: {0} MB :: per node {1} :: Nodes {2}", TotalBuffer.ToString("F2"), (TotalBuffer / (items.Count + 1f)).ToString("F2"), (items.Count + 1));
+                return true;
+            }
+            return false;
+        }
         // Active rendered item
         public struct Item : IDisposable
         {
@@ -99,6 +180,13 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             }
         }
 
+        public Camera CurrentCamera { get; set; }
+
+        public RenderTexture DepthTexture
+        {
+            get; set;
+        }
+
         // GPU work waiting to be processed by the CPU and placed into the active items list
         public struct JobOutput
         {
@@ -114,41 +202,61 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             public GameObject GameObject;
             public Mesh Mesh;
             public Texture2D Diffuse;
+            public Texture2D PlacementMap;
         }
 
-        public int GetModuleBufferMemory(List<Item> currentJobs)
+        public int GetModuleBufferMemory(List<Item> currentItems)
         {
             var size = 0;
 
-            foreach (var b in currentJobs)
+            foreach (var item in currentItems)
             {
-                size += (b.CullShader.GetBufferSize * sizeof(float) * 4);
+                if (item.CullShader != null)
+                    size += (item.CullShader.GetBufferSize * sizeof(float) * 4);
             }
             return size;
         }
 
-        public void GenerateFrustumPlane(Camera camera)
+        public int GetModuleBufferMemory(List<JobOutput> currentJobs)
         {
-            var planes = GeometryUtility.CalculateFrustumPlanes(camera);
+            var size = 0;
 
-
-            for (int i = 0; i < 6; i++)
+            foreach (var job in currentJobs)
             {
-                _frustum[i] = new Vector4(planes[i].normal.x, planes[i].normal.y, planes[i].normal.z, planes[i].distance);
+                size += (job.PointBuffer.count * sizeof(float) * 4) + job.Generator.GetBufferSize;
             }
+            return size;
+        }
 
-            _frustum[5].w = DrawDistance;
+        public Vector3 CameraPosition
+        {
+            get; set;
+        }
+
+        public Vector4[] FrustumPlane
+        {
+            get
+            {
+                return _frustum;
+            }
+            set
+            {
+                _frustum = value;
+                _frustum[5].w = DrawDistance;
+            }
         }
 
         public bool IsInFrustum(Vector3 positionAfterProjection, float treshold = -1)
         {
             float cullValue = treshold;
 
-            return (Vector3.Dot(_frustum[0], positionAfterProjection) >= cullValue &&
-                Vector3.Dot(_frustum[1], positionAfterProjection) >= cullValue &&
-                Vector3.Dot(_frustum[2], positionAfterProjection) >= cullValue &&
-                Vector3.Dot(_frustum[3], positionAfterProjection) >= cullValue) &&
-            (_frustum[5].w >= Mathf.Abs(Vector3.Distance(Vector3.zero, positionAfterProjection)));
+            var left = Vector3.Dot(_frustum[0], positionAfterProjection) >= cullValue;
+            var right = Vector3.Dot(_frustum[1], positionAfterProjection) >= cullValue;
+            var down = Vector3.Dot(_frustum[2], positionAfterProjection) >= cullValue;
+            var top = Vector3.Dot(_frustum[3], positionAfterProjection) >= cullValue;
+            var forward = _frustum[5].w >= Mathf.Abs(Vector3.Distance(Vector3.zero, positionAfterProjection));
+
+            return (left && right && top && down && forward);
         }
 
         public static Texture2DArray Create2DArray(TerrainTextures[] texture, TextureFormat targetFormat)
@@ -206,13 +314,15 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 return child;
             }
 
+            // TODO: fix to work in ShaderSandbox
+#if SCENEBUILDER
             var node = parent.GetComponent<NodeHandle>();
 
             if (node == null)
             {
                 return child;
             }
-
+#endif
             return FindFirstNodeParent(parent);
         }
 

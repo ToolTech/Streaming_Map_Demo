@@ -19,7 +19,7 @@
 // Module		: GizmoDistribution C#
 // Description	: C# Bridge to gzDistTransaction class
 // Author		: Anders Modén		
-// Product		: GizmoDistribution 2.10.6
+// Product		: GizmoDistribution 2.10.7
 //		
 //
 //			
@@ -93,23 +93,23 @@ namespace GizmoSDK
 
             public DistNotificationSet(IntPtr nativeReference) : base(nativeReference) { }
 
-            public DynamicType GetAttributeValue(string name)
+            public DynamicType GetAttributeValue(NativeString name)
             {
-                var res = DistNotificationSet_getAttributeValue(GetNativeReference(), name);
+                var res = DistNotificationSet_getAttributeValue(GetNativeReference(), name.GetNativeReference());
                 return res == IntPtr.Zero ? null : new DynamicType(res);
             }
 
-            public bool HasAttribute(string name)
+            public bool HasAttribute(NativeString name)
             {
-                return DistNotificationSet_hasAttribute(GetNativeReference(), name);
+                return DistNotificationSet_hasAttribute(GetNativeReference(), name.GetNativeReference());
             }
 
             #region --------------------------- private ----------------------------------------------
 
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr DistNotificationSet_getAttributeValue(IntPtr event_reference, string name);
+            private static extern IntPtr DistNotificationSet_getAttributeValue(IntPtr event_reference, IntPtr name);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern bool DistNotificationSet_hasAttribute(IntPtr event_reference, string name);
+            private static extern bool DistNotificationSet_hasAttribute(IntPtr event_reference, IntPtr name);
 
             public IEnumerator<DistAttribute> GetEnumerator()
             {

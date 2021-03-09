@@ -19,7 +19,7 @@
 // Module		: Gizmo3D C#
 // Description	: C# Bridge to gzDynamicLoader class
 // Author		: Anders Modén		
-// Product		: Gizmo3D 2.10.6
+// Product		: Gizmo3D 2.10.7
 //		
 //
 //			

@@ -19,7 +19,7 @@
 // Module		: GizmoDistribution C#
 // Description	: C# Bridge to gzDistClientInterface class
 // Author		: Anders Modén		
-// Product		: GizmoDistribution 2.10.6
+// Product		: GizmoDistribution 2.10.7
 //		
 //
 //			
@@ -48,7 +48,10 @@ namespace GizmoSDK
     {
         public class DistClient : Reference
         {
-            public const UInt32 DIST_POOL_ID_CUSTOM = 0xFFFFFFFF;
+            public const UInt32 POOL_ID_CUSTOM = 0xFFFFFFFF;
+
+            public const Int32 WAIT = -1;
+            public const Int32 ASYNC = 0;
 
             #region --------------- DistEvents --------------------------------------------------------------
 
@@ -124,37 +127,37 @@ namespace GizmoSDK
                 return GetSession(DistClient_getSession(GetNativeReference(), sessionName, create, global, prio));
             }
 
-            public bool JoinSession(DistSession session, Int32 timeOut = 0)
+            public bool JoinSession(DistSession session, Int32 timeOut = ASYNC)
             {
                 return DistClient_joinSession(GetNativeReference(), session.GetNativeReference(), timeOut);
             }
 
-            public bool ResignSession(DistSession session, Int32 timeOut = 0)
+            public bool ResignSession(DistSession session, Int32 timeOut = ASYNC)
             {
                 return DistClient_resignSession(GetNativeReference(), session.GetNativeReference(), timeOut);
             }
 
-            public bool SubscribeSessions(bool notifyExisting = false, Int32 timeOut = 0)
+            public bool SubscribeSessions(bool notifyExisting = false, Int32 timeOut = ASYNC)
             {
                 return DistClient_subscribeSessions(GetNativeReference(), notifyExisting, timeOut);
             }
 
-            public bool UnSubscribeSessions(Int32 timeOut = 0)
+            public bool UnSubscribeSessions(Int32 timeOut = ASYNC)
             {
                 return DistClient_unsubscribeSessions(GetNativeReference(), timeOut);
             }
 
-            public bool SubscribeEvents<T>(DistSession session, Int32 timeOut = 0) where T : DistEvent
+            public bool SubscribeEvents<T>(DistSession session, Int32 timeOut = ASYNC) where T : DistEvent
             {
                 return SubscribeEvents(session, typeof(T).Name, timeOut);
             }
 
-            public bool SubscribeEvents(DistSession session,string typeName=null,Int32 timeOut=0)
+            public bool SubscribeEvents(DistSession session,string typeName=null,Int32 timeOut= ASYNC)
             {
                 return DistClient_subscribeEvents(GetNativeReference(),session.GetNativeReference(), typeName, timeOut);
             }
 
-            public bool UnSubscribeEvents(DistSession session, string typeName = null, Int32 timeOut = 0)
+            public bool UnSubscribeEvents(DistSession session, string typeName = null, Int32 timeOut = ASYNC)
             {
                 return DistClient_unsubscribeEvents(GetNativeReference(), session.GetNativeReference(), typeName, timeOut);
             }
@@ -202,27 +205,27 @@ namespace GizmoSDK
                 return response;
             }
 
-            public bool AddObject(DistObject o, DistSession session, Int32 timeOut = 0)
+            public bool AddObject(DistObject o, DistSession session, Int32 timeOut = ASYNC)
             {
                 return DistClient_addObject(GetNativeReference(), o.GetNativeReference(), session.GetNativeReference(), timeOut);
             }
 
-            public bool RemoveObject(DistObject o, Int32 timeOut = 0)
+            public bool RemoveObject(DistObject o, Int32 timeOut = ASYNC)
             {
                 return DistClient_removeObject(GetNativeReference(), o.GetNativeReference(), timeOut);
             }
 
-            public bool SubscribeObjects(DistSession session, string typeName = null, bool notifyExisting=false,Int32 timeOut = 0)
+            public bool SubscribeObjects(DistSession session, string typeName = null, bool notifyExisting=false,Int32 timeOut = ASYNC)
             {
                 return DistClient_subscribeObjects(GetNativeReference(), session.GetNativeReference(), typeName, notifyExisting,timeOut);
             }
 
-            public bool UnSubscribeObjects(DistSession session, string typeName = null, Int32 timeOut = 0)
+            public bool UnSubscribeObjects(DistSession session, string typeName = null, Int32 timeOut = ASYNC)
             {
                 return DistClient_unsubscribeObjects(GetNativeReference(), session.GetNativeReference(), typeName, timeOut);
             }
 
-            public bool UpdateObject(DistTransaction transaction, DistObject o, Int32 timeOut = 0)
+            public bool UpdateObject(DistTransaction transaction, DistObject o, Int32 timeOut = ASYNC)
             {
                 bool result=DistClient_updateObject(GetNativeReference(), transaction.GetNativeReference(),o.GetNativeReference(), timeOut);
 
@@ -232,62 +235,62 @@ namespace GizmoSDK
                 return result;
             }
 
-            public bool UpdateObject(string name,DynamicType value, DistObject o, Int32 timeOut = 0)
+            public bool UpdateObject(string name,DynamicType value, DistObject o, Int32 timeOut = ASYNC)
             {
                 return DistClient_updateObject_name(GetNativeReference(), name,value.GetNativeReference(), o.GetNativeReference(), timeOut);
             }
 
-            public DistObject WaitForObject(string objectName, DistSession session, Int32 timeOut = 10)
+            public DistObject WaitForObject(string objectName, DistSession session, Int32 timeOut = WAIT)
             {
                 return GetObject(DistClient_waitForObject(GetNativeReference(), objectName, session.GetNativeReference(), timeOut));
             }
 
-            public bool SubscribeAttributes(DistObject o, bool notifyExisting = false, Int32 timeOut = 0)
+            public bool SubscribeAttributes(DistObject o, bool notifyExisting = false, Int32 timeOut = ASYNC)
             {
                 return DistClient_subscribeAttributes(GetNativeReference(), o.GetNativeReference(), notifyExisting, timeOut);
             }
 
-            public bool UnSubscribeAttributes(DistObject o, Int32 timeOut = 0)
+            public bool UnSubscribeAttributes(DistObject o, Int32 timeOut = ASYNC)
             {
                 return DistClient_unsubscribeAttributes(GetNativeReference(), o.GetNativeReference(), timeOut);
             }
 
-            public bool SubscribeAttributeValue(string attributeName,DistObject o, bool notifyExisting = false, Int32 timeOut = 0)
+            public bool SubscribeAttributeValue(string attributeName,DistObject o, bool notifyExisting = false, Int32 timeOut = ASYNC)
             {
                 return DistClient_subscribeAttributeValue(GetNativeReference(), attributeName,o.GetNativeReference(), notifyExisting, timeOut);
             }
 
-            public bool UnSubscribeAttributeValue(string attributeName,DistObject o, Int32 timeOut = 0)
+            public bool UnSubscribeAttributeValue(string attributeName,DistObject o, Int32 timeOut = ASYNC)
             {
                 return DistClient_unsubscribeAttributeValue(GetNativeReference(), attributeName,o.GetNativeReference(), timeOut);
             }
 
-            public bool SubscribeAllAttributeValues( DistObject o, bool notifyExisting = false, Int32 timeOut = 0)
+            public bool SubscribeAllAttributeValues( DistObject o, bool notifyExisting = false, Int32 timeOut = ASYNC)
             {
                 return DistClient_subscribeAllAttributeValues(GetNativeReference(),  o.GetNativeReference(), notifyExisting, timeOut);
             }
 
-            public bool UnSubscribeAllAttributeValues( DistObject o, Int32 timeOut = 0)
+            public bool UnSubscribeAllAttributeValues( DistObject o, Int32 timeOut = ASYNC)
             {
                 return DistClient_unsubscribeAllAttributeValues(GetNativeReference(), o.GetNativeReference(), timeOut);
             }
 
-            public bool SubscribeAttributeValue(DistTransaction transaction, DistObject o, bool notifyExisting = false, Int32 timeOut = 0)
+            public bool SubscribeAttributeValue(DistTransaction transaction, DistObject o, bool notifyExisting = false, Int32 timeOut = ASYNC)
             {
                 return DistClient_subscribeAttributeValue_transaction(GetNativeReference(), transaction.GetNativeReference(), o.GetNativeReference(), notifyExisting, timeOut);
             }
 
-            public bool UnSubscribeAttributeValue(DistTransaction transaction, DistObject o, Int32 timeOut = 0)
+            public bool UnSubscribeAttributeValue(DistTransaction transaction, DistObject o, Int32 timeOut = ASYNC)
             {
                 return DistClient_unsubscribeAttributeValue_transaction(GetNativeReference(), transaction.GetNativeReference(), o.GetNativeReference(), timeOut);
             }
 
-            public bool SubscribeAttributeValue(DistNotificationSet notification_set, DistObject o, bool notifyExisting = false, Int32 timeOut = 0)
+            public bool SubscribeAttributeValue(DistNotificationSet notification_set, DistObject o, bool notifyExisting = false, Int32 timeOut = ASYNC)
             {
                 return DistClient_subscribeAttributeValue_notificationSet(GetNativeReference(), notification_set.GetNativeReference(), o.GetNativeReference(), notifyExisting, timeOut);
             }
 
-            public bool UnSubscribeAttributeValue(DistNotificationSet notification_set, DistObject o, Int32 timeOut = 0)
+            public bool UnSubscribeAttributeValue(DistNotificationSet notification_set, DistObject o, Int32 timeOut = ASYNC)
             {
                 return DistClient_unsubscribeAttributeValue_notificationSet(GetNativeReference(), notification_set.GetNativeReference(), o.GetNativeReference(), timeOut);
             }

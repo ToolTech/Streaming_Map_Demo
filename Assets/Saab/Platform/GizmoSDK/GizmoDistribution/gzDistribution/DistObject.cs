@@ -19,7 +19,7 @@
 // Module		: GizmoDistribution C#
 // Description	: C# Bridge to gzDistObject class
 // Author		: Anders Modén		
-// Product		: GizmoDistribution 2.10.6
+// Product		: GizmoDistribution 2.10.7
 //		
 //
 //			
@@ -70,9 +70,9 @@ namespace GizmoSDK
                 return Marshal.PtrToStringUni(DistObject_getName(GetNativeReference()));
             }
 
-            public bool SetAttributeValue(string name, DynamicType value)
+            public bool SetAttributeValue(NativeString name, DynamicType value)
             {
-                return DistObject_setAttributeValue(GetNativeReference(), name, value.GetNativeReference());
+                return DistObject_setAttributeValue(GetNativeReference(), name.GetNativeReference(), value.GetNativeReference());
             }
 
             public bool SetAttributeValues(DistTransaction transaction)
@@ -80,20 +80,20 @@ namespace GizmoSDK
                 return DistObject_setAttributeValues(GetNativeReference(), transaction.GetNativeReference());
             }
 
-            public bool RemoveAttribute(string name)
+            public bool RemoveAttribute(NativeString name)
             {
-                return DistObject_removeAttribute(GetNativeReference(), name);
+                return DistObject_removeAttribute(GetNativeReference(), name.GetNativeReference());
             }
 
-            public DynamicType GetAttributeValue(string name)
+            public DynamicType GetAttributeValue(NativeString name)
             {
-                var value = DistObject_getAttributeValue(GetNativeReference(), name);
+                var value = DistObject_getAttributeValue(GetNativeReference(), name.GetNativeReference());
                 return value == IntPtr.Zero ? null : new DynamicType(value);
             }
 
-            public bool HasAttribute(string name)
+            public bool HasAttribute(NativeString name)
             {
-                return DistObject_hasAttribute(GetNativeReference(), name);
+                return DistObject_hasAttribute(GetNativeReference(), name.GetNativeReference());
             }
 
             public bool InSession()
@@ -181,15 +181,15 @@ namespace GizmoSDK
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DistObject_createDefaultObject(string name);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern bool DistObject_setAttributeValue(IntPtr event_reference,string name,IntPtr dynamic_reference);
+            private static extern bool DistObject_setAttributeValue(IntPtr event_reference,IntPtr name,IntPtr dynamic_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool DistObject_setAttributeValues(IntPtr object_reference, IntPtr transaction_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern bool DistObject_removeAttribute(IntPtr event_reference, string name);
+            private static extern bool DistObject_removeAttribute(IntPtr event_reference, IntPtr name);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern IntPtr DistObject_getAttributeValue(IntPtr event_reference, string name);
+            private static extern IntPtr DistObject_getAttributeValue(IntPtr event_reference, IntPtr name);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
-            private static extern bool DistObject_hasAttribute(IntPtr event_reference, string name);
+            private static extern bool DistObject_hasAttribute(IntPtr event_reference, IntPtr name);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DistObject_getName(IntPtr object_reference);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]

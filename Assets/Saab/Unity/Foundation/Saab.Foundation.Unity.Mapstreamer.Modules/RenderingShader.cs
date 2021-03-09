@@ -1,4 +1,19 @@
-﻿using Saab.Unity.Core.ComputeExtension;
+﻿/* 
+ * Copyright (C) SAAB AB
+ *
+ * All rights, including the copyright, to the computer program(s) 
+ * herein belong to Saab AB. The program(s) may be used and/or
+ * copied only with the written permission of Saab AB, or in
+ * accordance with the terms and conditions stipulated in the
+ * agreement/contract under which the program(s) have been
+ * supplied. 
+ * 
+ * Information Class:          COMPANY RESTRICTED
+ * Defence Secrecy:            UNCLASSIFIED
+ * Export Control:             NOT EXPORT CONTROLLED
+ */
+
+using Saab.Unity.Core.ComputeExtension;
 using System;
 using UnityEngine;
 
@@ -11,21 +26,36 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
     {
         private readonly ComputeShader _shader;
         private readonly Material _material;
-
-        private readonly ComputeBuffer _renderBufferNear = new ComputeBuffer(1000000, sizeof(float) * 4, ComputeBufferType.Append);
+        private readonly Material _meshMaterial;
+        private readonly ComputeBuffer _renderBufferNear = new ComputeBuffer(1, sizeof(float) * 4, ComputeBufferType.Append);
         private readonly ComputeBuffer _indirectBufferNear = new ComputeBuffer(5, sizeof(uint), ComputeBufferType.IndirectArguments);
 
-        private readonly ComputeBuffer _renderBufferFar = new ComputeBuffer(4000000, sizeof(float) * 4, ComputeBufferType.Append);
+        private readonly ComputeBuffer _renderBufferFar;
         private readonly ComputeBuffer _indirectBufferFar = new ComputeBuffer(4, sizeof(uint), ComputeBufferType.IndirectArguments);
+
+        public bool DebugMode = false;
 
         public ComputeBuffer RenderBufferNear
         {
             get { return _renderBufferNear; }
         }
 
+        public int GetMemoryFootPrint
+        {
+            get
+            {
+                return (_renderBufferNear.count * sizeof(float) * 4) + (_renderBufferFar.count * sizeof(float) * 4);
+            }
+        }
+
         public ComputeBuffer RenderBufferFar
         {
             get { return _renderBufferFar; }
+        }
+
+        public RenderTexture Depth
+        {
+            set { _material.SetTexture(ShaderID.depthTexture, value); }
         }
 
         public Texture2D Noise
@@ -75,6 +105,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             public static readonly int mainTexture = Shader.PropertyToID("_MainTex");
             public static readonly int perlinNoise = Shader.PropertyToID("_PerlinNoise");
             public static readonly int colorVariance = Shader.PropertyToID("_ColorVariance");
+            public static readonly int depthTexture = Shader.PropertyToID("_DepthTexture");
 
             // Matrix     const 
             public static readonly int worldToObj = Shader.PropertyToID("_worldToObj");
@@ -96,12 +127,28 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         }
 
 
-        public RenderingShader(ComputeShader shader, Shader materialShader)
+        public RenderingShader(ComputeShader shader, Shader materialShader, int BufferSize, bool UseCloseBuffer = false, Mesh mesh = null, Material mat = null)
         {
             _shader = shader;
 
-            _material = new Material(materialShader);
+            if (UseCloseBuffer)
+            {
+                _renderBufferNear.SafeRelease();
+                _renderBufferNear = new ComputeBuffer(Mathf.CeilToInt(BufferSize / 4f), sizeof(float) * 4, ComputeBufferType.Append);
 
+                _meshMaterial = mat;
+                _meshMaterial.SetBuffer("_Buffer", _renderBufferNear);
+
+                var subMeshIndex = 0;
+                subMeshIndex = Mathf.Clamp(subMeshIndex, 0, mesh.subMeshCount - 1);
+                _indirectBufferNear.SetData(new uint[5] { mesh.GetIndexCount(subMeshIndex), 0, mesh.GetIndexStart(subMeshIndex), mesh.GetBaseVertex(subMeshIndex), 0 });
+
+            }
+
+            _renderBufferFar.SafeRelease();
+            _renderBufferFar = new ComputeBuffer(BufferSize, sizeof(float) * 4, ComputeBufferType.Append);
+
+            _material = new Material(materialShader);
             _material.SetBuffer(ShaderID.pointBuffer, _renderBufferFar);
 
             _indirectBufferFar.SetData(new uint[] { 0, 1, 0, 0 });
@@ -145,16 +192,30 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _renderBufferFar.SetCounterValue(0);
         }
 
+        public void RenderEnd3D(Bounds renderBounds, Mesh mesh)
+        {
+            ComputeBuffer.CopyCount(_renderBufferNear, _indirectBufferNear, 4 * 1);
+
+            if (DebugMode)
+            {
+                int[] array = new int[5];
+                _indirectBufferNear.GetData(array);
+                Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Current buffer size :: {0}/{1}", array[1].ToString(), _renderBufferFar.count);
+            }
+
+            Graphics.DrawMeshInstancedIndirect(mesh, 0, _meshMaterial, renderBounds, _indirectBufferNear, 0, null, ShadowCastingMode);
+        }
+
         public void RenderEnd(Bounds renderBounds)
         {
             ComputeBuffer.CopyCount(_renderBufferFar, _indirectBufferFar, 0);
-            ComputeBuffer.CopyCount(_renderBufferNear, _indirectBufferNear, 4 * 1);
 
-            //int[] array = new int[4];
-            //_indirectBufferFar.GetData(array);
-            //Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, this, "Current buffer size :: {0}", array[0].ToString());
-            //Debug.LogWarning("Buffer size :: " + array[0].ToString());
-
+            if (DebugMode)
+            {
+                int[] array = new int[4];
+                _indirectBufferFar.GetData(array);
+                Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Current buffer size :: {0}/{1}", array[0].ToString(), _renderBufferFar.count);
+            }
 
             Graphics.DrawProceduralIndirect(_material, renderBounds, MeshTopology.Points, _indirectBufferFar, 0, null, null, ShadowCastingMode);
         }

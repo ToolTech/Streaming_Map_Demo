@@ -34,14 +34,17 @@
 // Kernels
 #pragma kernel MeshGrassGenerator
 #pragma kernel MeshTreeGenerator
+#pragma kernel PointCloudPlacement
 #pragma kernel IndirectGrass
 #pragma kernel Cull
 #pragma kernel TreeCull
 #pragma kernel FindQuad
+#pragma kernel Resize
 
 // Minimum / maximum integer values
 #define intMin -2147483648
 #define intMax 2147483647
+#define SUBS 16
 #define plasticConstant 1.32471795724474602596
 
 // Buffers
@@ -51,6 +54,11 @@ StructuredBuffer<float2> surfaceUVs;
 
 // Calculated points
 AppendStructuredBuffer<float4> terrainPoints;
+
+// copy
+StructuredBuffer<float4> BigBuffer;
+AppendStructuredBuffer<float4> SmallBuffer;
+uint CopyCount;
 
 // culling
 StructuredBuffer<float4> Input;
@@ -70,6 +78,7 @@ Texture2D<float4> NodeTexture;                  // Map tile texture
 Texture2D<float4> BillboardPlane;               // Billboard
 
 // Variables
+bool PlacementMapEnabled;
 float surfaceGridStep;
 float surfaceSize;
 uint cullCount;
@@ -78,6 +87,7 @@ uint BillboardPlaneResolution;
 
 float4 frustumPlanes[6];						// Frustum planes (6 planes * 4 floats: [ normal.x, normal.y, normal.z, distance ])
 float3 terrainOffset;                           // Terrain offset in meters
+float3 CameraPosition;
 float4x4 ObjToWorld;
 int terrainResolution;                          // Resolution of texture
 
@@ -90,7 +100,7 @@ inline bool IsInFrustum(float3 positionAfterProjection, float treshold = 1)
 		dot(frustumPlanes[1].xyz, positionAfterProjection) >= cullValue &&
 		dot(frustumPlanes[2].xyz, positionAfterProjection) >= cullValue &&
 		dot(frustumPlanes[3].xyz, positionAfterProjection) >= cullValue) &&
-		(frustumPlanes[5].w >= abs(distance(float3(0, 0, 0), positionAfterProjection)));
+		(frustumPlanes[5].w >= abs(distance(CameraPosition, positionAfterProjection)));
 }
 
 // ************* Get Grass Type *************
@@ -116,91 +126,18 @@ int GetFeatureType(uint i, uint valid[8])
 	return Types[i % index];
 }
 
-int intToByte(float3 rgb, int start)
-{
-	int byte[] = { 0,0,0,0,0,0,0,0,
-					0,0,0,0,0,0,0,0,
-					0,0,0,0,0,0,0,0 };
-
-	int r = (rgb.x >= 1.0 ? 255 : floor(rgb.x * 256.0));
-	int g = (rgb.y >= 1.0 ? 255 : floor(rgb.y * 256.0));
-	int b = (rgb.z >= 1.0 ? 255 : floor(rgb.z * 256.0));
-
-	float tmp = r / 2.0f;
-	byte[0] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[1] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[2] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[3] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[4] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[5] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[6] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[7] = floor(tmp) < tmp ? 1 : 0;
-
-	tmp = g / 2.0f;
-	byte[8] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[9] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[10] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[11] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[12] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[13] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[14] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[15] = floor(tmp) < tmp ? 1 : 0;
-
-	tmp = b / 2.0f;
-	byte[16] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[17] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[18] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[19] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[20] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[21] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[22] = floor(tmp) < tmp ? 1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	byte[23] = floor(tmp) < tmp ? 1 : 0;
-
-	//return 1;
-	return byte[start] + (byte[start + 1] * 2);
-}
-
 int GetType(uint color, uint i)
 {
 	uint Types[] = { 0,0,0,0,0,0,0,0 };
 
-	float tmp = color / 2.0f;
-	Types[0] = floor(tmp) < tmp ? (uint)1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	Types[1] = floor(tmp) < tmp ? (uint)1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	Types[2] = floor(tmp) < tmp ? (uint)1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	Types[3] = floor(tmp) < tmp ? (uint)1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	Types[4] = floor(tmp) < tmp ? (uint)1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	Types[5] = floor(tmp) < tmp ? (uint)1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	Types[6] = floor(tmp) < tmp ? (uint)1 : 0;
-	tmp = floor(tmp) / 2.0f;
-	Types[7] = floor(tmp) < tmp ? (uint)1 : 0;
+	Types[0] = (color >> 0) & 1;
+	Types[1] = (color >> 1) & 1;
+	Types[2] = (color >> 2) & 1;
+	Types[3] = (color >> 3) & 1;
+	Types[4] = (color >> 4) & 1;
+	Types[5] = (color >> 5) & 1;
+	Types[6] = (color >> 6) & 1;
+	Types[7] = (color >> 7) & 1;
 
 	int valid = GetFeatureType(i, Types);
 	return valid;
@@ -263,12 +200,13 @@ bool InRange(float3 value, float3 v1, float3 v2)
 }
 
 // ************* Mesh Grass *************
-[numthreads(8, 1, 1)]
+[numthreads(16, SUBS, 1)]
 // can calculate a maximum of (65535 * 8) 524,280 triangles parallel
 void MeshGrassGenerator(int3 id : SV_DispatchThreadID)
 {
 	float density = surfaceGridStep;
 	uint index = id.x * 3;
+	uint sub = id.y;
 
 	if (index >= indexCount) { return; }
 
@@ -283,15 +221,24 @@ void MeshGrassGenerator(int3 id : SV_DispatchThreadID)
 	// Area
 	float area = length(cross((v2 - v1), (v3 - v1))) / 2;
 	if (area < density) { return; }
-	int grassAmount = area / density;
+	float grassAmount = area / density;
 
-	//float t = grassAmount;
-	//float end = (t * id.y);
-	//float start = end - t;
+	int start = sub * ceil(grassAmount / SUBS);
+	int end = (sub + 1) * ceil(grassAmount / SUBS);
+	end = min(end, grassAmount);
+
+	if (grassAmount <= SUBS)
+	{
+		if (sub != 0)
+		{
+			return;
+		}
+		start = 0;
+		end = grassAmount;
+	}
 
 	// ************* Barycentric coordinate *************
-	//float i = 0;
-	for (int i = 0; i < grassAmount; i += 1.0f)
+	for (int i = start; i < end; i += 1.0f)
 	{
 		float a1 = 1 / (plasticConstant);
 		float a2 = 1 / ((plasticConstant) * (plasticConstant));
@@ -300,49 +247,48 @@ void MeshGrassGenerator(int3 id : SV_DispatchThreadID)
 		float r2 = frac(0.5 + a2 * i);
 
 		float2 uv = (1 - sqrt(r1)) * uv1 + (sqrt(r1) * (1 - r2)) * uv2 + (sqrt(r1) * r2) * uv3;
-		float3 newPoint = (1 - sqrt(r1)) * v1 + (sqrt(r1) * (1 - r2)) * v2 + (sqrt(r1) * r2) * v3;
-		float3 finalPoint = newPoint.xyz;
-
+		float3 finalPoint = (1 - sqrt(r1)) * v1 + (sqrt(r1) * (1 - r2)) * v2 + (sqrt(r1) * r2) * v3;
 
 		float4 color = splatMap[uv * terrainResolution];
-		float4 nodeColor = NodeTexture[uv * 512];
-		//float3 placement = PlacementMap[uv * 512];
+		float4 nodeColor = NodeTexture[uv * terrainResolution];
+		float3 placement = PlacementMap[uv * terrainResolution];
 
-		//int chance = intToByte(placement, 0);
-		// ****** 1 <=> 0.004 ******
-		// ****** 2 <=> 0.008 ******
-		// ****** 3 <=> 0.012 ******
-		//int chance = intToByte(float3(0.008, 0, 0), 0);
+		uint value = (uint)(placement.x * 255) | (uint)(placement.y * 255) << 8 | (uint)(placement.z * 255) << 16;
+		uint blueColor = (color.z >= 1.0 ? 255 : color.z * 256.0);
 
-		//if (chance > 0)
+		int valid = GetType(blueColor, i);
+		if (valid != -1)
 		{
-			//if ((i % 3) <= chance)
+			float3 HSV = RGBToHSV(nodeColor.xyz);
+			bool Append = PlacementMapEnabled;
+
+			if (PlacementMapEnabled)
 			{
-				uint blueColor = (color.z >= 1.0 ? 255 : color.z * 256.0);
+				Append = ((value >> 0) & 1 || (value >> 1) & 1);
+			}
+			else
+			{
+				Append = InRange(HSV, float3(22, 0.2, 0), float3(170, 1, 1));
+			}
 
-				int valid = GetType(blueColor, i);
-				if (valid != -1)
-				{
-					float3 HSV = RGBToHSV(nodeColor.xyz);
-
-					// TODO: only until we generate a proper splatmap
-					if (InRange(HSV, float3(22, 0.2, 0), float3(170, 1, 1)))
-					{
-						terrainPoints.Append(float4(finalPoint.xyz, valid));
-					}
-				}
+			// TODO: only until we generate a proper splatmap
+			//if (InRange(HSV, float3(22, 0.2, 0), float3(170, 1, 1)))
+			// if ((value >> 0) & 1 || (value >> 1) & 1)
+			if (Append)
+			{
+				terrainPoints.Append(float4(finalPoint.xyz, valid));
 			}
 		}
 	}
 }
-
 // ************* Mesh Tree *************
-[numthreads(8, 1, 1)]
+[numthreads(16, SUBS, 1)]
 // can calculate a maximum of (65535 * 8) 524,280 triangles parallel
 void MeshTreeGenerator(int3 id : SV_DispatchThreadID)
 {
 	float density = surfaceGridStep;
 	uint index = (id.x * 3);
+	uint sub = id.y;
 	if (index >= indexCount) { return; }
 
 	float3 v1 = surfaceVertices[surfaceIndices[index]];
@@ -355,12 +301,25 @@ void MeshTreeGenerator(int3 id : SV_DispatchThreadID)
 	// Area
 
 	float area = length(cross((v2 - v1), (v3 - v1))) / 2;
-	if (area < density) { return; }
-	float grassAmount = area / density;
-	//float halfDensity = density / 2;
+	//if (area < density) { return; }
+	float TreeAmount = area / density;
+
+	int start = sub * ceil(TreeAmount / SUBS);
+	int end = (sub + 1) * ceil(TreeAmount / SUBS);
+	end = min(end, TreeAmount);
+
+	if (TreeAmount <= SUBS)
+	{
+		if (sub != 0)
+		{
+			return;
+		}
+		start = 0;
+		end = TreeAmount;
+	}
 
 	// ************* Barycentric coordinate *************
-	for (int i = 0; i < grassAmount; i++)
+	for (int i = start; i < end; i++)
 	{
 		float a1 = 1 / (plasticConstant);
 		float a2 = 1 / ((plasticConstant) * (plasticConstant));
@@ -369,57 +328,74 @@ void MeshTreeGenerator(int3 id : SV_DispatchThreadID)
 		float r2 = frac(0.5 + a2 * i);
 
 		float2 uv = (1 - sqrt(r1)) * uv1 + (sqrt(r1) * (1 - r2)) * uv2 + (sqrt(r1) * r2) * uv3;
-		float3 newPoint = (1 - sqrt(r1)) * v1 + (sqrt(r1) * (1 - r2)) * v2 + (sqrt(r1) * r2) * v3;
-		float3 finalPoint = newPoint.xyz;
+		float3 finalPoint = (1 - sqrt(r1)) * v1 + (sqrt(r1) * (1 - r2)) * v2 + (sqrt(r1) * r2) * v3;
 
 		float4 color = splatMap[uv * terrainResolution];
-		float4 nodeColor = NodeTexture[uv * 512];
-		//float3 placement = PlacementMap[uv * 512];
+		float4 nodeColor = NodeTexture[uv * terrainResolution];
+		float3 placement = PlacementMap[uv * terrainResolution];
 
-		//int chance = intToByte(placement, 4);
-		// ****** 48 <=> 0.189 ******
-		// ****** 32 <=> 0.126 ******
-		// ****** 16 <=> 0.063 ******
-		//int chance = inttobyte(float3(0.063, 0, 0), 4);
+		uint blueColor = (color.z >= 1.0 ? 255 : color.z * 256.0);
 
-		//if (chance > 0)
+		int valid = GetType(blueColor, i);
+
+		float3 HSV = RGBToHSV(nodeColor.xyz);
+
+		uint value = (uint)(placement.x * 255) | (uint)(placement.y * 255) << 8 | (uint)(placement.z * 255) << 16;
+		bool Append = PlacementMapEnabled;
+
+		if (PlacementMapEnabled)
 		{
-			//if ((i % 3) <= chance)
-			{
-				uint blueColor = (color.z >= 1.0 ? 255 : color.z * 256.0);
-
-				int valid = GetType(blueColor, i);
-				//if (valid != -1)
-				{
-					float3 HSV = RGBToHSV(nodeColor.xyz);
-
-					// TODO: only until we generate a proper splatmap
-					if (InRange(HSV, float3(80, 0.2, 0), float3(140, 1, 1)))
-					{
-						terrainPoints.Append(float4(finalPoint.xyz, valid));
-					}
-				}
-			}
+			Append = ((value >> 4) & 1 || (value >> 5) & 1);
 		}
+		else
+		{
+			Append = InRange(HSV, float3(80, 0.2, 0), float3(140, 1, 1));
+		}
+
+		if (Append)
+		{
+			terrainPoints.Append(float4(finalPoint.xyz, valid));
+		}
+
 	}
 }
+// ************* Point Cloud Placement ************
 
-// ************* 2D projection *************
-[numthreads(8, 8, 1)]
-void ProjectionGenerator(int3 id : SV_DispatchThreadID)
+[numthreads(16, 1, 1)]
+void PointCloudPlacement(int3 id : SV_DispatchThreadID)
 {
-	int x = id.x;
-	int y = id.y;
+	uint index = id.x;
+	if (index >= indexCount) { return; }
 
-	float density = surfaceGridStep;
-	// node size
-	float size = surfaceSize;
+	float3 p = surfaceVertices[index];
+	float2 uv = surfaceUVs[index];
 
-	float width = size / density;
-	float height = width;
+	float4 color = splatMap[uv * terrainResolution];
+	float3 placement = PlacementMap[uv * terrainResolution];
 
-	// place points evenly on plane
-	// project points on mesh
+	uint blueColor = (color.z >= 1.0 ? 255 : color.z * 256.0);
+	int valid = GetType(blueColor, id.x);
+
+	float4 nodeColor = NodeTexture[uv * terrainResolution];
+	float3 HSV = RGBToHSV(nodeColor.xyz);
+
+	uint value = (uint)(placement.x * 255) | (uint)(placement.y * 255) << 8 | (uint)(placement.z * 255) << 16;
+	bool Append = PlacementMapEnabled;
+
+	if (PlacementMapEnabled)
+	{
+		Append = ((value >> 4) & 1 || (value >> 5) & 1);
+	}
+	else
+	{
+		Append = InRange(HSV, float3(80, 0.2, 0), float3(140, 1, 1));
+	}
+
+	if (Append)
+	{
+		if(id.x % 3 == 1)
+			terrainPoints.Append(float4(p.xyz, valid));
+	}
 }
 
 // ************* Cull shader *************
@@ -431,18 +407,17 @@ void Cull(uint3 id : SV_DispatchThreadID)
 	if (index >= indirectBuffer[0]) { return; }
 
 	float4 data = Input[index];
-
 	float4 pos = mul(ObjToWorld, float4(data.xyz, 1));
 
-	if (IsInFrustum(pos.xyz, -5))
+	if (IsInFrustum(pos.xyz - CameraPosition, -5))
 	{
-		float dist = length(pos);
+		/*float dist = length(pos);
 		int t = index % frustumPlanes[5].w;
 
 		if (t < dist)
 		{
 			return;
-		}
+		}*/
 		Output.Append(float4(pos.xyz, data.w));
 	}
 }
@@ -458,14 +433,14 @@ void TreeCull(uint3 id : SV_DispatchThreadID)
 	float4 data = Input[index];
 	float4 pos = mul(ObjToWorld, float4(data.xyz, 1));
 
-	if (IsInFrustum(pos.xyz, -15))
+	if (IsInFrustum(pos.xyz - CameraPosition, -15))
 	{
 		//Output.Append(float4(pos.xyz, data.w));
 		//if (length(pos) > 150)
 		{
 			Output.Append(float4(pos.xyz, data.w));
 		}
-		if (length(pos) < 200)
+		//if (length(pos) < 100)
 		{
 			closeBuffer.Append(float4(pos.xyz, data.w));
 		}
@@ -501,6 +476,18 @@ void FindQuad(uint3 id : SV_DispatchThreadID)
 		}
 	}
 	SmallestQuad.Append(float4(_minX, _maxX, _minY, _maxY));
+}
+
+// ************* Resize *************
+// Resize buffer to smaller version
+[numthreads(64, 1, 1)]
+void Resize(uint3 id : SV_DispatchThreadID)
+{
+	if (id.x >= CopyCount)
+		return;
+
+	float4 p = BigBuffer[id.x];
+	SmallBuffer.Append(p);
 }
 
 // ************* Indirect *************

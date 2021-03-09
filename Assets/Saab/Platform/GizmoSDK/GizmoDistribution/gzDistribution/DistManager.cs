@@ -19,7 +19,7 @@
 // Module		: GizmoDistribution C#
 // Description	: C# Bridge to gzDistManager class
 // Author		: Anders Modén		
-// Product		: GizmoDistribution 2.10.6
+// Product		: GizmoDistribution 2.10.7
 //		
 //
 //			
@@ -221,9 +221,12 @@ namespace GizmoSDK
 
             public void Shutdown(bool wait = false)
             {
-                ReferenceDictionary<DistSession>.Clear();
-                ReferenceDictionary<DistClient>.Clear();
-                ReferenceDictionary<DistObject>.Clear();
+                // This should not be here as objects can exist outside manager scope
+                // And objects and sessions and clients can exist for another manager
+
+                //ReferenceDictionary<DistSession>.Clear();
+                //ReferenceDictionary<DistClient>.Clear();
+                //ReferenceDictionary<DistObject>.Clear();
 
                 DistManager_shutDown(GetNativeReference(), wait);
             }
@@ -289,6 +292,11 @@ namespace GizmoSDK
                 return res;
             }
 
+            public void Trigger()
+            {
+                DistManager_trigger(GetNativeReference());
+            }
+
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern IntPtr DistManager_getManager(bool create, string name);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
@@ -313,6 +321,8 @@ namespace GizmoSDK
             private static extern bool DistManager_isRunning(IntPtr manager);
             [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
             private static extern bool DistManager_processCustomThreadClients(IntPtr manager, bool waitForTrigger);
+            [DllImport(Platform.BRIDGE, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+            private static extern void DistManager_trigger(IntPtr manager);
         }
     }
 }
