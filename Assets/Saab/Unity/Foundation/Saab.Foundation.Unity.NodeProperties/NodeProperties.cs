@@ -19,12 +19,12 @@
 // Module		:
 // Description	: Adds PropertyAttributes to GizmoSDK NodeHandler
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.9.1
+// Product		: Gizmo3D 2.10.6
 //
 //
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
-//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and IRIX® for  
+//			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
 //			usage in Game or VisSim development.
 //
 //
@@ -35,6 +35,12 @@
 // AMO	180607	Created file                        (2.9.1)
 //
 //******************************************************************************
+
+// ************************** NOTE *********************************************
+//
+//      Stand alone from BTA !!! No BTA code in this !!!
+//
+// *****************************************************************************
 
 #if UNITY_EDITOR // Only active in unity editor
 
@@ -287,6 +293,24 @@ public class NodeHandleEditor : Editor
         m_fields = ExposeProperties.GetProperties(m_Instance);
     }
 
+    bool PropEdit_Object(GizmoSDK.GizmoBase.Object obj)
+    {
+        if (obj == null)
+            return false;
+
+        bool change = false;
+
+        GUILayoutOption[] emptyOptions = new GUILayoutOption[0];
+
+        // ------------------- Ref Count ------------------------------------------------------
+
+        EditorGUILayout.LabelField("Ref Count", string.Format("{0}", obj.GetReferenceCount()));
+
+        EditorGUILayout.Separator();
+        
+        return change;
+    }
+
     bool PropEdit_Node(Node node)
     {
         if (node == null)
@@ -295,7 +319,7 @@ public class NodeHandleEditor : Editor
         bool change = false;
 
         GUILayoutOption[] emptyOptions = new GUILayoutOption[0];
-
+               
         // ------------------------- Name -----------------------------------------------------
 
         string name = EditorGUILayout.TextField("Name",node.GetName(), emptyOptions);
@@ -311,9 +335,49 @@ public class NodeHandleEditor : Editor
                 m_Instance.gameObject.name = node.GetNativeTypeName();
         }
 
-        // ------------------------ Radius --------------------------------------------------
+        // ------------------------ Boundary --------------------------------------------------
 
         EditorGUILayout.LabelField("Boundary Radius", string.Format("{0}",node.BoundaryRadius));
+
+        bool forceLocal=EditorGUILayout.Toggle("Force Local Include", node.ForceLocalIncludeBoundary);
+
+        if(forceLocal != node.ForceLocalIncludeBoundary)
+        {
+            node.ForceLocalIncludeBoundary = forceLocal;
+            change = true;
+        }
+
+
+        EditorGUILayout.Separator();
+
+
+        return change;
+    }
+
+    bool PropEdit_DynamicLoader(DynamicLoader loader)
+    {
+        if (loader == null)
+            return false;
+
+        bool change = false;
+
+        GUILayoutOption[] emptyOptions = new GUILayoutOption[0];
+
+        // ------------------------- NodeURL -----------------------------------------------------
+
+        string url = EditorGUILayout.TextField("Node URL", loader.NodeURL, emptyOptions);
+
+        if (url != loader.NodeURL)
+        {
+            loader.NodeURL = url;
+            change = true;
+        }
+
+        // ------------------------ GetLastAccessRenderCount ------------------------------------
+
+        EditorGUILayout.LabelField("Last Access", string.Format("{0}", loader.GetLastAccessRenderCount()));
+
+        EditorGUILayout.Separator();
 
         return change;
     }
@@ -350,29 +414,51 @@ public class NodeHandleEditor : Editor
             return;
         }
 
-        bool change = false;
+        /////////////////////////////////////////////////////
+        /// Presentation Area of node attributes
+        /// Shall reamin Locked
+        /// 
 
-        if (PropEdit_Node(m_Instance.node as Node))
-            change = true;
-
-        if (change)
-            m_Instance.node.SetDirtySaveData(true);
-
-        if (m_Instance.node.HasDirtySaveData())
+        try
         {
-            EditorGUILayout.BeginHorizontal(emptyOptions);
+            NodeLock.WaitLockEdit();
 
-            if (GUILayout.Button("Save"))
+            /////////////////////////////////////////////////////////////////////////////////////////////
+
+            bool change = false;
+
+            if (PropEdit_Object(m_Instance.node as GizmoSDK.GizmoBase.Object))
+                change = true;
+
+            if (PropEdit_Node(m_Instance.node as Node))
+                change = true;
+
+            if (PropEdit_DynamicLoader(m_Instance.node as DynamicLoader))
+                change = true;
+
+            if (change)
+                m_Instance.node.SetDirtySaveData(true);
+
+            if (m_Instance.node.HasDirtySaveData())
             {
-                m_Instance.node.SaveDirtyData();
+                EditorGUILayout.BeginHorizontal(emptyOptions);
+
+                if (GUILayout.Button("Save"))
+                {
+                    m_Instance.node.SaveDirtyData();
+                }
+
+                GUILayout.FlexibleSpace();
+
+                EditorGUILayout.EndHorizontal();
             }
 
-            GUILayout.FlexibleSpace();
-
-            EditorGUILayout.EndHorizontal();
+            //////////////////////////////////////////////////////////////////////////////////////////
         }
-        
-        
+        finally
+        {
+            NodeLock.UnLock();
+        }
     }
 }
 

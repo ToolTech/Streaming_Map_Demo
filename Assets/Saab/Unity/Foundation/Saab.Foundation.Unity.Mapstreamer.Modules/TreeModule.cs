@@ -1,45 +1,60 @@
-﻿using Saab.Unity.Core.ComputeExtension;
+﻿/* 
+ * Copyright (C) SAAB AB
+ *
+ * All rights, including the copyright, to the computer program(s) 
+ * herein belong to Saab AB. The program(s) may be used and/or
+ * copied only with the written permission of Saab AB, or in
+ * accordance with the terms and conditions stipulated in the
+ * agreement/contract under which the program(s) have been
+ * supplied. 
+ * 
+ * Information Class:          COMPANY RESTRICTED
+ * Defence Secrecy:            UNCLASSIFIED
+ * Export Control:             NOT EXPORT CONTROLLED
+ */
+
+using Saab.Unity.Core.ComputeExtension;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
 namespace Saab.Foundation.Unity.MapStreamer.Modules
 {
-    public class Trees
+    public class TreeModule : TerrainFeature
     {
-        public ComputeShader ComputeShader;
-        public Guid ID;
-        public bool Initlized = false;
+        [Header("****** SETTINGS ******")]
+        public TerrainTextures[] TreeTextures;
+        public Texture2D PerlinNoise;
+        public Texture2D DefaultSplatMap;
+        public ComputeShader ComputeShader; // <-- TODO: Replace with 1 shader per responsibility (generator, culling, rendering)
+        public int BufferLimit = 1000000;
+        public bool UsePlacementMap;
+        public bool PointCloud;
+        public bool MeshTree;
 
-        //Compute kernels
-        public ComputeKernel MeshTreeGeneratorKernel;
-        public ComputeKernel IndirectTreeKernel;
-        public ComputeKernel CullKernal;
+        // maximum concurrent GPU jobs, higher values increases memory footprint
+        private const int MAX_JOBS_PER_FRAME = 6;
 
-        public GameObject GameObject;
-        public Texture2D SplatMap;
-        public Texture2D NodeTexture;
-        public Texture2D PlacementMap;
+        // list of all current jobs being processed by the GPU
+        private readonly List<JobOutput> _currentJobs = new List<JobOutput>(MAX_JOBS_PER_FRAME);
 
-        //Compute buffers
-        public ComputeBuffer TreeBuffer;
-        public ComputeBuffer SurfaceVertices;
-        public ComputeBuffer SurfaceIndices;
-        public ComputeBuffer SurfaceUVs;
+        // list of all jobs not yet processed
+        private readonly List<PendingJob> _pendingJobs = new List<PendingJob>();
 
-        //public Mesh PointMeshGrass;
-        public Mesh SurfaceMesh;
+        // list of all instances currently being rendered
+        private readonly List<Item> _items = new List<Item>(128);
 
-        public Vector3 SurfaceSize;
-        public int SurfaceTriangles;
+        // used to draw all instances
+        private RenderingShader _renderingShader;
 
-        public int MaxTree;
-    }
+        // used to generate instance data from a mesh
+        private readonly Stack<InstanceGenerator> _pointGenerators = new Stack<InstanceGenerator>();
 
-    public class TreeModule : MonoBehaviour
-    {
+        // TEMP TEST JUNK
+        public Mesh TestMesh;
+        public Material TestMat;
+
         private void Start()
         {
             if (PerlinNoise == null)
@@ -47,622 +62,352 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 PerlinNoise = Resources.Load("Textures/PerlinNoiseRGB") as Texture2D;
             }
 
-            _treeTextures = Create2DArray(TreeTextures, UseETC2);
-            _minMaxWidthHeight = GetMinMaxWidthHeight(TreeTextures);
-
-            _megaBuffer = new ComputeBuffer(2500000, sizeof(float) * 4, ComputeBufferType.Append);
-            _closeMegaBuffer = new ComputeBuffer(2000000, sizeof(float) * 4, ComputeBufferType.Append);
-
-            _inderectBuffer = new ComputeBuffer(4, sizeof(uint), ComputeBufferType.IndirectArguments);
-            _inderectBuffer.SetData(new uint[] { 0, 1, 0, 0 });
-
-            _closeInderectBuffer = new ComputeBuffer(5, sizeof(uint), ComputeBufferType.IndirectArguments);
-            var subMeshIndex = 0;
-            subMeshIndex = Mathf.Clamp(subMeshIndex, 0, TestMesh.subMeshCount - 1);
-            _closeInderectBuffer.SetData(new uint[5] { TestMesh.GetIndexCount(subMeshIndex), 0, TestMesh.GetIndexStart(subMeshIndex), TestMesh.GetBaseVertex(subMeshIndex), 0 });
-
-            // Initialize materials
-            InitializeMaterial();
-
-            StartCoroutine(Initlize());
-            //StartCoroutine(Rendering());
-        }
-
-        public void UpdateSceneCamera(ISceneManagerCamera newCam)
-        {
-            _sceneCamera = newCam;
-            _frustumPlanes = GenerateFrustumPlane();
-        }
-
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        public void AddTree(GameObject go)
-        {
-            var _mesh = go.GetComponent<MeshFilter>().mesh;
-            var _texture = go.GetComponent<MeshRenderer>().material.mainTexture;
-
-            Trees tree = new Trees
+            _renderingShader = new RenderingShader(ComputeShader, Shader, BufferLimit, MeshTree, TestMesh, TestMat)
             {
-                ID = Guid.NewGuid(),
-                GameObject = go,
-                SurfaceMesh = _mesh,
-                SplatMap = DefaultSplatMap,
-                NodeTexture = (Texture2D)_texture,
-                PlacementMap = PlacementMap,
+                Noise = PerlinNoise,
+                ColorVariance = PerlinNoise,
             };
-            Initialize(tree);
 
-            //add grass to list
-            _drawTree.Add(tree);
+            _renderingShader.DebugMode = DebugMode;
+
+#if UNITY_ANDROID
+            var format = TextureFormat.ARGB32;
+            Debug.Log("Tree Use ETC2");
+#else
+            var format = TextureFormat.DXT5;
+#endif
+
+            // ...
+            _renderingShader.SetBillboardData(Create2DArray(TreeTextures, format),
+                TreeTextures.Select(x => x.GetMinMaxWidthHeight).ToArray(),
+                TreeTextures.Select(x => x.Yoffset).ToArray());
+
+            _renderingShader.SetQuads(GetQuads(TreeTextures));
+        }
+
+        public void AddTree(GameObject go, Texture2D placementMap = null)
+        {
+            var meshFilter = go.GetComponent<MeshFilter>();
+            if (!meshFilter)
+                return;
+
+            var meshRenderer = go.GetComponent<MeshRenderer>();
+            if (!meshRenderer)
+                return;
+
+            var material = meshRenderer.material;
+            if (!material)
+                return;
+
+            var diffuse = material.mainTexture as Texture2D;
+            if (diffuse == null)
+                return;
+
+            System.Diagnostics.Debug.Assert(meshFilter.mesh.GetTopology(0) == MeshTopology.Triangles);
+
+            _pendingJobs.Add(new PendingJob()
+            {
+                GameObject = go,
+                Mesh = meshFilter.mesh,
+                Diffuse = diffuse,
+                PlacementMap = placementMap
+            });
         }
         public void RemoveTree(GameObject gameobj)
         {
-            if (_drawTree.Count == 0) { return; }
-            var tree = _drawTree.Where(go => go.GameObject == gameobj).First();
-            if (tree == null) { return; }
-            _drawTree.Remove(tree);
-
-            SafeRelease(tree);
-        }
-
-        public void RemoveTree(Trees tree)
-        {
-            _drawTree.Remove(tree);
-            SafeRelease(tree);
-        }
-        private Vector4[] GenerateFrustumPlane()
-        {
-            var planes = GeometryUtility.CalculateFrustumPlanes(Camera.main);
-            var frustumVector4 = new Vector4[6];
-
-            for (int i = 0; i < 6; i++)
+            for (var i = 0; i < _currentJobs.Count; ++i)
             {
-                frustumVector4[i] = new Vector4(planes[i].normal.x, planes[i].normal.y, planes[i].normal.z, planes[i].distance);
+                if (_currentJobs[i].GameObject != gameobj)
+                    continue;
+
+                _currentJobs[i].PointBuffer.SafeRelease();
+                _pointGenerators.Push(_currentJobs[i].Generator);
+
+                if ((i + 1) < _currentJobs.Count)
+                    _currentJobs[i] = _currentJobs[_currentJobs.Count - 1];
+
+                _currentJobs.RemoveAt(_currentJobs.Count - 1);
+
+                return;
             }
 
-            frustumVector4[5].w = DrawDistance;
-            return frustumVector4;
+            for (var i = 0; i < _items.Count; ++i)
+            {
+                if (_items[i].GameObject != gameobj)
+                    continue;
+
+                _items[i].Dispose();
+
+                if ((i + 1) < _items.Count)
+                    _items[i] = _items[_items.Count - 1];
+
+                _items.RemoveAt(_items.Count - 1);
+
+                return;
+            }
+
+            for (var i = 0; i < _pendingJobs.Count; ++i)
+            {
+                if (_pendingJobs[i].GameObject != gameobj)
+                    continue;
+
+                if ((i + 1) < _pendingJobs.Count)
+                    _pendingJobs[i] = _pendingJobs[_pendingJobs.Count - 1];
+
+                _pendingJobs.RemoveAt(_pendingJobs.Count - 1);
+
+                return;
+            }
         }
 
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        private struct ShaderID
+        private void AddJobs()
         {
-            // Bufers
-            static public int treeBuffer = Shader.PropertyToID("_GrassBuffer");
+            // TODO: Can we avoid sorting per-frame? Change swap-remove to something else and only sort on
+            if (SortByDistance)
+            {
+                _pendingJobs.Sort((a, b) =>
+                {
+                    var d1 = a.GameObject.transform.position.sqrMagnitude;
+                    var d2 = b.GameObject.transform.position.sqrMagnitude;
+                    return d1.CompareTo(d2);
+                });
+            }
 
-            // Textures
-            static public int nodeTexture = Shader.PropertyToID("_NodeTexture");
-            static public int treeTexture = Shader.PropertyToID("_MainTexGrass");
-            static public int perlinNoise = Shader.PropertyToID("_PerlinNoise");
-            static public int colorVariance = Shader.PropertyToID("_ColorVariance");
+            for (var i = 0; i < _pendingJobs.Count; ++i)
+            {
+                var job = _pendingJobs[i];
+                var go = job.GameObject;
 
-            // Matrix
-            static public int worldToObj = Shader.PropertyToID("_worldToObj");
-            //static public int worldToScreen = Shader.PropertyToID("_worldToScreen");
+                // get new job, according to certain rules (maybe priority later)
+                if (!go.activeInHierarchy)
+                    continue;
 
-            // wind
-            static public int Wind = Shader.PropertyToID("_GrassTextureWaving");
+                var mesh = job.Mesh;
+                var bounds = mesh.bounds;
 
-            static public int frustumPlanes = Shader.PropertyToID("_FrustumPlanes");
+                var extents = bounds.extents;
+                var maxExtent = Mathf.Max(extents.x, extents.y, extents.z);
+                var centerWorld = go.transform.TransformPoint(bounds.center);
 
-            static public int minMaxWidthHeight = Shader.PropertyToID("_MinMaxWidthHeight");
-            static public int quads = Shader.PropertyToID("_Quads");
+                var frustum = _frustum;
+                _frustum[5].w += maxExtent + DrawDistance;
 
-            static public int viewDir = Shader.PropertyToID("_ViewDir");
-            static public int FadeFar = Shader.PropertyToID("_FadeFar");
-            static public int FadeNear = Shader.PropertyToID("_FadeNear");
-            static public int FadeNearAmount = Shader.PropertyToID("_FadeNearAmount");
-            static public int FadeFarAmount = Shader.PropertyToID("_FadeFarAmount");
+                if (!IsInFrustum(centerWorld - CameraPosition, -maxExtent * 1.75f))
+                    continue;
+
+                var triangleCount = mesh.GetIndices(0).Length / 3f;
+                var bufferSize = Math.Max(1, (maxExtent * maxExtent) / Density);
+
+                bufferSize = bufferSize < mesh.vertexCount ? mesh.vertexCount : bufferSize;
+
+                _frustum = frustum;
+
+                if (_pointGenerators.Count == 0)
+                {
+                    var feature = InstanceGenerator.Feature.Tree;
+                    if (PointCloud)
+                    {
+                        feature = InstanceGenerator.Feature.PointCloud;
+                    }
+
+                    _pointGenerators.Push(new InstanceGenerator(Instantiate(ComputeShader), feature)
+                    {
+                        Density = Density,
+                        SplatMap = DefaultSplatMap
+                    });
+                }
+
+                var pointGenerator = _pointGenerators.Pop();
+                var outputBuffer = new ComputeBuffer(Mathf.CeilToInt(bufferSize), sizeof(float) * 4, ComputeBufferType.Append);
+
+                outputBuffer.SetCounterValue(0);
+                pointGenerator.SetMesh(mesh, PointCloud);
+                pointGenerator.PlacementMapEnabled = false;
+
+                if (job.PlacementMap != null && UsePlacementMap)
+                {
+                    pointGenerator.PlacementMapEnabled = true;
+                    pointGenerator.PlacementMap = job.PlacementMap;
+                }
+                else
+                {
+                    pointGenerator.PlacementMap = new Texture2D(job.Diffuse.width, job.Diffuse.height);
+                }
+
+                pointGenerator.ColorMap = job.Diffuse;
+                pointGenerator.OutputBuffer = outputBuffer;
+
+                var threadGroups = Mathf.CeilToInt(triangleCount / 16f);
+                pointGenerator.Dispatch(threadGroups > 0 ? threadGroups : 1);
+
+                // swap remove
+                if ((i + 1) < _pendingJobs.Count)
+                    _pendingJobs[i] = _pendingJobs[_pendingJobs.Count - 1];
+                _pendingJobs.RemoveAt(_pendingJobs.Count - 1);
+
+                _currentJobs.Add(new JobOutput()
+                {
+                    GameObject = go,
+                    Bounds = bounds,
+                    PointBuffer = outputBuffer,
+                    Generator = pointGenerator
+                });
+
+                if (_currentJobs.Count == MAX_JOBS_PER_FRAME)
+                    return;
+            }
         }
 
-        //////////////////////////////////////////////////// Grass Settings ////////////////////////////////////////////////////
-
-        private List<Trees> _drawTree = new List<Trees>();
-
-        public TerrainTextures[] TreeTextures;
-        private Vector4[] _minMaxWidthHeight;
-
-        public Texture2D PerlinNoise;
-        public Texture2D DefaultSplatMap;
-        public Texture2D PlacementMap;
-
-        public Texture2D GetSplatMap
+        public int GetMemoryFootprint
         {
             get
             {
-                return DefaultSplatMap;
+                var size = GetModuleBufferMemory(_items);
+                size += GetModuleBufferMemory(_currentJobs);
+                size += _renderingShader.GetMemoryFootPrint;
+                //Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Grass :: total buffer memory size {0} MB", size / 1000000f);
+                return size;
             }
         }
 
-        // ********** frustum/Cull **********
-        public int DrawDistance = 4500;
-        private Vector4[] _frustumPlanes;
-
-        // TODO: replace with better solution
-        //public CameraManager CameraManager;
-        private ISceneManagerCamera _sceneCamera;
-
-        public bool UpdateTree = true;
-        public bool DrawTreeShadows = true;
-        public float Wind = 0.0f;
-        public float Density = 22.127f;
-
-        [Header("****** SHADERS ******")]
-        public ComputeShader ComputeShader;
-        public Shader TreeShader;
-        public float FadeFarValue = 2000;
-        public float FadeNearValue = 5;
-        public float FadeNearAmount = 5;
-        public float FadeFarAmount = 500;
-
-        private Material _treeMaterial;
-
-        private ComputeBuffer _megaBuffer;
-        private ComputeBuffer _closeMegaBuffer;
-        private ComputeBuffer _inderectBuffer;
-        private ComputeBuffer _closeInderectBuffer;
-
-        private Texture2DArray _treeTextures;
-        private Transform _roiTransform;
-        public bool UseETC2 = false;
-
-        public Mesh TestMesh;
-        public Material TestMat;
-
-        // Compute kernel names
-        private const string _indirectTreeKernelName = "IndirectGrass";
-        private const string _meshTreeGeneratorKernelName = "MeshTreeGenerator";
-        private const string _cullKernelName = "TreeCull";
-
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        private static Texture2DArray Create2DArray(TerrainTextures[] texture, bool etc2)
+        private void Render()
         {
-            var textureCount = texture.Length;
+            var camera = CurrentCamera;
 
-            var textureResolution = Math.Max(texture.Max(item => item.FeatureTexture.width), texture.Max(item => item.FeatureTexture.height));
+            if (!camera)
+                return;
 
-            int[] availableResolutions = new int[] { 64, 128, 256, 512, 1024, 2048, 4096 };
+            _renderingShader.Depth = DepthTexture;
 
-            textureResolution = Mathf.Min(textureResolution, availableResolutions[availableResolutions.Length - 1]);
-            for (int i = 0; i < availableResolutions.Length; i++)
+            //var sw = System.Diagnostics.Stopwatch.StartNew();
+            for (var i = 0; i < _currentJobs.Count; ++i)
             {
-                if (textureResolution <= availableResolutions[i])
+                var job = _currentJobs[i];
+
+                var cullShader = new CullingShader(Instantiate(ComputeShader))
                 {
-                    textureResolution = availableResolutions[i];
-                    break;
-                }
+                    InputBuffer = job.PointBuffer,
+                    RenderBufferNear = _renderingShader.RenderBufferNear,
+                    RenderBufferFar = _renderingShader.RenderBufferFar,
+                };
+
+
+                var item = new Item()
+                {
+                    GameObject = job.GameObject,
+                    CullShader = cullShader,
+                    Bounds = job.Bounds,
+                };
+
+                _items.Add(item);
+
+                _pointGenerators.Push(job.Generator);
             }
 
-            Texture2DArray textureArray;
+            _currentJobs.Clear();
 
-            if (etc2)
+            AddJobs();
+
+            var fadeFarAmmount = DrawDistance / 3;
+            var fadeFarValue = DrawDistance - fadeFarAmmount;
+
+            fadeFarAmmount = fadeFarAmmount > 0 ? fadeFarAmmount : 1;
+            fadeFarValue = fadeFarValue > 0 ? fadeFarValue : 1;
+
+            _renderingShader.SetNearFade(NearFadeStart, NearFadeEnd);
+            _renderingShader.SetFarFade(fadeFarValue, fadeFarAmmount);
+
+            _renderingShader.Wind = Wind;
+            _renderingShader.Frustum = _frustum;
+
+            _renderingShader.RenderBegin();
+
+
+            GameObject any = null;
+            float maxSide = 0;
+
+            // Culling      
+            for (var i = 0; i < _items.Count; ++i)
             {
-                textureArray = new Texture2DArray(textureResolution, textureResolution, textureCount, TextureFormat.ARGB32, true)
-                {
-                    wrapMode = TextureWrapMode.Clamp
-                };
+                var item = _items[i];
+
+                var go = item.GameObject;
+                if (!go.activeInHierarchy)
+                    continue;
+
+                any = go;
+
+                var bounds = item.Bounds;
+
+                var maxExtent = Mathf.Max(bounds.extents.x, bounds.extents.y, bounds.extents.z) * 2;
+                maxSide = maxExtent + DrawDistance;
+
+                var centerWorld = go.transform.TransformPoint(bounds.center);
+
+                var frustum = _frustum;
+                _frustum[5].w += maxSide;
+
+                if (!IsInFrustum(centerWorld - CameraPosition, (-maxSide * 1.75f)))
+                    continue;
+
+                _frustum[5].w = DrawDistance;
+
+                var cullShader = item.CullShader;
+                cullShader.LocalToWorld = go.transform.localToWorldMatrix;
+                cullShader.Frustum = frustum;
+                cullShader.CameraPosition = CameraPosition;
+
+                cullShader.Dispatch();
+            }
+
+            if (any == null)
+                return;
+
+            // TODO: 
+            var roiTransform = FindFirstNodeParent(any.transform);
+
+            var worldToLocal = roiTransform == null ? Matrix4x4.identity : roiTransform.worldToLocalMatrix;
+
+            _renderingShader.WorldToLocal = worldToLocal;
+            _renderingShader.ViewDirection = CurrentCamera.transform.forward;
+
+            var renderBounds = new Bounds(Vector3.zero, new Vector3(maxSide, maxSide, maxSide));
+
+            var shadows = DrawShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
+            _renderingShader.ShadowCastingMode = shadows;
+
+            if (MeshTree)
+            {
+                _renderingShader.RenderEnd3D(renderBounds, TestMesh);
             }
             else
             {
-                textureArray = new Texture2DArray(textureResolution, textureResolution, textureCount, TextureFormat.DXT5, true)
-                {
-                    wrapMode = TextureWrapMode.Clamp
-                };
-            }
-
-            RenderTexture temporaryTreeRenderTexture = new RenderTexture(textureResolution, textureResolution, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default)
-            {
-                useMipMap = true,
-                antiAliasing = 1
-            };
-
-            for (int i = 0; i < textureCount; i++)
-            {
-                Graphics.Blit(texture[i].FeatureTexture, temporaryTreeRenderTexture);
-                Texture2D temporaryTreeTexture = new Texture2D(textureResolution, textureResolution, TextureFormat.ARGB32, true);
-                RenderTexture.active = temporaryTreeRenderTexture;
-                temporaryTreeTexture.ReadPixels(new Rect(0, 0, temporaryTreeTexture.width, temporaryTreeTexture.height), 0, 0);
-                RenderTexture.active = null;
-                temporaryTreeTexture.Apply(true);
-                temporaryTreeTexture.Compress(true);
-
-                //TexToFile(temporaryGrassTexture, Application.dataPath + "/../grassTextureArraySaved_" + i + ".png");
-
-                Graphics.CopyTexture(temporaryTreeTexture, 0, textureArray, i);
-                Destroy(temporaryTreeTexture);
-            }
-            textureArray.Apply(false, true);
-
-            Destroy(temporaryTreeRenderTexture);
-
-            return textureArray;
-        }
-        private bool IsInFrustum(Vector3 positionAfterProjection, float treshold = -1)
-        {
-            float cullValue = treshold;
-
-            return (Vector3.Dot(_frustumPlanes[0], positionAfterProjection) >= cullValue &&
-                Vector3.Dot(_frustumPlanes[1], positionAfterProjection) >= cullValue &&
-                Vector3.Dot(_frustumPlanes[2], positionAfterProjection) >= cullValue &&
-                Vector3.Dot(_frustumPlanes[3], positionAfterProjection) >= cullValue) &&
-            (_frustumPlanes[5].w >= Mathf.Abs(Vector3.Distance(Vector3.zero, positionAfterProjection)));
-        }
-        private Vector4[] GetMinMaxWidthHeight(TerrainTextures[] textures)
-        {
-            List<Vector4> MinMaxWidthHeight = new List<Vector4>();
-
-            foreach (TerrainTextures item in textures)
-            {
-                MinMaxWidthHeight.Add(item.GetMinMaxWidthHeight);
-            }
-
-            return MinMaxWidthHeight.ToArray();
-        }
-        private Transform FindFirstNodeParent(Transform child)
-        {
-            var parent = child.parent;
-            if (parent == null)
-            {
-                return child;
-            }
-
-            var node = parent.GetComponent<NodeHandle>();
-
-            if (node == null)
-            {
-                return child;
-            }
-
-            return FindFirstNodeParent(parent);
-        }
-
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        // --- GrassComponent ---
-        private void Initialize(Trees tree)
-        {
-            //Init shaders
-            tree.ComputeShader = Instantiate(ComputeShader);
-
-            // Init kernels
-            tree.MeshTreeGeneratorKernel = new ComputeKernel(_meshTreeGeneratorKernelName, tree.ComputeShader);
-            tree.IndirectTreeKernel = new ComputeKernel(_indirectTreeKernelName, tree.ComputeShader);
-            tree.CullKernal = new ComputeKernel(_cullKernelName, tree.ComputeShader);
-
-            tree.SurfaceSize = new Vector3(tree.SurfaceMesh.bounds.size.x, tree.SurfaceMesh.bounds.size.y, tree.SurfaceMesh.bounds.size.z);
-            tree.SurfaceTriangles = tree.SurfaceMesh.triangles.Length;
-
-            var maxTreeMesh = (int)Mathf.Ceil((tree.SurfaceSize.x * tree.SurfaceSize.z) / Density);
-            tree.MaxTree = maxTreeMesh > 0 ? maxTreeMesh : 1;
-
-            tree.TreeBuffer = new ComputeBuffer(tree.MaxTree, sizeof(float) * 4, ComputeBufferType.Append);
-
-            var surfaceVertices = tree.SurfaceMesh.vertices;
-            var surfaceIndices = tree.SurfaceMesh.GetIndices(0);
-            var surfaceUVs = tree.SurfaceMesh.uv;
-
-            //Destroy(tree.SurfaceMesh);
-
-            tree.SurfaceVertices = new ComputeBuffer(surfaceVertices.Length, sizeof(float) * 3, ComputeBufferType.Default);
-            tree.SurfaceIndices = new ComputeBuffer(surfaceIndices.Length, sizeof(int), ComputeBufferType.Default);
-            tree.SurfaceUVs = new ComputeBuffer(surfaceUVs.Length, sizeof(float) * 2, ComputeBufferType.Default);
-
-            tree.ComputeShader.SetInt(ComputeShaderID.cullCount, tree.MaxTree);
-            tree.ComputeShader.SetInt(ComputeShaderID.indexCount, surfaceIndices.Length);
-
-            // fill surface vertices
-            tree.SurfaceVertices.SetData(surfaceVertices);
-            tree.MeshTreeGeneratorKernel.SetBuffer(ComputeShaderID.surfaceVertices, tree.SurfaceVertices);
-            tree.SurfaceIndices.SetData(surfaceIndices);
-            tree.MeshTreeGeneratorKernel.SetBuffer(ComputeShaderID.surfaceIndices, tree.SurfaceIndices);
-            tree.SurfaceUVs.SetData(surfaceUVs);
-            tree.MeshTreeGeneratorKernel.SetBuffer(ComputeShaderID.surfaceUVs, tree.SurfaceUVs);
-
-            //tree.ComputeShader.SetInt(ComputeShaderID.terrainResolution, tree.SplatMap.height);
-            //tree.ComputeShader.SetMatrix(ComputeShaderID.objToWorld, tree.GameObject.transform.localToWorldMatrix);
-            //tree.ComputeShader.SetFloat(ComputeShaderID.surfaceGridStep, Density);
-
-            //tree.MeshTreeGeneratorKernel.SetTexture(ComputeShaderID.splatMap, tree.SplatMap);
-            //tree.MeshTreeGeneratorKernel.SetTexture(ComputeShaderID.nodeTexture, tree.NodeTexture);
-            //tree.MeshTreeGeneratorKernel.SetTexture(ComputeShaderID.placementMap, tree.PlacementMap);
-
-        }
-        // --- GrassComponent ---
-        private void InitializeMaterial()
-        {
-            string _QuadKernelName = "FindQuad";
-            _treeMaterial = new Material(TreeShader);
-
-            // ********************** Grass material **********************
-            _treeMaterial.SetBuffer(ShaderID.treeBuffer, _megaBuffer);
-            TestMat.SetBuffer("_Buffer", _closeMegaBuffer);
-
-            _treeMaterial.SetTexture(ShaderID.treeTexture, _treeTextures);
-            _treeMaterial.SetTexture(ShaderID.perlinNoise, PerlinNoise);
-            _treeMaterial.SetTexture(ShaderID.colorVariance, PerlinNoise);
-
-            _treeMaterial.SetVectorArray(ShaderID.minMaxWidthHeight, _minMaxWidthHeight);
-            List<Vector4> quads = new List<Vector4>();
-            ComputeBuffer smallestQuad = new ComputeBuffer(1, sizeof(float) * 4, ComputeBufferType.Append);
-            ComputeKernel findSmallestQuad = new ComputeKernel(_QuadKernelName, ComputeShader);
-
-            foreach (TerrainTextures terrain in TreeTextures)
-            {
-                var front = GetBillboardTexture(Sides.Front, terrain.FeatureTexture);
-                var side = GetBillboardTexture(Sides.Side, terrain.FeatureTexture);
-                var top = GetBillboardTexture(Sides.Top, terrain.FeatureTexture);
-
-
-                var frontXY = CalcSide(front, findSmallestQuad, smallestQuad);
-                var sideXY = CalcSide(side, findSmallestQuad, smallestQuad);
-                var topXY = CalcSide(top, findSmallestQuad, smallestQuad);
-
-                quads.Add(frontXY / front.width);
-                quads.Add(sideXY / side.width);
-                quads.Add(topXY / top.width);
-            }
-
-            smallestQuad.SafeRelease();
-            _treeMaterial.SetVectorArray(ShaderID.quads, quads.ToArray());
-            //Debug.LogFormat("Generated Mesh");
-        }
-
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        IEnumerator Initlize()
-        {
-            while (true)
-            {
-                if (Camera.main != null)
-                {
-                    _frustumPlanes = GenerateFrustumPlane();
-
-                    for (int i = 0; i < _drawTree.Count; i++)
-                    {
-                        var tree = _drawTree[i];
-
-                        if (tree.GameObject == null)
-                        {
-                            //RemoveTree(tree);
-                            continue;
-                        }
-
-                        if (!tree.GameObject.activeSelf) { continue; }
-                        var longestSide = Mathf.Max(tree.SurfaceSize.x, tree.SurfaceSize.z, tree.SurfaceSize.y);
-                        _frustumPlanes[5].w = DrawDistance + longestSide * 0.75f;
-
-                        if (!IsInFrustum(tree.GameObject.transform.position, -longestSide * 0.75f))
-                        {
-                            continue;
-                        }
-
-                        if (!UpdateTree)
-                        {
-                            continue;
-                        }
-
-                        //UpdatePlanePos(tree);
-                        UpdateShaderValues(tree);
-
-                        if (!tree.Initlized)
-                        {
-                            tree.MeshTreeGeneratorKernel.SetBuffer(ComputeShaderID.terrainBuffer, tree.TreeBuffer);                 // tree generator output
-                            tree.TreeBuffer.SetCounterValue(0);
-                            var GenX = Mathf.CeilToInt(tree.SurfaceTriangles / 8.0f);
-
-                            tree.MeshTreeGeneratorKernel.Dispatch(GenX, 1, 1);
-                            tree.Initlized = true;
-
-                            tree.CullKernal.SetBuffer(ComputeShaderID.cullInBuffer, tree.TreeBuffer);
-
-                            tree.SurfaceVertices.SafeRelease();
-                            tree.SurfaceIndices.SafeRelease();
-                            tree.SurfaceUVs.SafeRelease();
-                            _roiTransform = FindFirstNodeParent(tree.GameObject.transform);
-                            yield return null;
-                        }
-                    }
-                }
-                yield return null;
+                _renderingShader.RenderEnd(renderBounds);
             }
         }
-
-        private void Render(List<Trees> treeList)
-        {
-            FadeFarAmount = DrawDistance / 3;
-            FadeFarValue = DrawDistance - FadeFarAmount;
-
-            _treeMaterial.SetFloat(ShaderID.FadeFar, FadeFarValue);
-            _treeMaterial.SetFloat(ShaderID.FadeNear, FadeNearValue);
-            _treeMaterial.SetFloat(ShaderID.FadeNearAmount, FadeNearAmount);
-            _treeMaterial.SetFloat(ShaderID.FadeFarAmount, FadeFarAmount);
-
-            if (Camera.main != null)
-            {
-                _megaBuffer.SetCounterValue(0);
-                _closeMegaBuffer.SetCounterValue(0);
-                _frustumPlanes = GenerateFrustumPlane();
-
-                for (int i = 0; i < _drawTree.Count; i++)
-                {
-                    var tree = _drawTree[i];
-
-                    if (tree.GameObject == null)
-                    {
-                        RemoveTree(tree);
-                        continue;
-                    }
-
-                    if (!tree.GameObject.activeSelf) { continue; }
-                    var longestSide = Mathf.Max(tree.SurfaceSize.x, tree.SurfaceSize.z, tree.SurfaceSize.y);
-                    _frustumPlanes[5].w = DrawDistance + longestSide * 0.75f;
-
-                    if (!IsInFrustum(tree.GameObject.transform.position, -longestSide * 0.75f))
-                    {
-                        continue;
-                    }
-
-                    if (!UpdateTree)
-                    {
-                        continue;
-                    }
-
-                    UpdatePlanePos(tree);
-                    UpdateShaderValues(tree);
-
-                    //Debug.Log(Time.unscaledDeltaTime);
-
-                    if (tree.Initlized)
-                    {
-                        _frustumPlanes[5].w = DrawDistance;
-                        tree.ComputeShader.SetVectorArray(ComputeShaderID.frustumPlanes, _frustumPlanes);
-
-                        // TODO: move entirely to GPU with DispatchIndirect 
-                        tree.CullKernal.SetBuffer(ComputeShaderID.indirectBuffer, _inderectBuffer);
-                        ComputeBuffer.CopyCount(tree.TreeBuffer, _inderectBuffer, 0);
-
-                        var x = Mathf.CeilToInt(tree.MaxTree / 128.0f);
-                        tree.CullKernal.Dispatch(x, 1, 1);
-                    }
-                }
-
-                // Culling      
-                ComputeBuffer.CopyCount(_megaBuffer, _inderectBuffer, 0);
-                ComputeBuffer.CopyCount(_closeMegaBuffer, _closeInderectBuffer, 4 * 1);
-            }
-
-            // ********* Update grassmaterial *********
-            _treeMaterial.SetFloat(ShaderID.Wind, Wind);
-            if (_roiTransform != null)
-            {
-                _treeMaterial.SetMatrix(ShaderID.worldToObj, _roiTransform.worldToLocalMatrix);
-                //_treeMaterial.SetMatrix(ShaderID.worldToScreen, _sceneCamera.Camera.worldToCameraMatrix);
-            }
-            _treeMaterial.SetVector(ShaderID.viewDir, Camera.main.transform.forward);
-
-            var bounds = new Bounds(Vector3.zero, new Vector3(DrawDistance + DrawDistance / 3, DrawDistance + DrawDistance / 3, DrawDistance + DrawDistance / 3) * 1.5f);
-            Graphics.DrawProceduralIndirect(_treeMaterial, bounds, MeshTopology.Points, _inderectBuffer, 0, null, null, DrawTreeShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
-            //Graphics.DrawMeshInstancedIndirect(TestMesh, 0, TestMat, bounds, _closeInderectBuffer, 0, null, DrawTreeShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
-        }
-        private void UpdateShaderValues(Trees tree)
-        {
-            tree.ComputeShader.SetInt(ComputeShaderID.terrainResolution, tree.SplatMap.height);
-            tree.ComputeShader.SetMatrix(ComputeShaderID.objToWorld, tree.GameObject.transform.localToWorldMatrix);
-            tree.ComputeShader.SetFloat(ComputeShaderID.surfaceGridStep, Density);
-
-            tree.MeshTreeGeneratorKernel.SetTexture(ComputeShaderID.splatMap, tree.SplatMap);
-            tree.MeshTreeGeneratorKernel.SetTexture(ComputeShaderID.nodeTexture, tree.NodeTexture);
-            tree.MeshTreeGeneratorKernel.SetTexture(ComputeShaderID.placementMap, tree.PlacementMap);
-
-            tree.CullKernal.SetBuffer(ComputeShaderID.cullOutBuffer, _megaBuffer);
-            tree.CullKernal.SetBuffer(ComputeShaderID.closeBuffer, _closeMegaBuffer);
-        }
-        private void UpdatePlanePos(Trees tree)
-        {
-            tree.ComputeShader.SetVectorArray(ComputeShaderID.frustumPlanes, _frustumPlanes);
-        }
-
-        enum Sides
-        {
-            Front = 1 << 0,
-            Side = 1 << 1,
-            Top = 1 << 2,
-        };
-
-        private Texture2D GetBillboardTexture(Sides side, Texture2D billboard)
-        {
-            Texture2D Image = new Texture2D(billboard.width / 2, billboard.height / 2);
-
-            int sx = 0;
-            int sy = 0;
-
-            switch (side)
-            {
-                case Sides.Front:
-                    sx = 0;
-                    sy = billboard.height / 2;
-                    break;
-                case Sides.Side:
-                    sx = 0;
-                    sy = 0;
-                    break;
-                case Sides.Top:
-                    sx = billboard.width / 2;
-                    sy = 0;
-                    break;
-            }
-
-            List<Color32> TestList = new List<Color32>();
-            Color32[] pix = billboard.GetPixels32();
-
-
-            for (int y = 0; y < billboard.height / 2; y++)
-            {
-                for (int x = 0; x < billboard.width / 2; x++)
-                {
-                    TestList.Add(pix[(x + sx) + ((y + sy) * billboard.height)]);
-                }
-            }
-
-
-            Image.SetPixels32(TestList.ToArray());
-            Image.Apply();
-
-            return Image;
-        }
-        private Vector4 CalcSide(Texture2D Side, ComputeKernel findSmallestQuad, ComputeBuffer smallestQuad)
-        {
-            smallestQuad.SetCounterValue(0);
-
-            findSmallestQuad.SetBuffer("SmallestQuad", smallestQuad);
-
-            findSmallestQuad.SetTexture("BillboardPlane", Side);
-            ComputeShader.SetInt("BillboardPlaneResolution", Side.width);
-
-            smallestQuad.SetCounterValue(0);
-
-            findSmallestQuad.Dispatch(1, 1, 1);
-
-            Vector4[] quad = new Vector4[1];
-            smallestQuad.GetData(quad);
-
-            return quad.First();
-        }
-
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         public void Camera_OnPostTraverse()
         {
-            Render(_drawTree);
+            _renderingShader.DebugMode = DebugMode;
+            Render();
         }
 
         private void OnDestroy()
         {
-            foreach (Trees tree in _drawTree)
+            for (var i = 0; i < _items.Count; ++i)
+                _items[i].Dispose();
+
+            for (var i = 0; i < _currentJobs.Count; ++i)
             {
-                SafeRelease(tree);
+                _currentJobs[i].PointBuffer.SafeRelease();
+                _currentJobs[i].Generator.Dispose();
             }
 
-            _inderectBuffer.SafeRelease();
-            _megaBuffer.SafeRelease();
+            while (_pointGenerators.Count > 0)
+                _pointGenerators.Pop().Dispose();
 
-            _closeMegaBuffer.SafeRelease();
-            _closeInderectBuffer.SafeRelease();
-        }
-
-        private void SafeRelease(Trees tree)
-        {
-            //Debug.LogFormat("Trees: Removed " + tree.ID + " From List!");
-
-            tree.TreeBuffer.SafeRelease();
-
-            Destroy(tree.ComputeShader);
-
-            tree.SurfaceVertices.SafeRelease();
-            tree.SurfaceIndices.SafeRelease();
-            tree.SurfaceUVs.SafeRelease();
+            if (_renderingShader != null)
+                _renderingShader.Dispose();
         }
     }
 }

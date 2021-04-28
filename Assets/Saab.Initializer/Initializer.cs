@@ -19,10 +19,10 @@
 // Module		:
 // Description	: Bindings stub for Gizmo Messages
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.9.1
+// Product		: GizmoBase 2.10.5
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
-//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and IRIX® for  
+//			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
 //			usage in Game or VisSim development.
 //
 //
@@ -33,6 +33,15 @@
 // AMO	180607	Created file        (2.9.1)
 //
 //******************************************************************************
+
+// ----------- Some defines ---------------------------------
+
+//#define SHOW_MEMORY       // Show memory used in PlotViz
+#define SHOW_FPS            // Show FPS in PlotViz
+//#define SHOW_TRACERS
+
+// ------------------------ Code ----------------------------
+
 using GizmoSDK.GizmoBase;
 using UnityEngine;
 using System.Threading;
@@ -44,13 +53,13 @@ namespace Saab.Unity.Initializer
 {
     public class Initializer : MonoBehaviour
     {
-        private DebugCommandStation station=null;
+        //private DebugCommandStation station=null;
 
 #if UNITY_ANDROID
 
         private AndroidJavaObject multicastLock;
 
-#endif
+#endif //UNITY_ANDROID
 
         void SetupJavaBindings()
         {
@@ -74,7 +83,7 @@ namespace Saab.Unity.Initializer
             Message.Send("GizmoSDK", MessageLevel.DEBUG, $"assetManager {assetManager}");
 
             SerializeAdapter.SetAssetManagerHandle(System.IntPtr.Zero, assetManager.GetRawObject());
-#endif
+#endif //UNITY_ANDROID
         }
 
         void EnableMulticastState()
@@ -93,18 +102,19 @@ namespace Saab.Unity.Initializer
 
             Message.Send(Message.GIZMOSDK, MessageLevel.DEBUG, "MultiCast Lock acquired");
 
-            station = new DebugCommandStation("udp::45456?nic=${wlan0}&blocking=no");
+            //station = new DebugCommandStation("udp::45456?nic=${wlan0}&blocking=no");
 
-            Thread thread = new Thread(new ThreadStart(WorkThreadFunction));
-            thread.Start();
-#endif
+            //Thread thread = new Thread(new ThreadStart(WorkThreadFunction));
+            //thread.Start();
+
+#endif //UNITY_ANDROID
         }
 
-        private void WorkThreadFunction()
-        {
-            while (station != null && station.Exec())
-                Thread.Sleep(10);
-        }
+        //private void WorkThreadFunction()
+        //{
+        //    while (station != null && station.Exec())
+        //        System.Threading.Thread.Sleep(10);
+        //}
                 
 
         private void Awake()
@@ -113,9 +123,16 @@ namespace Saab.Unity.Initializer
               
             Message.OnMessage += Message_OnMessage;
 
+#if SHOW_MEMORY
+            // Set to tru to enable memory tracing. Heavy load
             MemoryControl.DebugMem(true);   // Enable trace of allocated memory
+#endif
 
+#if UNITY_ANDROID
             GizmoSDK.GizmoBase.Monitor.InstallMonitor("udp::45454?nic=${wlan0}");
+#else
+            GizmoSDK.GizmoBase.Monitor.InstallMonitor();
+#endif //UNITY_ANDROID
 
             Message.SetMessageLevel(MessageLevel.PERF_DEBUG);
 
@@ -130,13 +147,13 @@ namespace Saab.Unity.Initializer
             EnableMulticastState();
                         
 
-            #region -------- Test Related stuff in init --------------------
+#region -------- Test Related stuff in init --------------------
 
             //SetupJavaBindings();
 
             //test();
 
-            #endregion
+#endregion
 
             // Set up scene manager camera
 
@@ -144,10 +161,12 @@ namespace Saab.Unity.Initializer
             CameraControl cameracontrol = GetComponent<CameraControl>();
 
             scenemanager.SceneManagerCamera = cameracontrol;
+
         }
 
         private void Message_OnMessage(string sender, MessageLevel level, string message)
         {
+            // Just to route some messages from Gizmo to managed unity
 
             switch (level & MessageLevel.LEVEL_MASK)
             {
@@ -180,27 +199,75 @@ namespace Saab.Unity.Initializer
             }
         }
 
-        public static int counter = 0;
+        private int _counter = 0;
+
+        private PerformanceTracer _tracer;
+
+        private double _frameDurationTime = 0;
+
+        private double _frameTime = 0;
 
         private void Update()
         {
-            counter++;
+            double time = GizmoSDK.GizmoBase.Time.SystemSeconds;
 
-            if (counter%30 == 0)
+            if (_frameTime>0)
+                _frameDurationTime = 0.999 * _frameDurationTime + 0.001 * (time - _frameTime);
+
+            _frameTime = time;
+
+
+            try
             {
-                //System.GC.Collect();
-                //System.GC.WaitForPendingFinalizers();
-                
-                GizmoSDK.GizmoBase.Monitor.AddValue("mem", MemoryControl.GetAllocMem());
+                Performance.Enter("Initializer.Update");
 
-                GizmoSDK.GizmoBase.Monitor.AddValue("internal", MemoryControl.GetAllocMem(0, 0, false, true));
+                // Example of getting performance graphical output
 
-                GizmoSDK.GizmoBase.Monitor.AddValue("dyn", MemoryControl.GetAllocMem(66666));
+#if SHOW_TRACERS
+
+                if (_counter == 10)
+                {
+                    tracer = new PerformanceTracer();
+
+                    tracer.AddAll();
+
+                    tracer.Run();
+                }
+
+#endif // SHOW_TRACERS
+
+
+                _counter++;
+
+                // Exemple of getting allocate dmemory in native parts
+
+#if SHOW_MEMORY
+                if (_counter % 30 == 0)
+                {
+                    //System.GC.Collect();
+                    //System.GC.WaitForPendingFinalizers();
+
+                    GizmoSDK.GizmoBase.Monitor.AddValue("mem", MemoryControl.GetAllocMem());
+
+                    GizmoSDK.GizmoBase.Monitor.AddValue("internal", MemoryControl.GetAllocMem(0, 0, false, true));
+
+                    GizmoSDK.GizmoBase.Monitor.AddValue("dyn", MemoryControl.GetAllocMem(66666));
+
+                    GizmoSDK.GizmoBase.Monitor.AddValue("tex", Image.GetRegisteredImageData());
+                }
+#endif //SHOW_MEMORY
+
+#if SHOW_FPS
+                if (_counter % 30 == 0)
+                {
+                    GizmoSDK.GizmoBase.Monitor.AddValue("fps", 1 / _frameDurationTime);
+                }
+#endif //SHOW_FPS
+
             }
-
-            if (counter % 1000 == 0)
+            finally
             {
-                Performance.DumpPerformanceInfo();
+                Performance.Leave();
             }
         }
     }

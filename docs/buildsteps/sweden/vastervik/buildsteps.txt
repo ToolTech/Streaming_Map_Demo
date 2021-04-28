@@ -1,0 +1,198 @@
+-module Utility -func probe S:\Build_Maps\Sweden\vastervik\vricon_3d_surface_model_collada\data
+
+GizmoSDK::
+{
+        "probe_result":
+                {
+                        "score":        25,
+                        "type": "COMPRESSED"
+                },
+        "transforms":   [
+                        {
+                                "parameters":
+                                        {
+                                                "source":       "str",
+                                                "destination":  "str"
+                                        },
+                                "module":       "Utility",
+                                "func": "extract",
+                                "type": "*",
+                                "description":  "Extract compressed data"
+                        }]
+}
+
+-module Utility -func extract S:\Build_Maps\Sweden\vastervik\vricon_3d_surface_model_collada\data S:\Build_Maps\Sweden\vastervik\vricon_3d_surface_model_collada\extracted
+
+-module Utility -func probe S:\Build_Maps\Sweden\vastervik\vricon_3d_surface_model_collada\extracted
+
+GizmoSDK::
+{
+        "probe_result":
+                {
+                        "top":  "0/0/0_0_0/0_0_0",
+                        "score":        100,
+                        "type": "VRICON-3D-USE-DDS",
+                        "info":
+                                {
+                                        "DbI-Database Origin":  "33N X6402825.000 Y594575.000 H56.000",
+                                        "DbI-SZ":       "[-6301,-53,-4902,6301,53,4902]",
+                                        "DbI-MeterScale":       1,
+                                        "DbI-CoordSystem":      "WGS84:UTM33N,ELLIPSOID"
+                                }
+                },
+        "transforms":   [
+                        {
+                                "parameters":
+                                        {
+                                                "source":       "str",
+                                                "destination":  "str",
+                                                "rebuild":      "bool:{false}",
+                                                "min_size":     "int:{0}:[0-]"
+                                        },
+                                "module":       "Image",
+                                "func": "convertDDS",
+                                "type": "VRICON-3D",
+                                "description":  "Convert Vricon3D images to .dds format"
+                        }]
+}
+
+
+-module Image -func convertDDS S:\Build_Maps\Sweden\vastervik\vricon_3d_surface_model_collada\extracted S:\Build_Maps\Sweden\vastervik\vricon_3d_surface_model_collada\dds -monitor
+
+-module Utility -func probe S:\Build_Maps\Sweden\vastervik\vricon_3d_surface_model_collada\dds
+
+GizmoSDK::
+{
+        "probe_result":
+                {
+                        "top":  "0/0/0_0_0/0_0_0",
+                        "score":        100,
+                        "type": "VRICON-3D",
+                        "info":
+                                {
+                                        "DbI-Database Origin":  "33N X6402825.000 Y594575.000 H56.000",
+                                        "DbI-SZ":       "[-6301,-53,-4902,6301,53,4902]",
+                                        "DbI-MeterScale":       1,
+                                        "DbI-CoordSystem":      "WGS84:UTM33N,ELLIPSOID"
+                                }
+                },
+        "transforms":   [
+                        {
+                                "parameters":
+                                        {
+                                                "dds":  "bool:{no}",
+                                                "offset_y_out": "int:{56}",
+                                                "offset_x_out": "int:{594575}",
+                                                "offset_z_out": "int:{-6402825}",
+                                                "etc2": "bool:{no}",
+                                                "source":       "str",
+                                                "destination":  "str",
+                                                "rebuild":      "bool:{no}",
+                                                "cs_out":       "str:{WGS84:UTM33N,ELLIPSOID}",
+                                                "quality":      "int:{0-100:40}",
+                                                "gen_mipmaps":  "bool:{no}"
+                                        },
+                                "module":       "Vricon",
+                                "func": "convert",
+                                "type": "GZ-RES",
+                                "description":  "Convert Vricon3D format to Gizmo3D format"
+                        }]
+}
+
+-module Vricon -func convert -cs_out WGS84:UTM33N,ELLIPSOID -offset_x_out 594575 -offset_y_out 56 -offset_z_out -6402825 S:\Build_Maps\Sweden\vastervik\vricon_3d_surface_model_collada\dds S:\Build_Maps\Sweden\vastervik\vricon_3d_surface_model_collada\processed -dds -monitor -rebuild
+
+
+-module Utility -func probe S:\Build_Maps\Sweden\vastervik\vricon_3d_surface_model_collada\processed
+
+GizmoSDK::
+{
+        "probe_result":
+                {
+                        "top":  "0/0/0_0_0/0_0_0",
+                        "score":        80,
+                        "type": "GZ-RES",
+                        "info":
+                                {
+                                        "DbI-Database Origin":  "33N X6402825.000 Y594575.000 H56.000",
+                                        "DbI-CreationTime":     "2020-06-04 12:13:48",
+                                        "DbI-LR":       4194304,
+                                        "DbI-SZ":       "[-6301.783203125,-29.5755958557129,-4901.61083984375,6301.94140625,40.6904945373535,4902.296875]",
+                                        "DbI-MeterScale":       1,
+                                        "DbI-Type":     "gzd",
+                                        "DbI-CoordSystem":      "WGS84:UTM33N,ELLIPSOID",
+                                        "DbI-Version":  "2.16.0"
+                                }
+                },
+        "transforms":   [
+                        {
+                                "parameters":
+                                        {
+                                                "source":       "str"
+                                        },
+                                "module":       "DB",
+                                "func": "build",
+                                "type": "GZ-MAP",
+                                "description":  "Build Gizmo3D map"
+                        }]
+}
+
+-module DB -func build  S:\Build_Maps\Sweden\vastervik\vricon_3d_surface_model_collada\processed -monitor
+
+Built database with max lod 4194304 and with extent (-6301.8095703125,-52.7706146240234,-4901.6201171875)-(6301.94140625,53.7452697753906,4902.296875)
+
+
+Date:2020-06-04 14:22:47
+MaxLOD:4194304
+Size:(-6301.8095703125,-52.7706146240234,-4901.6201171875)-(6301.94140625,53.7452697753906,4902.296875)
+Origin:33N X6402825.000 Y594575.000 H56.000
+CoordSys:WGS84:UTM33N,ELLIPSOID
+Projection:UTM
+Meter Scale:1
+Author:AMO
+Comment:Only for Demo Purposes and Development
+Builder:2.16.0
+GizmoSDK:2.10.6
+GZD:15
+
+-module Utility -func probe S:\Build_Maps\Sweden\vastervik\vricon_3d_surface_model_collada\processed
+
+GizmoSDK::
+{
+        "probe_result":
+                {
+                        "score":        100,
+                        "type": "GZ-MAP",
+                        "info":
+                                {
+                                        "Text Comment": "Only for Demo Purposes and Development",
+                                        "DbI-Database Origin":  "33N X6402825.000 Y594575.000 H56.000",
+                                        "DbI-CreationTime":     "2020-06-04 12:22:47",
+                                        "DbI-LR":       4194304,
+                                        "DbI-SZ":       "[-6301.8095703125,-52.7706146240234,-4901.6201171875,6301.94140625,53.7452697753906,4902.296875]",
+                                        "DbI-Projection":       "UTM",
+                                        "DbI-Ellipsoid":        "WGS 1984",
+                                        "DbI-MeterScale":       1,
+                                        "DbI-Type":     "gzd",
+                                        "DbI-Author":   "AMO",
+                                        "DbI-CoordSystem":      "WGS84:UTM33N,ELLIPSOID",
+                                        "DbI-Version":  "2.16.0"
+                                }
+                }
+}
+
+// below is not yet done ....
+
+http://www.rcn.montana.edu/resources/converter.aspx
+
+Origin 		57.50434228662285 14.148521178770682  	N6373849 E448977
+
+SW corner 	57.04699341231902 13.334816894102443	N6373849-50000 E448977-50000
+
+NE corner	57.956335477536186 14.982714088923474	N6373849+50000 E448977+50000
+
+
+// ------------------------------ Processing ------------------------------------------------
+
+-module Analyze -func projector D:\Maps\Eksjo\processed\13 D:\Maps\Eksjo\analyzed\13 -monitor
+
+-module AnalyzeGround -func analyze D:\Maps\Eksjo\analyzed\13 D:\Maps\Eksjo\ground\13 -monitor

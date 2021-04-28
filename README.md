@@ -1,7 +1,9 @@
 Streaming Map Demo
 ==================
 
-<B>A Saab Dynamics demo of the Streaming Binary Data (SBD) map format</B>
+<B>A Saab Dynamics demo of the Streaming Binary Data Architecture</B>
+
+This is a generic streaming API for 3D engines (Unity,Unreal...) that allows fast streaming updates of huge 3D datasets located in cloud, from disc or procedural.
 
 This GIT repository will allow you to take a look at a Unity demo, written by the Open Saab Development community using the GizmoSDK code base from Saab Dynamics, Training & Simulation.
 
@@ -18,6 +20,8 @@ Setup
 =====
 
 Setup the Unity git repository in a folder and extract the file http://www.tooltech-software.com/Maps.zip to the "Maps" folder under the Unity project.
+
+Or you can download another at https://www.dropbox.com/s/d22rhv4ly5nj09e/Maps.zip?dl=0 and uncompress to the "Maps" folder under the Unity project.
 
 The demo now comes with an URL to an existing test map http:/www.gizmosdk.se/archives/maps/sweden/eksjo/processed/map.gzd
 

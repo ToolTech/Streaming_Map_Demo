@@ -147,16 +147,16 @@ Light:
   m_GameObject: {fileID: 170076733}
   m_Enabled: 1
   serializedVersion: 10
-  m_Type: 0
+  m_Type: 1
   m_Shape: 0
   m_Color: {r: 1, g: 0.95686275, b: 0.8392157, a: 1}
-  m_Intensity: 1
+  m_Intensity: 0.3
   m_Range: 10000000
   m_SpotAngle: 146
   m_InnerSpotAngle: 1
   m_CookieSize: 0
   m_Shadows:
-    m_Type: 0
+    m_Type: 2
     m_Resolution: -1
     m_CustomResolution: -1
     m_Strength: 1
@@ -280,7 +280,7 @@ Camera:
   m_TargetDisplay: 0
   m_TargetEye: 3
   m_HDR: 1
-  m_AllowMSAA: 1
+  m_AllowMSAA: 0
   m_AllowDynamicResolution: 0
   m_ForceIntoRT: 0
   m_OcclusionCulling: 1
@@ -293,7 +293,7 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 534669902}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: 0.17586473, y: -0.52834785, z: 0.11291359, w: 0.8229038}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
@@ -313,10 +313,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   speed: 200
-  rotspeed: 20
-  X: 1166.015796387307
-  Y: 100
-  Z: 3288.2997620350284
+  rotspeed: 10
+  X: 3598.6389988320843
+  Y: 771.1196643695995
+  Z: -4294.422745347383
 --- !u!114 &534669907
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -331,10 +331,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Settings:
     DefaultShader: {fileID: 7, guid: 0000000000000000f000000000000000, type: 0}
-    CrossboardShader: {fileID: 4800000, guid: 6cc22e1327a6086419049fb82f479ecb, type: 3}
     ComputeShader: {fileID: 7200000, guid: 75616827e64e7bd478340a97f80a1da0, type: 3}
     FrameCleanupInterval: 1000
     MaxBuildTime: 0.01
+    DynamicLoaders: 4
   MapUrl: http:/www.gizmosdk.se/archives/maps/sweden/eksjo/processed/map.gzd?nic=${wlan0}
 --- !u!114 &534669908
 MonoBehaviour:
@@ -361,73 +361,95 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SceneManager: {fileID: 534669907}
+  DepthShader: {fileID: 0}
+  OcclusionCulling: 0
   EnableTrees: 1
-  EnableGrass: 1
-  UseETC2: 0
+  EnableGrass: 0
   TerrainSettings:
     GrassTextures:
     - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
+      Yoffset: 0
     - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
+      Yoffset: 0
     - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
+      Yoffset: 0
     - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
+      Yoffset: 0
     - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
+      Yoffset: 0
     - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
+      Yoffset: 0
     - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
+      Yoffset: 0
     - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
+      Yoffset: 0
     TreeTextures:
     - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
+      Yoffset: 0.12
     - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
+      Yoffset: 0.12
     - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
+      Yoffset: 0.12
     - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
+      Yoffset: 0.12
     - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
+      Yoffset: 0.12
     - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
+      Yoffset: 0.12
     - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
+      Yoffset: 0.12
     - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
+      Yoffset: 0.12
     PerlinNoise: {fileID: 2800000, guid: 7e19882b01255364e9c1cfbd084e8cd6, type: 3}
     DefaultSplatMap: {fileID: 2800000, guid: 4ae789d2ed9128d4fb4f00384e672ce9, type: 3}
     PlacementMap: {fileID: 2800000, guid: 0b35cd2ec975cae4297a5700bb887c3c, type: 3}
     wind: 0.02
+    SortByDistance: 0
     GrassDensity: 0.0912
     TreeDensity: 29.123
-    GrassShadows: 0
-    TreeShadows: 0
+    TreeTestMesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 3}
+    TreeTestMaterial: {fileID: 2100000, guid: 250724218cbc6e743b8c647cf0951eaf, type: 2}
     GrassDrawDistance: 300
     TreeDrawDistance: 5000
-    TreeTestMesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
-    TreeTestMaterial: {fileID: 2100000, guid: 250724218cbc6e743b8c647cf0951eaf, type: 2}
+    GrassShadows: 0
+    TreeShadows: 0
     ComputeTerrainShader: {fileID: 7200000, guid: 513988170bf57ee4487af2231d625bad,
       type: 3}
     GrassShader: {fileID: 4800000, guid: cd675d8109e34104fa2267afa707fa09, type: 3}
     TreeShader: {fileID: 4800000, guid: 124091d5347c85c408f244879bf65e3f, type: 3}
+  PointCloud: 0
+  TreeMesh: 0
+  _outputTex: {fileID: 0}
+  _whiteTex: {fileID: 0}

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<licenses>
+  <customer info="License Configuration for SceneBuilder" />
+  <license name="GIZMO_LICENSE" feature="7"/>
+  <license name="SCENEBUILDER_LICENSE" feature="1"/>
+  <license name="DISTRIBUTION_LICENSE" feature="31"/>
+</licenses>

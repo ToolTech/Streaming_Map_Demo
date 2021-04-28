@@ -33,9 +33,9 @@ Shader "Terrain/DynamicTerrain/Grass"
 {
 	Properties
 	{
-		_MainTexGrass("Albedo (RGB)", 2DArray) = "white" {}
+		_MainTex("Albedo (RGB)", 2DArray) = "white" {}
 		_Cutoff("Cutoff", float) = 0.38
-		_GrassTextureWaving("Grass Texture Waving ", float) = 0.01
+		_TextureWaving("Grass Texture Waving ", float) = 0.01
 		_ColorIntensity("Color Intensity", Range(0, 1)) = 0.85
 	}
 
@@ -61,13 +61,14 @@ Shader "Terrain/DynamicTerrain/Grass"
 			#define PI2 6.283185307
 
 			// ****** Textures ******
-			UNITY_DECLARE_TEX2DARRAY(_MainTexGrass);
+			UNITY_DECLARE_TEX2DARRAY(_MainTex);
 			sampler2D _PerlinNoise;
+			sampler2D _DepthTexture;
 
 			// ****** Properties ******
 			float _Cutoff;
 			float _ColorIntensity;
-			float _GrassTextureWaving;
+			float _TextureWaving;
 			fixed3 _ViewDir;
 			half3 _TerrainSize;
 			half4 _MinMaxWidthHeight[16];
@@ -75,7 +76,7 @@ Shader "Terrain/DynamicTerrain/Grass"
 			float4x4 _worldToObj;
 
 			// ****** Grass point cloud ******
-			StructuredBuffer<float4> _GrassBuffer;
+			StructuredBuffer<float4> _PointBuffer;
 
 			// Vertex shader
 			uint vert(uint id : SV_VertexID, uint instanceID : SV_InstanceID) : TEXCOORD
@@ -129,11 +130,61 @@ Shader "Terrain/DynamicTerrain/Grass"
 				return half3(h, s, (v / 255));
 			}
 
+			inline fixed2 WorldToScreenPos(fixed3 pos)
+			{
+				pos = normalize(pos - _WorldSpaceCameraPos) * (_ProjectionParams.y + (_ProjectionParams.z - _ProjectionParams.y)) + _WorldSpaceCameraPos;
+				fixed2 uv = 0;
+				fixed3 toCam = mul(unity_WorldToCamera, pos);
+				fixed camPosZ = toCam.z;
+				fixed height = 2 * camPosZ / unity_CameraProjection._m11;
+				fixed width = _ScreenParams.x / _ScreenParams.y * height;
+				uv.x = (toCam.x + width / 2) / width;
+				uv.y = (toCam.y + height / 2) / height;
+				return uv;
+			}
+
+			inline bool IsVisable(half4 position, half dist, float farClip, half3 offset)
+			{
+				half2 screenPosUV = WorldToScreenPos(position.xyz + offset);
+
+				half2 pixel = half2(1 / _ScreenParams.x, 1 / _ScreenParams.y);
+
+				float depth = tex2Dlod(_DepthTexture, half4(screenPosUV, 1, 1)).g;
+				depth = (depth * farClip);
+
+				if (depth < dist - 50)
+				{
+					return false;
+				}
+				return true;
+			}
+
+			inline bool Cull(half4 position, half4 size)
+			{
+				float farClip = _ProjectionParams.z;
+				float3 forward = mul((float3x3)unity_CameraToWorld, float3(0, 0, 1));
+
+				half dist = dot(forward, position.xyz);
+
+				bool mid = IsVisable(position, dist, farClip, half3(0, size.y / 2, 0));
+
+				if (dist > 200)
+				{
+					return !mid;
+				}
+
+				bool top = IsVisable(position, dist, farClip, half3(0, size.y, 0));
+				bool top2 = IsVisable(position, dist, farClip, half3(0, size.y + (size.y / 4), 0));
+				bool base = IsVisable(position, dist, farClip, half3(0, 0, 0));
+
+				return !(top || top2 || mid || base);
+			}
+
 			// Grass mesh generation
 			inline bool GemerateGeometry(in uint p, inout half4 grassPosition, inout half4 displacement, inout half4 displacementx, inout half4 size, inout half tilt, inout half2 uvDistortion, inout half2 textureWaving, inout half index)
 			{
 				// Get grass position from compute buffer
-				grassPosition = _GrassBuffer[p];
+				grassPosition = _PointBuffer[p];
 				half4 objPos = mul(_worldToObj, half4(grassPosition.xyz, 1));
 				half2 _uv = objPos.xz;
 				half4 uv = half4(MirrorCoordinates(_uv.xy), 1, 1);
@@ -159,7 +210,14 @@ Shader "Terrain/DynamicTerrain/Grass"
 				uvDistortion = ((uint) (grassPosition.w * 1000.0f)) % 2 ? fixed2(1.0f, 0) : fixed2(0.0f, 1.0f);
 
 				// Wind
-				textureWaving = fixed2(sin(_Time.w + PI * grassPosition.w), cos(_Time.w + PI * grassPosition.x)) * _GrassTextureWaving;
+				textureWaving = fixed2(sin(_Time.w + PI * grassPosition.w), cos(_Time.w + PI * grassPosition.x)) * _TextureWaving;
+
+				// cull
+				if (false)
+				{
+					if (Cull(grassPosition, size))
+						return false;
+				}
 
 				// Generate grass quad
 				grassPosition = half4(grassPosition.xyz, 1.0f);
@@ -283,7 +341,7 @@ Shader "Terrain/DynamicTerrain/Grass"
 				void frag(FramentInput IN, out half4 outGBuffer0 : SV_Target0, out half4 outGBuffer1 : SV_Target1, out half4 outGBuffer2 : SV_Target2, out half4 outEmission : SV_Target3)
 				{
 					// Sample texture and multiply color
-					fixed4 c = UNITY_SAMPLE_TEX2DARRAY(_MainTexGrass, IN.texcoord);
+					fixed4 c = UNITY_SAMPLE_TEX2DARRAY(_MainTex, IN.texcoord);
 
 					// Cutoff
 					clip(c.a - _Cutoff);
@@ -396,7 +454,7 @@ Shader "Terrain/DynamicTerrain/Grass"
 				{
 					FramentInput o;
 					UNITY_INITIALIZE_OUTPUT(FramentInput, o);
-					
+
 					o.texcoord = uv;
 					o.pos = mul(UNITY_MATRIX_VP, worldPosition + displacement);
 					triStream.Append(o);
@@ -460,7 +518,7 @@ Shader "Terrain/DynamicTerrain/Grass"
 				half4 frag(FramentInput IN) : SV_Target
 				{
 					// Sample texture and multiply color
-					fixed4 c = UNITY_SAMPLE_TEX2DARRAY(_MainTexGrass, IN.texcoord);
+					fixed4 c = UNITY_SAMPLE_TEX2DARRAY(_MainTex, IN.texcoord);
 				// Cutoff
 				clip(c.a - _Cutoff);
 				SHADOW_CASTER_FRAGMENT(IN)

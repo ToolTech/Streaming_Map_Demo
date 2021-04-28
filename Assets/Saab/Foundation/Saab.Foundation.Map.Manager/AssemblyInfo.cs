@@ -19,7 +19,13 @@
 // Module		: Saab.Foundation.Map.Manager
 // Description	: Information about assembly as library
 // Author		: Anders Modén		
-//		
+// Product		: Gizmo3D 2.10.6
+//
+// NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
+//			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
+//			usage in Game or VisSim development.
+//
+//
 // Revision History...							
 //									
 // Who	Date	Description						

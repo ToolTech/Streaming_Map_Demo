@@ -33,10 +33,11 @@ Shader "Terrain/DynamicTerrain/Tree"
 {
 	Properties
 	{
-		_MainTexGrass("Albedo (RGB)", 2DArray) = "white" {}
-		_Cutoff("Cutoff", float) = 0.52
-		_GrassTextureWaving("Grass Texture Waving ", float) = 0.01
-		_ColorIntensity("Color Intensity", Range(0, 1)) = 1.0
+		_MainTex("Albedo (RGB)", 2DArray) = "white" {}
+		_NormalTex("Normal", 2DArray) = "bump" {}
+		_Cutoff("Cutoff", float) = 0.62
+		_TextureWaving("Grass Texture Waving ", float) = 0.01
+		_ColorIntensity("Color Intensity", Range(0, 1)) = 1
 		_FadeNear("Fade Near value", float) = 100.0
 		_FadeFar("Fade Far value", float) = 500.0
 		_FadeNearAmount("Fade Near Amount", float) = 50
@@ -49,6 +50,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 			{
 				"Queue" = "AlphaTest"
 				"RenderType" = "Opaque"
+				"DisableBatching" = "True"
 			}
 
 			CGINCLUDE
@@ -63,19 +65,23 @@ Shader "Terrain/DynamicTerrain/Tree"
 			#define PI2 6.283185307
 
 			// ****** Textures ******
-			UNITY_DECLARE_TEX2DARRAY(_MainTexGrass);
+			UNITY_DECLARE_TEX2DARRAY(_MainTex);
+			UNITY_DECLARE_TEX2DARRAY(_NormalTex);
+			sampler2D _DepthTexture;
 			sampler2D _PerlinNoise;
 			sampler2D _ColorVariance;
 
 			// ****** Properties ******
+
 			fixed _Cutoff;
 			fixed _ColorIntensity;
-			half _GrassTextureWaving;
+			half _TextureWaving;
 
 			half _FadeNear;
 			half _FadeFar;
 			half _FadeNearAmount;
 			half _FadeFarAmount;
+			half _Yoffset[16];
 
 			fixed3 _ViewDir;
 			half3 _TerrainSize;
@@ -84,10 +90,9 @@ Shader "Terrain/DynamicTerrain/Tree"
 			half4 _Quads[24];
 			fixed4 _FrustumPlanes[6];						// Frustum planes (6 planes * 4 floats: [ normal.x, normal.y, normal.z, distance ])
 			float4x4 _worldToObj;
-			//float4x4 _worldToScreen;
 
 			// ****** Grass point cloud ******
-			StructuredBuffer<float4> _GrassBuffer;
+			StructuredBuffer<float4> _PointBuffer;
 
 			// Vertex shader
 			uint vert(uint id : SV_VertexID, uint instanceID : SV_InstanceID) : TEXCOORD
@@ -141,18 +146,71 @@ Shader "Terrain/DynamicTerrain/Tree"
 				return half3(h, s, (v / 255));
 			}
 
+			inline fixed2 WorldToScreenPos(fixed3 pos)
+			{
+				pos = normalize(pos - _WorldSpaceCameraPos) * (_ProjectionParams.y + (_ProjectionParams.z - _ProjectionParams.y)) + _WorldSpaceCameraPos;
+				fixed2 uv = 0;
+				fixed3 toCam = mul(unity_WorldToCamera, pos);
+				fixed camPosZ = toCam.z;
+				fixed height = 2 * camPosZ / unity_CameraProjection._m11;
+				fixed width = _ScreenParams.x / _ScreenParams.y * height;
+				uv.x = (toCam.x + width / 2) / width;
+				uv.y = (toCam.y + height / 2) / height;
+				return uv;
+			}
+
+			inline bool IsVisable(half4 position, half dist, float farClip, half3 offset)
+			{
+				half2 screenPosUV = WorldToScreenPos(position.xyz + offset);
+
+				half2 pixel = half2(1 / _ScreenParams.x, 1 / _ScreenParams.y);
+
+				float depth = tex2Dlod(_DepthTexture, half4(screenPosUV, 1, 1)).g;
+				depth = (depth * farClip);
+
+				if (depth < dist - 50)
+				{
+					return false;
+				}
+				return true;
+			}
+
+			inline bool Cull(half4 position, half4 size)
+			{
+				float farClip = _ProjectionParams.z;
+				float3 forward = mul((float3x3)unity_CameraToWorld, float3(0, 0, 1));
+
+				half dist = dot(forward, position.xyz);
+			
+				bool mid = IsVisable(position, dist, farClip, half3(0, size.y / 2, 0));
+				bool top = IsVisable(position, dist, farClip, half3(0, size.y, 0));
+
+				if (dist > 500)
+				{
+					return !(mid || top);
+				}
+
+				bool bottom = IsVisable(position, dist, farClip, half3(0, 0, 0));
+				bool bottom2 = IsVisable(position, dist, farClip, half3(0, size.y / 4, 0));
+				bool right = IsVisable(position, dist, farClip, half3(2 * (size.x / 3), size.y / 2, 0));
+				bool left = IsVisable(position, dist, farClip, half3(-2 * (size.x / 3), size.y / 2, 0));
+				
+				return !(mid || top || bottom || bottom2 || right || left);
+			}
+
 			// Grass mesh generation
-			inline bool GemerateGeometry(in uint p, inout half4 grassPosition, inout half4 displacement, inout half4 displacementx, inout half4 size, inout half tilt, inout half tiltx, inout fixed4 bottomColor, inout fixed4 topColor, inout float2 uvDistortion, inout fixed2 textureWaving, inout int index)
+			inline bool GemerateGeometry(in uint p, inout half4 grassPosition, inout half4 displacement, inout half4 displacementx, inout half4 size, inout half tilt, inout half tiltx, inout fixed4 bottomColor, inout fixed4 topColor, inout float2 uvDistortion, inout fixed2 textureWaving, inout int index, bool Culling)
 			{
 				// Get grass position from compute buffer
-				grassPosition = _GrassBuffer[p];
+				grassPosition = _PointBuffer[p];
 				half4 objPos = mul(_worldToObj, half4(grassPosition.xyz, 1));
+
 				half2 _uv = objPos.xz;
 				half4 uv = half4(_uv.xy, 1, 1);
 
-				half4 colorVar = tex2Dlod(_ColorVariance, uv);
-				fixed offset = 0.75f;
-				colorVar = half4(colorVar.x + offset > 1 ? 1 : colorVar.x + offset, colorVar.y + offset > 1 ? 1 : colorVar.y + offset, colorVar.z + offset > 1 ? 1 : colorVar.z + offset, 0);
+				//half4 colorVar = tex2Dlod(_ColorVariance, uv);
+				//fixed offset = 0.75f;
+				//colorVar = half4(colorVar.x + offset > 1 ? 1 : colorVar.x + offset, colorVar.y + offset > 1 ? 1 : colorVar.y + offset, colorVar.z + offset > 1 ? 1 : colorVar.z + offset, 0);
 
 				// Sample perlin noise
 				fixed4 perlinNoise = tex2Dlod(_PerlinNoise, uv);
@@ -166,8 +224,8 @@ Shader "Terrain/DynamicTerrain/Tree"
 				index = (int)grassPosition.w;
 
 				// Grass color
-				fixed4 color = fixed4(colorVar.xyz, 1.0);
-				color = fixed4(1.0, 1.0, 1.0, 1.0) * fixed4(_LightColor0.rgb.xyz, 1.0);
+				//fixed4 color = fixed4(colorVar.xyz, 1.0);
+				//color = fixed4(1.0, 1.0, 1.0, 1.0) * fixed4(_LightColor0.rgb.xyz, 1.0);
 
 				// Grass size
 				half4 minMaxWidthHeight = _MinMaxWidthHeight[index];
@@ -176,14 +234,22 @@ Shader "Terrain/DynamicTerrain/Tree"
 				size = half4(s.x, s.y, s.x, random);
 				uvDistortion = ((uint) (grassPosition.w * 1000.0f)) % 2 ? fixed2(1.0f, 0) : fixed2(0.0f, 1.0f);
 
+				// cull
+				if (Culling)
+				{
+					if (Cull(grassPosition, size))
+						return false;
+				}
+
 				// Wind
-				textureWaving = fixed2(sin(_Time.w + PI * grassPosition.w), cos(_Time.w + PI * grassPosition.x)) * _GrassTextureWaving;
+				textureWaving = fixed2(sin(_Time.w + PI * grassPosition.w), cos(_Time.w + PI * grassPosition.x)) * _TextureWaving;
 
 				// Generate grass quad
 				grassPosition = half4(grassPosition.xyz, 1.0f);
 
 				// Top vertices
-				topColor = color;
+				topColor = fixed4(1,1,1,1);
+				bottomColor = topColor;
 				half sin;
 				half cos;
 
@@ -197,7 +263,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 
 				//tilt = dot(float3(0, 1, 0), -_ViewDir) * saturate(cameraDistance / 3);
 
-				fixed3 lookview = normalize(fixed3(0,0,0) - grassPosition.xyz);
+				fixed3 lookview = normalize(_WorldSpaceCameraPos - grassPosition.xyz);
 				lookview.y = 0;
 
 				tilt = dot(lookview, normal);
@@ -205,7 +271,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 
 				//topColor.a = 1 - abs(tilt * 2);
 
-				bottomColor = topColor * fixed4(0.75f, 0.75f, 0.75f, 1.0f);
+				//bottomColor = topColor * fixed4(0.75f, 0.75f, 0.75f, 1.0f);
 				return true;
 			}
 
@@ -234,7 +300,6 @@ Shader "Terrain/DynamicTerrain/Tree"
 				#pragma target 5.0
 				//#pragma only_renderers d3d11
 				#pragma multi_compile_prepassfinal noshadowmask nodynlightmap nodirlightmap nolightmap noshadow 
-
 
 				// Fragment input
 				struct FramentInput
@@ -280,6 +345,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 					fixed2 uvDistortion, textureWaving;
 					fixed4 displacement, displacementx;
 					fixed4 bottomColor, topColor;
+					bool culling = false;
 
 					grassPosition = 0;
 					displacement = 0;
@@ -296,18 +362,18 @@ Shader "Terrain/DynamicTerrain/Tree"
 					fixed3 upNormal = fixed3(0, 1, 0);
 
 					// Generate grass mesh
-					if (GemerateGeometry(p[0], grassPosition, displacement, displacementx, size, tilt, tiltx, bottomColor, topColor, uvDistortion, textureWaving, index))
+					if (GemerateGeometry(p[0], grassPosition, displacement, displacementx, size, tilt, tiltx, bottomColor, topColor, uvDistortion, textureWaving, index, culling))
 					{
-						half dist = distance(grassPosition.xyz, fixed3(0, 0, 0));
+						half dist = distance(grassPosition.xyz, _WorldSpaceCameraPos);
 
 						half fadeAmount = _FadeNearAmount;
 						half maxdist = 30000;
 						half fade = _FadeNear;
 						half transparency = 0;
 
-						grassPosition.y -= 0.18 * size.y;
+						grassPosition.y -= _Yoffset[index] * size.y;
 
-						fixed yaw = dot(normalize(grassPosition + size.y / 2), upNormal);
+						fixed yaw = dot(normalize((grassPosition + size.y / 2) - _WorldSpaceCameraPos), upNormal);
 
 						if (dist < fade)
 						{
@@ -372,7 +438,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 						{
 							if (dist < maxdist)
 							{
-								transparency = (abs(yaw) * 2) > 1 ? 1 : (abs(yaw) * 2);
+								transparency = (abs(yaw * 4)) > 1 ? 1 : (abs(yaw * 4));
 								topColor.a = transparency < fade ? transparency : fade;
 								bottomColor.a = topColor.a;
 							}
@@ -396,7 +462,8 @@ Shader "Terrain/DynamicTerrain/Tree"
 				void frag(FramentInput IN, out half4 outGBuffer0 : SV_Target0, out half4 outGBuffer1 : SV_Target1, out half4 outGBuffer2 : SV_Target2, out half4 outEmission : SV_Target3)
 				{
 					// Sample texture and multiply color
-					fixed4 c = UNITY_SAMPLE_TEX2DARRAY(_MainTexGrass, IN.texcoord);
+					fixed4 c = UNITY_SAMPLE_TEX2DARRAY(_MainTex, IN.texcoord);
+					fixed3 n = UNITY_SAMPLE_TEX2DARRAY(_NormalTex, IN.texcoord);
 
 					const half4x4 thresholdMatrix =
 					{
@@ -405,8 +472,6 @@ Shader "Terrain/DynamicTerrain/Tree"
 						4, 12, 2, 10,
 						16, 8, 14, 6
 					};
-
-					//float3 screenPos = mul(_worldToScreen, IN.position);
 
 					fixed threshold = thresholdMatrix[IN.position.x % 4][IN.position.y % 4] / 17;
 
@@ -435,6 +500,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 					o.Occlusion = 1.0f;
 					o.Smoothness = 0.0f;
 					o.Specular = 0.0f;
+					//o.Normal = n;
 					o.Normal = IN.worldNormal; // This is used only for ambient occlusion
 
 					// Setup lighting environment
@@ -545,6 +611,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 						fixed2 uvDistortion, textureWaving;
 						fixed4 displacement, displacementx;
 						fixed4 bottomColor, topColor;
+						bool culling = false;
 
 						grassPosition = 0;
 						displacement = 0;
@@ -561,10 +628,10 @@ Shader "Terrain/DynamicTerrain/Tree"
 						fixed3 upNormal = fixed3(0, 1, 0);
 
 						// Generate grass mesh
-						if (GemerateGeometry(p[0], grassPosition, displacement, displacementx, size, tilt, tiltx, bottomColor, topColor, uvDistortion, textureWaving, index))
+						if (GemerateGeometry(p[0], grassPosition, displacement, displacementx, size, tilt, tiltx, bottomColor, topColor, uvDistortion, textureWaving, index, culling))
 						{
-							half dist = distance(grassPosition.xyz, fixed3(0, 0, 0));
-							grassPosition.y -= 0.18 * size.y;
+							half dist = distance(grassPosition.xyz, _WorldSpaceCameraPos);
+							grassPosition.y -= _Yoffset[index] * size.y;
 
 							half yaw = dot(normalize(grassPosition + size.y / 2), upNormal);
 
@@ -583,16 +650,16 @@ Shader "Terrain/DynamicTerrain/Tree"
 							}
 							else // ************ Front ************
 							{
-
+								//triStream.RestartStrip();
 								half4 front = _Quads[index * 3];
 
 								// Top vertices (crossed)
-								AppendVertex(triStream, grassPosition, displacementx * ((0.5 - front.x) * 2) + half4(0, size.y, 0, 0), upNormal, fixed3((front.x * 0.5) + textureWaving.x, 1, index), topColor);
-								AppendVertex(triStream, grassPosition, -displacementx * ((front.y - 0.5) * 2) + half4(0, size.y, 0, 0), upNormal, fixed3((front.y * 0.5) + textureWaving.y, 1, index), topColor);
+								AppendVertex(triStream, grassPosition, displacementx * ((0.5 - front.x) * 2) + half4(0, size.y, 0, 0), displacementx, fixed3((front.x * 0.5) + textureWaving.x, 1, index), topColor);
+								AppendVertex(triStream, grassPosition, -displacementx * ((front.y - 0.5) * 2) + half4(0, size.y, 0, 0), -displacementx, fixed3((front.y * 0.5) + textureWaving.y, 1, index), topColor);
 
 								// Bottom vertices (crossed)
-								AppendVertex(triStream, grassPosition, displacementx * ((0.5 - front.x) * 2), upNormal, fixed3((front.x * 0.5), 0.5, index), bottomColor);
-								AppendVertex(triStream, grassPosition, -displacementx * ((front.y - 0.5) * 2), upNormal, fixed3((front.y * 0.5), 0.5, index), bottomColor);
+								AppendVertex(triStream, grassPosition, displacementx * ((0.5 - front.x) * 2), displacementx, fixed3((front.x * 0.5), 0.5, index), bottomColor);
+								AppendVertex(triStream, grassPosition, -displacementx * ((front.y - 0.5) * 2), -displacementx, fixed3((front.y * 0.5), 0.5, index), bottomColor);
 							}
 
 						}
@@ -601,7 +668,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 					half4 frag(FramentInput IN) : SV_Target
 					{
 						// Sample texture and multiply color
-						fixed4 c = UNITY_SAMPLE_TEX2DARRAY(_MainTexGrass, IN.texcoord);
+						fixed4 c = UNITY_SAMPLE_TEX2DARRAY(_MainTex, IN.texcoord);
 
 					// Cutoff
 					clip((c.a - _Cutoff));
