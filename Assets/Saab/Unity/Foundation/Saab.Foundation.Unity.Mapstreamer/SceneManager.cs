@@ -98,13 +98,13 @@ namespace Saab.Foundation.Unity.MapStreamer
         // ************* [Deprecated] *************
         //public UnityEngine.Shader CrossboardShader;
         public UnityEngine.ComputeShader ComputeShader;
-        public int FrameCleanupInterval;
-        public double MaxBuildTime;
-        public byte DynamicLoaders;
+        public int      SceneCleanupTime;                   // Time interval to cleanup scene and do gc
+        public double   MaxBuildTime;                       // Max time to spend in frame to build objects
+        public byte     DynamicLoaders;
 
         public static readonly SceneManagerSettings Default = new SceneManagerSettings 
         { 
-            FrameCleanupInterval = 1000, 
+            SceneCleanupTime = 10, 
             MaxBuildTime = 0.016,
             DynamicLoaders = 4,
         };
@@ -129,14 +129,14 @@ namespace Saab.Foundation.Unity.MapStreamer
         public event EventHandler_OnGameObject  OnNewLod;        // GameObject that toggles on off dep on distance
         public event EventHandler_OnGameObject  OnNewTransform;  // GameObject that has a specific parent transform
         public event EventHandler_OnGameObject  OnNewLoader;     // GameObject that works like a dynamic loader
-        public event EventHandler_OnGameObject OnEnterPool;
+        public event EventHandler_OnGameObject  OnEnterPool;
 
         public delegate void EventHandler_Traverse();
 
-        public event EventHandler_Traverse      OnPreTraverse;
-        public event EventHandler_Traverse      OnPostTraverse;
-        public event EventHandler_OnNode        OnMapChanged;
-        public event EventHandler_OnMapLoadError OnMapLoadError;
+        public event EventHandler_Traverse          OnPreTraverse;
+        public event EventHandler_Traverse          OnPostTraverse;
+        public event EventHandler_OnNode            OnMapChanged;
+        public event EventHandler_OnMapLoadError    OnMapLoadError;
 
         #region ------------- Privates ----------------
 
@@ -147,8 +147,8 @@ namespace Saab.Foundation.Unity.MapStreamer
         private GameObject _root;
 
         private NodeAction _actionReceiver;
-  
-        private int _unusedCounter = 0;
+
+        private Timer _cleanupTimer = new Timer();
   
         private readonly string ID = "Saab.Foundation.Unity.MapStreamer.SceneManager";
 
@@ -647,9 +647,6 @@ namespace Saab.Foundation.Unity.MapStreamer
                 
                 
 
-                
-
-
                 //// Add example object under ROI --------------------------------------------------------------
 
                 //MapPos mapPos;
@@ -916,15 +913,11 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
         }
 
-        Stopwatch _sw = new Stopwatch();
+        Timer _timeInPendingUpdates = new Timer();
 
         private void ProcessPendingUpdates()
         {
-            if (!_sw.IsRunning)
-                _sw.Start();
             // We must be called in edit lock
-
-            var timer = System.Diagnostics.Stopwatch.StartNew();
 
             #region Dynamic Loading/Add/Remove native handles ---------------------------------------------------------------
 
@@ -936,7 +929,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
 #endregion
 
-#region Activate/Deactivate GameObjects based on scenegraph -----------------------------------------------------
+            #region Activate/Deactivate GameObjects based on scenegraph -----------------------------------------------------
 
             Performance.Enter("SM.ProcessPendingUpdates.ActivateGO");
 
@@ -944,15 +937,16 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             Performance.Leave();
 
-#endregion
+            #endregion
 
-#region Update slow loading assets ------------------------------------------------------------------------------
+            #region Update slow loading assets ------------------------------------------------------------------------------
 
             Performance.Enter("SM.ProcessPendingUpdates.DequeBuildGO");
 
-            var remainingTime = TimeSpan.FromSeconds(Settings.MaxBuildTime) - timer.Elapsed;
-            ProcessPendingBuilders(remainingTime);
-            
+            var _remainingTimeToBuild = Settings.MaxBuildTime - _timeInPendingUpdates.GetTime();
+
+            if(_remainingTimeToBuild>0)
+                ProcessPendingBuilders(_remainingTimeToBuild);
 
             Performance.Leave();
 
@@ -960,15 +954,13 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             // Right now we use this as a dirty fix to handle unused shared materials            
 
-            //_unusedCounter = (_unusedCounter + 1) % Settings.FrameCleanupInterval;
-            //if (_unusedCounter == 0)
-            if(_sw.ElapsedMilliseconds >= Settings.FrameCleanupInterval)
+            if(_cleanupTimer.GetTime() >= Settings.SceneCleanupTime)
             {             
                 Performance.Enter("SM.ProcessPendingUpdates.Cleanup");
 
                 //debug Remove unused Variable
                 //UnityEngine.Debug.LogFormat(LogType.Error, LogOption.NoStacktrace, this, "clean up! {0}", _sw.ElapsedMilliseconds);
-                _sw.Restart();
+                _cleanupTimer.Reset();
 
                 Resources.UnloadUnusedAssets();
                 Performance.Leave();
@@ -1038,11 +1030,11 @@ namespace Saab.Foundation.Unity.MapStreamer
             pendingActivations.Clear();
         }
 
-        private void ProcessPendingBuilders(TimeSpan timeBudget)
+        private void ProcessPendingBuilders(double maxBuildTime)
         {
-            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var _timeInPendingBuilders = new Timer();
 
-            while (pendingBuilds.Count > 0 && sw.Elapsed < timeBudget)
+            while ( (pendingBuilds.Count > 0) && (_timeInPendingBuilders.GetTime() < maxBuildTime))
             {
                 var buildInfo = pendingBuilds.Dequeue();
 
