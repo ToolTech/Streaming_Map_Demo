@@ -25,16 +25,7 @@ Or you can download another at https://www.dropbox.com/s/d22rhv4ly5nj09e/Maps.zi
 
 The demo now comes with an URL to an existing test map http:/www.gizmosdk.se/archives/maps/sweden/eksjo/processed/map.gzd
 
-To run with 32 bits libs change the Assets/csc.rsp file to 
-
--define:NATIVE_32
--define:UNITY
-
-and to run 64 bits libs change to 
-
--define:NATIVE_64
--define:UNITY
-
+To run, open the Packages.sln under directory 'Packages' and select 'debug/release/x64/ARM64 etc' solution and build. This will fetch nuget packages for all components
 
 
 Running the demo
