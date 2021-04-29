@@ -38,10 +38,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Coordinate" Version="2.11.1.2" />
-    <PackageReference Include="Gizmo3D" Version="2.11.1.2" />
-    <PackageReference Include="GizmoBase" Version="2.11.1.2" />
-    <PackageReference Include="GizmoDistribution" Version="2.11.1.2" />
+    <PackageReference Include="Coordinate" Version="2.11.1.3" />
+    <PackageReference Include="Gizmo3D" Version="2.11.1.3" />
+    <PackageReference Include="GizmoBase" Version="2.11.1.3" />
+    <PackageReference Include="GizmoDistribution" Version="2.11.1.3" />
   </ItemGroup>
 
 </Project>
