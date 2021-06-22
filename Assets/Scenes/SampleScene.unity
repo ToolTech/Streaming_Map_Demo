@@ -332,7 +332,7 @@ MonoBehaviour:
   Settings:
     DefaultShader: {fileID: 7, guid: 0000000000000000f000000000000000, type: 0}
     ComputeShader: {fileID: 7200000, guid: 75616827e64e7bd478340a97f80a1da0, type: 3}
-    FrameCleanupInterval: 1000
+    SceneCleanupTime: 10
     MaxBuildTime: 0.01
     DynamicLoaders: 4
   MapUrl: http:/www.gizmosdk.se/archives/maps/sweden/eksjo/processed/map.gzd?nic=${wlan0}
@@ -371,31 +371,31 @@ MonoBehaviour:
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
       Yoffset: 0
-    - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: ea117e979ce44a44da900e5a7e728ae2, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
       Yoffset: 0
-    - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: d6929f302024f9d47bdc77dc30d504e8, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
       Yoffset: 0
-    - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: 53af13b5f08426645ac88632d0d76504, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
       Yoffset: 0
-    - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: e7857884386c60543ba2a332e003517a, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
       Yoffset: 0
-    - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: 6a56b83030d34254ab9e8b3803bd5a07, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
       Yoffset: 0
-    - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: 53af13b5f08426645ac88632d0d76504, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
       Yoffset: 0
-    - FeatureTexture: {fileID: 2800000, guid: ff4b295e2ad7d4e48b4b80f4e67a53b5, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: ea117e979ce44a44da900e5a7e728ae2, type: 3}
       Height: {x: 0.2, y: 0.6}
       Width: {x: 0.6, y: 1}
       Yoffset: 0
@@ -403,8 +403,20 @@ MonoBehaviour:
     - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
+      Yoffset: 0.2
+    - FeatureTexture: {fileID: 2800000, guid: 17a742decc8fba5488cac793d64a0d79, type: 3}
+      Height: {x: 7, y: 16}
+      Width: {x: 7, y: 16}
+      Yoffset: 0.2
+    - FeatureTexture: {fileID: 2800000, guid: 068b08ab1f96ae448a9cb2cfa1140fe4, type: 3}
+      Height: {x: 7, y: 14}
+      Width: {x: 7, y: 14}
       Yoffset: 0.12
-    - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: bafbcfee8f8bed34f88c84bd3dc1fc8a, type: 3}
+      Height: {x: 5, y: 12}
+      Width: {x: 5, y: 12}
+      Yoffset: 0.12
+    - FeatureTexture: {fileID: 2800000, guid: e722561d90ea85448b100a299a03ccf2, type: 3}
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
       Yoffset: 0.12
@@ -412,23 +424,11 @@ MonoBehaviour:
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
       Yoffset: 0.12
-    - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: 068b08ab1f96ae448a9cb2cfa1140fe4, type: 3}
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
       Yoffset: 0.12
-    - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
-      Height: {x: 7, y: 14}
-      Width: {x: 7, y: 14}
-      Yoffset: 0.12
-    - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
-      Height: {x: 7, y: 14}
-      Width: {x: 7, y: 14}
-      Yoffset: 0.12
-    - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
-      Height: {x: 7, y: 14}
-      Width: {x: 7, y: 14}
-      Yoffset: 0.12
-    - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
+    - FeatureTexture: {fileID: 2800000, guid: 17a742decc8fba5488cac793d64a0d79, type: 3}
       Height: {x: 7, y: 14}
       Width: {x: 7, y: 14}
       Yoffset: 0.12
@@ -436,7 +436,7 @@ MonoBehaviour:
     DefaultSplatMap: {fileID: 2800000, guid: 4ae789d2ed9128d4fb4f00384e672ce9, type: 3}
     PlacementMap: {fileID: 2800000, guid: 0b35cd2ec975cae4297a5700bb887c3c, type: 3}
     wind: 0.02
-    SortByDistance: 0
+    SortByDistance: 1
     GrassDensity: 0.0912
     TreeDensity: 29.123
     TreeTestMesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 3}
