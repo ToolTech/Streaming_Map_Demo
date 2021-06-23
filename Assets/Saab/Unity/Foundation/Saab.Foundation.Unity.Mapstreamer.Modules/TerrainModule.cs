@@ -16,6 +16,7 @@
 using UnityEngine;
 using System.Collections;
 using System;
+using Saab.Utility.GfxCaps;
 
 namespace Saab.Foundation.Unity.MapStreamer.Modules
 {
@@ -72,7 +73,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private TreeModule _treeModule;
         private GameObject _modulesParent;
         private Camera _camera;
-        
+
         [SerializeField]
         private RenderTexture _outputTex;
         [SerializeField]
@@ -93,14 +94,24 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             if (SceneManager == null) { return; }
 
+            EnableTrees = GfxCaps.CurrentCaps.HasFlag(Capability.UseDynamicTreeCrossboards);
+            EnableGrass = GfxCaps.CurrentCaps.HasFlag(Capability.UseDynamicGrassCrossboards);
+
+            var grassSetting = GfxCaps.GetGrassSettings;
+            var treeSetting = GfxCaps.GetTreeSettings;
+
+            TerrainSettings.GrassDensity = grassSetting.Density;
+            TerrainSettings.GrassDrawDistance = grassSetting.DrawDistance;
+            TerrainSettings.TreeDensity = treeSetting.Density;
+            TerrainSettings.TreeDrawDistance = treeSetting.DrawDistance;
+
             InitializeModule(SceneManager);
         }
+
         public void InitializeModule(SceneManager sceneManager)
         {
             SceneManager = sceneManager;
             _modulesParent = this.gameObject;
-
-            
 
             if (SceneManager)
             {
@@ -168,7 +179,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             GenerateFrustumPlane(_camera);
 
-            if(OcclusionCulling)
+            if (OcclusionCulling)
                 GetDepthTexture(_camera);
 
             if (_treeModule != null && EnableTrees)

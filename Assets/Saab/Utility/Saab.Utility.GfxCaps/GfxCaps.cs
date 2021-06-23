@@ -57,10 +57,44 @@ namespace Saab.Utility.GfxCaps
         DefaultCaps                 = 0xffff,
     }
 
+    public struct RenderSettings
+    {
+        public int DrawDistance;
+        public float Density;
+
+        public RenderSettings(int drawDistance, float density)
+        {
+            DrawDistance = drawDistance;
+            Density = density;
+        }
+    }
+
     public class GfxCaps
     {
         public static Capability CurrentCaps = KeyDatabase.GetDefaultUserKey("GfxCaps/CurrentCaps", Capability.DefaultCaps);
-       
+
+        public static RenderSettings GetGrassSettings
+        {
+            get
+            {
+                var renderSettings = new RenderSettings(300, 0.1f);
+                renderSettings.DrawDistance = KeyDatabase.GetDefaultUserKey("GfxCaps/Grass/DrawDistance", renderSettings.DrawDistance);
+                renderSettings.Density = KeyDatabase.GetDefaultUserKey("GfxCaps/Grass/Density", renderSettings.Density);
+                return renderSettings;
+            }
+        }
+
+        public static RenderSettings GetTreeSettings
+        {
+            get
+            {
+                var renderSettings = new RenderSettings(5000, 20);
+                renderSettings.DrawDistance = KeyDatabase.GetDefaultUserKey("GfxCaps/Tree/DrawDistance", renderSettings.DrawDistance);
+                renderSettings.Density = KeyDatabase.GetDefaultUserKey("GfxCaps/Tree/Density", renderSettings.Density);
+                return renderSettings;
+            }
+        }
+
         public static bool HasCapability(Capability caps)
         {
             return (caps & CurrentCaps) != 0;
