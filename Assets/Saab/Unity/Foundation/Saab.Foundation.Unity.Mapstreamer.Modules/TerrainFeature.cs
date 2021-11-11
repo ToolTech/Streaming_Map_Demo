@@ -95,11 +95,11 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public Shader Shader;
 
         public int DrawDistance = 500;
-        public float NearFadeStart = 35;
+        public float NearFadeStart = 5;
         public float NearFadeEnd = 1;
         public bool DrawShadows = true;
         public float Wind = 0.0f;
-        public float Density = 22.127f;
+        public float Density = 20;
 
         public bool SortByDistance;
 

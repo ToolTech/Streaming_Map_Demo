@@ -19,7 +19,7 @@
 // Module		:
 // Description	: manages camera updates
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.10.6
+// Product		: Gizmo3D 2.11.47
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -111,6 +111,15 @@ namespace Saab.Foundation.Unity.MapStreamer
             Z = Z - moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.right.z;
         }
 
+        private void MoveUp(float moveSpeed)
+        {
+            X = X + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.up.x;
+            Y = Y + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.up.y;
+
+            // As we have a Right Handed ON system and unitys Z points into the screen we apply a negative direction
+            Z = Z - moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.up.z;
+        }
+
         private Quaternion Tilt(float rotationSpeed)
         {
             System.Numerics.Quaternion.CreateFromYawPitchRoll(0, 0, 0);
@@ -192,19 +201,23 @@ namespace Saab.Foundation.Unity.MapStreamer
                     MoveForward(-speed);
                 }
 
-
+                if(Input.GetKey(KeyCode.Space))
+                {
+                    MoveUp(speed/2);
+                }
+                if (Input.GetKey(KeyCode.C))
+                {
+                    MoveUp(-speed/2);
+                }
 
                 if (Input.GetKey("d"))
                 {
                     MoveRight(speed);
                 }
-
                 if (Input.GetKey("a"))
                 {
                     MoveRight(-speed);
                 }
-
-
 
 
                 //transform.position = pos;
