@@ -4,9 +4,6 @@ rem ---- Set up all paths in the project as relative paths - Saab Dev Only ---
 rmdir /S /Q Assets\Saab
 mkdir Assets\Saab
 
-rmdir /S /Q Tools
-mkdir Tools
-
 
 mkdir Assets\Saab\Foundation
 mkdir Assets\Saab\Utility
