@@ -21,7 +21,7 @@ Setup
 
 Setup the Unity git repository in a folder and extract the file http://www.tooltech-software.com/Maps.zip to the "Maps" folder under the Unity project.
 
-Or you can download another at https://www.dropbox.com/s/d22rhv4ly5nj09e/Maps.zip?dl=0 and uncompress to the "Maps" folder under the Unity project.
+Or you can download another at http://www.tooltech-software.com/Maps.zip and uncompress to the "Maps" folder under the Unity project.
 
 The demo now comes with an URL to an existing test map http:/www.gizmosdk.se/archives/maps/sweden/eksjo/processed/map.gzd
 
