@@ -1,4 +1,4 @@
-//******************************************************************************
+ï»¿//******************************************************************************
 //
 // Copyright (C) SAAB AB
 //
@@ -18,11 +18,11 @@
 // File			: NodeUtils.cs
 // Module		:
 // Description	: Utility to control access between native handles and game objects
-// Author		: Anders Modén
-// Product		: Gizmo3D 2.11.47
+// Author		: Anders ModÃ©n	
+// Product		: Gizmo3D 2.11.50
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
-//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and IRIX® for  
+//			C++ toolkit for Linux, Mac OS X, Windows (Win32) and IRIXÂ® for  
 //			usage in Game or VisSim development.
 //
 //
