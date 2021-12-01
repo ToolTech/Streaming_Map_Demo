@@ -104,7 +104,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public bool SortByDistance;
 
         private RenderTexture _outputTex;
-        private int _kernelHandle = -1;
+        //private int _kernelHandle = -1;
 
         private enum Sides
         {
