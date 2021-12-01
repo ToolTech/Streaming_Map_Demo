@@ -19,7 +19,7 @@
 // Module		: Saab.Foundation.Map.Manager
 // Description	: Map Manager of maps in BTA
 // Author		: Anders Modén		
-// Product		: Gizmo3D 2.11.50
+// Product		: Gizmo3D 2.11.52
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -104,11 +104,11 @@ namespace Saab.Foundation.Map
                 _currentMap = null;
                 _nodeURL = null;
 
-                _north = false;
                 _origin = new Vec3D(0, 0, 0);
-                _utmZone = 0;
+                _metaData = new CoordinateSystemMetaData();
 
                 _coordSystem = new CoordinateSystem();
+
             }
             finally
             {
@@ -200,6 +200,8 @@ namespace Saab.Foundation.Map
 
         public bool GlobalToWorld(Vec3D global_position, out LatPos result)
         {
+            // TODO:Coordinate.GetGlobalCoordinate(global_position+_origin, _coordSystem, _metaData, out LatPos lp);
+
             Coordinate converter = new Coordinate();
 
             if (!GlobalToWorld(converter, global_position))
@@ -282,7 +284,7 @@ namespace Saab.Foundation.Map
 
                 case MapType.UTM:
 
-                    UTMPos utmpos = new UTMPos(_utmZone, _north, -(position.z + _origin.z), position.x + _origin.x, position.y + _origin.y);
+                    UTMPos utmpos = new UTMPos(_metaData.Zone(),_metaData.North(), -(position.z + _origin.z), position.x + _origin.x, position.y + _origin.y);
 
                     converter.SetUTMPos(utmpos);
 
@@ -805,17 +807,17 @@ namespace Saab.Foundation.Map
                             _mapType = MapType.UTM;
                             UTMPos utmOrigin = _currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_ORIGIN);
                             _origin = new Vec3D(utmOrigin.Easting, utmOrigin.H, -utmOrigin.Northing);
-                            _north = utmOrigin.North;
-                            _utmZone = utmOrigin.Zone;
 
-                            _coordSystem = new CoordinateSystem(Datum.WGS84_ELLIPSOID, FlatGaussProjection.UTM, GizmoSDK.Coordinate.Type.UTM);
+                            _metaData = new CoordinateSystemMetaData(utmOrigin.Zone, utmOrigin.North);
+
+                            _coordSystem = new CoordinateSystem(Datum.WGS84_ELLIPSOID, FlatGaussProjection.UTM, CoordinateType.UTM);
                         }
                         else if (projection == DBI_PROJECTION_FLAT_EARTH)   // To run a 3D world without world coordinates
                         {
                             _mapType = MapType.PLAIN;
                             _origin = (Vec3D)_currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_ORIGIN).GetVec3();
-                            _north = false;
-                            _utmZone = 0;
+
+                            _metaData.value = 0;
 
                             _coordSystem = new CoordinateSystem();
                         }
@@ -824,17 +826,17 @@ namespace Saab.Foundation.Map
                             _mapType = MapType.GEOCENTRIC;
                             CartPos cartOrigin = _currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_ORIGIN);
                             _origin = new Vec3D(cartOrigin.X, cartOrigin.Y, cartOrigin.Z);
-                            _north = false;
-                            _utmZone = 0;
 
-                            _coordSystem = new CoordinateSystem(Datum.WGS84_ELLIPSOID, FlatGaussProjection.NOT_DEFINED, GizmoSDK.Coordinate.Type.GEOCENTRIC);
+                            _metaData.value = 0;
+
+                            _coordSystem = new CoordinateSystem(Datum.WGS84_ELLIPSOID, FlatGaussProjection.NOT_DEFINED, CoordinateType.GEOCENTRIC);
                         }
                         else
                         {
                             _mapType = MapType.UNKNOWN;
                             _origin = new Vec3D(0, 0, 0);
-                            _north = false;
-                            _utmZone = 0;
+
+                            _metaData.value = 0;
 
                             _coordSystem = new CoordinateSystem();
                         }
@@ -996,16 +998,14 @@ namespace Saab.Foundation.Map
 
         #region ----- Private variables ----------------
 
-        private MapType             _mapType;
-        private Node                _currentMap;
-        private CoordinateSystem    _coordSystem;
+        private MapType                  _mapType;
+        private Node                     _currentMap;
+        private CoordinateSystem         _coordSystem;
 
-        private Vec3D   _origin;
-        private Roi     _topRoi;
+        private CoordinateSystemMetaData _metaData;
 
-        // UTM Specific data for offset
-        private int     _utmZone;
-        private bool    _north;
+        private Vec3D                    _origin;
+        private Roi                      _topRoi;
 
         private Camera  _camera;
         private string  _nodeURL;
