@@ -688,7 +688,7 @@ PlayerSettings:
     Android: 1
     Standalone: 0
   il2cppCompilerConfiguration:
-    Android: 1
+    Android: 0
     Standalone: 1
   managedStrippingLevel: {}
   incrementalIl2cppBuild: {}

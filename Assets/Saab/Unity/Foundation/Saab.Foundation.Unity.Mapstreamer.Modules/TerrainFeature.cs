@@ -315,14 +315,14 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             }
 
             // TODO: fix to work in ShaderSandbox
-#if SCENEBUILDER
+    #if !MoveCam
             var node = parent.GetComponent<NodeHandle>();
 
             if (node == null)
             {
                 return child;
             }
-#endif
+    #endif
             return FindFirstNodeParent(parent);
         }
 
