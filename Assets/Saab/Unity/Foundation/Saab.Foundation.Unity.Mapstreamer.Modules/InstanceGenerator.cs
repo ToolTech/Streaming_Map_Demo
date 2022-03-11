@@ -31,6 +31,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private int _maxVertices;
         private int _maxIndices;
 
+        private Feature _feature;
+
         private ComputeBuffer _vertices;
         private ComputeBuffer _indices;
         private ComputeBuffer _texcoords;
@@ -92,6 +94,14 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             }
         }
 
+        public Feature GetFeature
+        {
+            get 
+            {
+                return _feature;
+            }
+        }
+
         public ComputeBuffer OutputBuffer
         {
             set
@@ -106,6 +116,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             Tree,
             Grass,
             PointCloud,
+            CrossBoard,
         }
 
         private struct ShaderFunctions
@@ -113,12 +124,14 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             public const string GeneratorGrass = "MeshGrassGenerator";
             public const string GeneratorTree = "MeshTreeGenerator";
             public const string PointCloudPlacement = "PointCloudPlacement";
+            public const string CrossBoardPlacement = "CrossBoardPlacement";
         }
 
         // TODO: fixed dynamic maxVertices
         public InstanceGenerator(ComputeShader shader, Feature feature, int maxVertecis = 10000)
         {
             _shader = shader;
+            _feature = feature;
 
             switch (feature)
             {
@@ -130,6 +143,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                     break;
                 case Feature.PointCloud:
                     _generatorKernel = new ComputeKernel(ShaderFunctions.PointCloudPlacement, shader);
+                    break;
+                case Feature.CrossBoard:
+                    _generatorKernel = new ComputeKernel(ShaderFunctions.CrossBoardPlacement, shader);
                     break;
             }
             _maxIndices = maxVertecis * 3;
@@ -143,7 +159,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             if (_vertices != null)
             {
-                Debug.LogWarning("--------------------- cleared buffers ---------------------");
                 _vertices.SafeRelease();
                 _indices.SafeRelease();
                 _texcoords.SafeRelease();
@@ -162,6 +177,22 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _generatorKernel.SetBuffer(ComputeShaderID.surfaceUVs, _texcoords);
         }
 
+        public void SetPoints(Vector3[] points)
+        {
+            if (points.Length > _maxVertices)
+            {
+                Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "Shader: Updated vertices buffer size from: {0} -- {1}", _maxVertices, points.Length);
+                _maxVertices = points.Length;
+                _maxIndices = points.Length;
+                GenerateBuffers(_maxVertices, _maxIndices);
+            }
+
+            _vertices.SetCounterValue(0);
+            _vertices.SetData(points);
+
+            _shader.SetInt(ComputeShaderID.indexCount, points.Length);
+        }
+
         public void SetMesh(Mesh mesh, bool pointCloud = false)
         {
             var surfaceVertices = mesh.vertices;
@@ -169,12 +200,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             var surfaceUVs = mesh.uv;
             var bounds = mesh.bounds;
 
-            var vert = _maxVertices;
-            var indi = _maxIndices;
-
             if (surfaceIndices.Length > _maxIndices || surfaceVertices.Length > _maxVertices)
             {
-                Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "\nupdated vertex buffer size from: {0} -- {1}\nupdated vertex buffer size from: {2} -- {3}", _maxVertices, surfaceIndices.Length, _maxIndices, surfaceIndices.Length);
+                Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "Shader: Updated vertices buffer size from: {0} -- {1}\nUpdated indices buffer size from: {2} -- {3}", _maxVertices, surfaceVertices.Length, _maxIndices, surfaceIndices.Length);
                 _maxVertices = surfaceVertices.Length;
                 _maxIndices = surfaceIndices.Length;
                 GenerateBuffers(_maxVertices, _maxIndices);
@@ -205,10 +233,10 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _shader.SetFloat(ComputeShaderID.size, maxExtent);
         }
 
-        public void Dispatch(int threadGroups)
+        public void Dispatch(int threadGroups, int SUBS = 16)
         {
             //Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "dispatch with :: {0} / 65535", threadGroups);
-            _generatorKernel.Dispatch(threadGroups, 16, 1);
+            _generatorKernel.Dispatch(threadGroups, SUBS, 1);
         }
 
         public void Dispose()

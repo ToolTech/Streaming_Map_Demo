@@ -335,7 +335,7 @@ MonoBehaviour:
     SceneCleanupTime: 10
     MaxBuildTime: 0.01
     DynamicLoaders: 4
-  MapUrl: http:/www.gizmosdk.se/archives/maps/sweden/eksjo/processed/map.gzd?nic=${wlan0}
+  MapUrl: purl:maps,Sweden/Eksjo/data/map.gzd
 --- !u!114 &534669908
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -364,6 +364,7 @@ MonoBehaviour:
   DepthShader: {fileID: 0}
   OcclusionCulling: 0
   EnableTrees: 1
+  EnableCross: 0
   EnableGrass: 0
   TerrainSettings:
     GrassTextures:

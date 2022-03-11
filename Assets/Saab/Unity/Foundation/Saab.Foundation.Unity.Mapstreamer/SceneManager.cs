@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Management of dynamic asset loader from GizmoSDK
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.11.65
+// Product		: Gizmo3D 2.11.74
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -125,10 +125,11 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         // Notifications for external users that wants to add components to created game objects. Be swift as we are in edit lock
 
-        public event EventHandler_OnGameObject  OnNewGeometry;   // GameObject with mesh
-        public event EventHandler_OnGameObject  OnNewLod;        // GameObject that toggles on off dep on distance
-        public event EventHandler_OnGameObject  OnNewTransform;  // GameObject that has a specific parent transform
-        public event EventHandler_OnGameObject  OnNewLoader;     // GameObject that works like a dynamic loader
+        public event EventHandler_OnGameObject  OnNewGeometry;      // GameObject with mesh
+        public event EventHandler_OnGameObject  OnNewCrossboard;    // CrossBoard/tree placement 
+        public event EventHandler_OnGameObject  OnNewLod;           // GameObject that toggles on off dep on distance
+        public event EventHandler_OnGameObject  OnNewTransform;     // GameObject that has a specific parent transform
+        public event EventHandler_OnGameObject  OnNewLoader;        // GameObject that works like a dynamic loader
         public event EventHandler_OnGameObject  OnEnterPool;
 
         public delegate void EventHandler_Traverse();
@@ -528,7 +529,15 @@ namespace Saab.Foundation.Unity.MapStreamer
                 var info = new AssetLoadInfo(gameObject, extRef.ResourceURL, extRef.ObjectID);
 
                 pendingAssetLoads.Push(info);
-            }    
+            }
+
+
+            // ---------------------------- Crossboard check -------------------------------------
+
+            if (node is Crossboard cross)
+            {
+                OnNewCrossboard?.Invoke(gameObject);
+            }
 
             // ---------------------------- Geometry check -------------------------------------
 
@@ -536,7 +545,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             {
                 OnNewGeometry?.Invoke(gameObject);
             }
-                
+
             return gameObject;
         }
 

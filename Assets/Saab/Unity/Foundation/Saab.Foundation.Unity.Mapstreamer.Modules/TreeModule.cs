@@ -85,6 +85,26 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _renderingShader.SetQuads(GetQuads(TreeTextures));
         }
 
+        public void AddTree(GameObject go, Vector3[] placement, Vector4[] data)
+        {
+            // fix tre pos to be on ground instead of center of tree.
+            // TODO: Future points should be placed on Ground
+
+            var update = placement;
+
+            for (int i = 0; i < placement.Length; i++)
+            {
+                update[i] = placement[i] - (Vector3.up * data[i].x);
+            }
+
+            _pendingJobs.Add(new PendingJobPoints()
+            {
+                GameObject = go,
+                PointCloud = update,
+                Transforms = data
+            });
+        }
+
         public void AddTree(GameObject go, Texture2D placementMap = null)
         {
             var meshFilter = go.GetComponent<MeshFilter>();
@@ -105,7 +125,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             System.Diagnostics.Debug.Assert(meshFilter.mesh.GetTopology(0) == MeshTopology.Triangles);
 
-            _pendingJobs.Add(new PendingJob()
+            _pendingJobs.Add(new PendingJobMesh()
             {
                 GameObject = go,
                 Mesh = meshFilter.mesh,
@@ -175,83 +195,145 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             for (var i = 0; i < _pendingJobs.Count; ++i)
             {
-                var job = _pendingJobs[i];
-                var go = job.GameObject;
+                var pending = _pendingJobs[i];
+                if (pending == null)
+                    return;
+
+                var go = pending.GameObject;
 
                 // get new job, according to certain rules (maybe priority later)
                 if (!go.activeInHierarchy)
                     continue;
 
-                var mesh = job.Mesh;
-                var bounds = mesh.bounds;
-
-                var extents = bounds.extents;
-                var maxExtent = Mathf.Max(extents.x, extents.y, extents.z);
-                var centerWorld = go.transform.TransformPoint(bounds.center);
-
-                var frustum = _frustum;
-                _frustum[5].w += maxExtent + DrawDistance;
-
-                if (!IsInFrustum(centerWorld - CameraPosition, -maxExtent * 1.75f))
-                    continue;
-
-                var triangleCount = mesh.GetIndices(0).Length / 3f;
-                var bufferSize = Math.Max(1, (maxExtent * maxExtent) / Density);
-
-                bufferSize = bufferSize < mesh.vertexCount ? mesh.vertexCount : bufferSize;
-
-                _frustum = frustum;
-
-                if (_pointGenerators.Count == 0)
+                if (pending is PendingJobMesh)
                 {
-                    var feature = InstanceGenerator.Feature.Tree;
+                    var job = pending as PendingJobMesh;
+                    // Mesh
+
+                    var mesh = job.Mesh;
+                    var bounds = mesh.bounds;
+
+                    var extents = bounds.extents;
+                    var maxExtent = Mathf.Max(extents.x, extents.y, extents.z);
+                    var centerWorld = go.transform.TransformPoint(bounds.center);
+
+                    var frustum = _frustum;
+                    _frustum[5].w += maxExtent + DrawDistance;
+
+                    if (!IsInFrustum(centerWorld - CameraPosition, -maxExtent * 1.75f))
+                        continue;
+
+                    var triangleCount = mesh.GetIndices(0).Length / 3f;
+                    var bufferSize = Math.Max(1, (maxExtent * maxExtent) / Density);
+
+                    bufferSize = bufferSize < mesh.vertexCount ? mesh.vertexCount : bufferSize;
+
+                    _frustum = frustum;
+                    var subs = 16;
+
+                    var expectedFeature = InstanceGenerator.Feature.Tree;
                     if (PointCloud)
                     {
-                        feature = InstanceGenerator.Feature.PointCloud;
+                        expectedFeature = InstanceGenerator.Feature.PointCloud;
+                        subs = 1;
                     }
 
-                    _pointGenerators.Push(new InstanceGenerator(Instantiate(ComputeShader), feature)
+                    if (_pointGenerators.Count == 0 || _pointGenerators.Peek().GetFeature != expectedFeature)
                     {
-                        Density = Density,
-                        SplatMap = DefaultSplatMap
+                        _pointGenerators.Push(new InstanceGenerator(Instantiate(ComputeShader), expectedFeature)
+                        {
+                            Density = Density,
+                            SplatMap = DefaultSplatMap
+                        });
+                    }
+
+                    var pointGenerator = _pointGenerators.Pop();
+                    var outputBuffer = new ComputeBuffer(Mathf.CeilToInt(bufferSize), sizeof(float) * 4, ComputeBufferType.Append);
+
+                    outputBuffer.SetCounterValue(0);
+                    pointGenerator.SetMesh(mesh, PointCloud);
+                    pointGenerator.PlacementMapEnabled = false;
+
+                    if (job.PlacementMap != null && UsePlacementMap)
+                    {
+                        pointGenerator.PlacementMapEnabled = true;
+                        pointGenerator.PlacementMap = job.PlacementMap;
+                    }
+                    else
+                    {
+                        pointGenerator.PlacementMap = new Texture2D(job.Diffuse.width, job.Diffuse.height);
+                    }
+
+                    pointGenerator.ColorMap = job.Diffuse;
+                    pointGenerator.OutputBuffer = outputBuffer;
+
+                    var threadGroups = Mathf.CeilToInt(triangleCount / 16f);
+                    pointGenerator.Dispatch(threadGroups > 0 ? threadGroups : 1, subs);
+
+                    // swap remove
+                    if ((i + 1) < _pendingJobs.Count)
+                        _pendingJobs[i] = _pendingJobs[_pendingJobs.Count - 1];
+                    _pendingJobs.RemoveAt(_pendingJobs.Count - 1);
+
+                    _currentJobs.Add(new JobOutput()
+                    {
+                        GameObject = go,
+                        Bounds = bounds,
+                        PointBuffer = outputBuffer,
+                        Generator = pointGenerator
+                    });
+
+                }
+                else if (pending is PendingJobPoints)
+                {
+                    var job = pending as PendingJobPoints;
+
+                    var bufferSize = job.PointCloud.Length;
+
+                    if (bufferSize == 0)
+                    {
+                        Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Crossboard has 0 points");
+                        continue;
+                    }
+
+                    // Points
+
+                    if (_pointGenerators.Count == 0 || _pointGenerators.Peek().GetFeature != InstanceGenerator.Feature.CrossBoard)
+                    {
+                        _pointGenerators.Push(new InstanceGenerator(Instantiate(ComputeShader), InstanceGenerator.Feature.CrossBoard)
+                        {
+                            Density = Density,
+                            SplatMap = DefaultSplatMap
+                        });
+                    }
+
+                    var pointGenerator = _pointGenerators.Pop();
+                    var outputBuffer = new ComputeBuffer(Mathf.CeilToInt(bufferSize), sizeof(float) * 4, ComputeBufferType.Append);
+
+                    outputBuffer.SetCounterValue(0);
+                    pointGenerator.SetPoints(job.PointCloud);
+
+                    pointGenerator.OutputBuffer = outputBuffer;
+
+                    // Update
+                    var threadGroups = Mathf.CeilToInt(bufferSize / 16f);
+                    pointGenerator.Dispatch(threadGroups > 0 ? threadGroups : 1, 1);
+
+                    // swap remove
+                    if ((i + 1) < _pendingJobs.Count)
+                        _pendingJobs[i] = _pendingJobs[_pendingJobs.Count - 1];
+                    _pendingJobs.RemoveAt(_pendingJobs.Count - 1);
+
+                    var bounds = new Bounds(Vector3.zero, new Vector3(512, 80, 512));
+
+                    _currentJobs.Add(new JobOutput()
+                    {
+                        GameObject = go,
+                        Bounds = bounds,
+                        PointBuffer = outputBuffer,
+                        Generator = pointGenerator
                     });
                 }
-
-                var pointGenerator = _pointGenerators.Pop();
-                var outputBuffer = new ComputeBuffer(Mathf.CeilToInt(bufferSize), sizeof(float) * 4, ComputeBufferType.Append);
-
-                outputBuffer.SetCounterValue(0);
-                pointGenerator.SetMesh(mesh, PointCloud);
-                pointGenerator.PlacementMapEnabled = false;
-
-                if (job.PlacementMap != null && UsePlacementMap)
-                {
-                    pointGenerator.PlacementMapEnabled = true;
-                    pointGenerator.PlacementMap = job.PlacementMap;
-                }
-                else
-                {
-                    pointGenerator.PlacementMap = new Texture2D(job.Diffuse.width, job.Diffuse.height);
-                }
-
-                pointGenerator.ColorMap = job.Diffuse;
-                pointGenerator.OutputBuffer = outputBuffer;
-
-                var threadGroups = Mathf.CeilToInt(triangleCount / 16f);
-                pointGenerator.Dispatch(threadGroups > 0 ? threadGroups : 1);
-
-                // swap remove
-                if ((i + 1) < _pendingJobs.Count)
-                    _pendingJobs[i] = _pendingJobs[_pendingJobs.Count - 1];
-                _pendingJobs.RemoveAt(_pendingJobs.Count - 1);
-
-                _currentJobs.Add(new JobOutput()
-                {
-                    GameObject = go,
-                    Bounds = bounds,
-                    PointBuffer = outputBuffer,
-                    Generator = pointGenerator
-                });
 
                 if (_currentJobs.Count == MAX_JOBS_PER_FRAME)
                     return;
@@ -326,6 +408,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             GameObject any = null;
             float maxSide = 0;
 
+
             // Culling      
             for (var i = 0; i < _items.Count; ++i)
             {
@@ -347,8 +430,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 var frustum = _frustum;
                 _frustum[5].w += maxSide;
 
-                if (!IsInFrustum(centerWorld - CameraPosition, (-maxSide * 1.75f)))
-                    continue;
+                //if (!IsInFrustum(centerWorld - CameraPosition, (-maxSide * 1.75f)))
+                //    continue;
 
                 _frustum[5].w = DrawDistance;
 

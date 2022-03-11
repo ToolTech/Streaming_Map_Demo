@@ -60,6 +60,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         [Header("Main Settings")]
         public bool EnableTrees = false;
+        public bool EnableCross = false;
         public bool EnableGrass = false;
 
         [Header("Module Settings")]
@@ -95,6 +96,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             if (SceneManager == null) { return; }
 
             EnableTrees = GfxCaps.CurrentCaps.HasFlag(Capability.UseDynamicTreeCrossboards);
+            EnableCross = GfxCaps.CurrentCaps.HasFlag(Capability.UseTreeCrossboards);
             EnableGrass = GfxCaps.CurrentCaps.HasFlag(Capability.UseDynamicGrassCrossboards);
 
             var grassSetting = GfxCaps.GetGrassSettings;
@@ -182,7 +184,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             if (OcclusionCulling)
                 GetDepthTexture(_camera);
 
-            if (_treeModule != null && EnableTrees)
+            if (_treeModule != null && (EnableTrees || EnableCross))
             {
                 if (OcclusionCulling)
                     _treeModule.DepthTexture = _outputTex;
@@ -251,7 +253,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 //_grassModule.PlacementMap = TerrainSettings.PlacementMap;
             }
 
-            if (EnableTrees)
+            if (EnableTrees || EnableCross)
             {
                 // ******* setup GameObject *******
                 var go = new GameObject("TreeModule");
@@ -281,28 +283,68 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 //_treeModule.PlacementMap = TerrainSettings.PlacementMap;
             }
 
-            if (EnableGrass || EnableTrees)
+            SceneManager.OnNewGeometry += SceneManager_OnNewGeometry;
+            SceneManager.OnNewCrossboard += SceneManager_OnNewCrossboard;
+        }
+
+        private void SceneManager_OnNewCrossboard(GameObject go)
+        {
+            var nodehandler = go.GetComponent<NodeHandle>();
+
+            if (nodehandler == null)
+                return;
+
+            var cb = nodehandler.node as GizmoSDK.Gizmo3D.Crossboard;
+
+            if (cb == null)
+                return;
+
+            if (!cb.GetObjectPositions(out float[] position_data))
+                return;
+
+            // *************** Deprecated ***************
+            if (!cb.GetObjectData(out float[] object_data))
+                return;
+            // ******************************************
+
+            var objects = position_data.Length / 3; // Number of objects
+            var positions = new Vector3[objects];
+            var data = new Vector4[objects];
+
+            var float3_index = 0;
+            var float4_index = 0;
+
+            for (var i = 0; i < objects; i++)
             {
-                SceneManager.OnNewGeometry += SceneManager_OnNewGeometry;
+                positions[i] = new Vector3(position_data[float3_index], position_data[float3_index + 1], position_data[float3_index + 2]);
+                data[i] = new Vector4(object_data[float4_index], object_data[float4_index + 1], object_data[float4_index + 2], object_data[float4_index + 3]);
+                float3_index += 3;
+                float4_index += 4;
+            }
+
+            if (EnableCross)
+            {
+                _treeModule.AddTree(go, positions, data);
             }
         }
-        private void SceneManager_OnNewGeometry(GameObject o)
+
+        private void SceneManager_OnNewGeometry(GameObject go)
         {
-            var nodehandler = o.GetComponent<NodeHandle>();
+            var nodehandler = go.GetComponent<NodeHandle>();
             if (nodehandler != null)
             {
                 if (EnableGrass)
                 {
                     if (nodehandler.node.BoundaryRadius < 190 && nodehandler.node.BoundaryRadius > 0)
                     {
-                        _grassModule.AddGrass(o);
+                        _grassModule.AddGrass(go);
                     }
                 }
                 if (EnableTrees)
                 {
                     if (nodehandler.node.BoundaryRadius < 890 && nodehandler.node.BoundaryRadius > 0)
                     {
-                        _treeModule.AddTree(o);
+                        _treeModule.AddTree(go);
                     }
                 }
             }

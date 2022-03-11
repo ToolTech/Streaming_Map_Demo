@@ -19,7 +19,7 @@
 // Module		: Saab.Foundation.Map.Manager
 // Description	: Definition of the MapPos map position structure
 // Author		: Anders Modén		
-// Product		: Gizmo3D 2.11.65
+// Product		: Gizmo3D 2.11.74
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -189,7 +189,7 @@ namespace Saab.Foundation.Map
         {
             Vec3 up;                                    // up in local coordinate system
 
-            if (normal.Magnitude() != 0)                // Use normal as up
+            if (normal.LengthSq2() != 0)                // Use normal as up
                 up = normal;
             else 
                 up = local_orientation.GetCol(2);       // If no normal use 
@@ -203,7 +203,12 @@ namespace Saab.Foundation.Map
   
             return new Matrix3(east, north, up);
         }
-        
+
+        public Matrix3 LocalToEnu()
+        {
+            return EnuToLocal().Transpose();
+        }
+
         public bool SetLatPos(double lat, double lon, double alt)
         {
             var mapControl = MapControl.SystemMap;

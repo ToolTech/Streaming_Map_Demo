@@ -104,7 +104,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             System.Diagnostics.Debug.Assert(meshFilter.mesh.GetTopology(0) == MeshTopology.Triangles);
 
-            _pendingJobs.Add(new PendingJob()
+            _pendingJobs.Add(new PendingJobMesh()
             {
                 GameObject = go,
                 Mesh = meshFilter.mesh,
@@ -175,7 +175,11 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             for (var i = 0; i < _pendingJobs.Count; ++i)
             {
-                var job = _pendingJobs[i];
+                var job = _pendingJobs[i] as PendingJobMesh;
+
+                if (job == null)
+                    return;
+
                 var go = job.GameObject;
 
                 // get new job, according to certain rules (maybe priority later)
@@ -201,7 +205,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
                 _frustum = frustum;
 
-                if (_pointGenerators.Count == 0)
+                if (_pointGenerators.Count == 0 || _pointGenerators.Peek().GetFeature != InstanceGenerator.Feature.Grass)
                 {
                     _pointGenerators.Push(new InstanceGenerator(Instantiate(ComputeShader), InstanceGenerator.Feature.Grass)
                     {
@@ -231,7 +235,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 pointGenerator.OutputBuffer = outputBuffer;
 
                 var threadGroups = Mathf.CeilToInt(triangleCount / 16f);
-                pointGenerator.Dispatch(threadGroups > 0 ? threadGroups : 1);
+                pointGenerator.Dispatch(threadGroups > 0 ? threadGroups : 1, 16);
 
                 // swap remove
                 if ((i + 1) < _pendingJobs.Count)

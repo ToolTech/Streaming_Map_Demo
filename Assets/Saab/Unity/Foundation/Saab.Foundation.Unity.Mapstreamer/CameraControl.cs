@@ -19,7 +19,7 @@
 // Module		:
 // Description	: manages camera updates
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.11.65
+// Product		: Gizmo3D 2.11.74
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -185,6 +185,8 @@ namespace Saab.Foundation.Unity.MapStreamer
                     if (Map.MapControl.SystemMap.GetPosition(latpos, out mappos, Map.GroundClampType.GROUND, Map.ClampFlags.WAIT_FOR_DATA))
                     {
                         Debug.Log("Hit Ground ok");
+
+                    
                     }
 
                     //Performance.DumpPerformanceInfo();

@@ -196,13 +196,23 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             public InstanceGenerator Generator;
         }
 
-        // Objects not yet processed, will be processed by the GPU in batches during update
-        public struct PendingJob
+        public class PendingJob
         {
             public GameObject GameObject;
+        }
+
+        // Objects not yet processed, will be processed by the GPU in batches during update
+        public class PendingJobMesh : PendingJob
+        {
             public Mesh Mesh;
             public Texture2D Diffuse;
             public Texture2D PlacementMap;
+        }
+
+        public class PendingJobPoints : PendingJob
+        {
+            public Vector3[] PointCloud;
+            public Vector4[] Transforms;
         }
 
         public int GetModuleBufferMemory(List<Item> currentItems)
@@ -315,7 +325,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             }
 
             // TODO: fix to work in ShaderSandbox
-#if SCENEBUILDER
+#if !MoveCam
             var node = parent.GetComponent<NodeHandle>();
 
             if (node == null)
