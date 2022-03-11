@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Generic Builder Interface
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.11.70
+// Product		: Gizmo3D 2.11.74
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  

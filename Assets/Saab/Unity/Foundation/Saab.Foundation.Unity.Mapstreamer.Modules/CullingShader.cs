@@ -145,7 +145,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                     break;
             }
 
-
             _cullKernel.SetBuffer(ComputeShaderID.indirectBuffer, _indirectInputBuffer);
         }
 

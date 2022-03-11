@@ -19,7 +19,7 @@
 // Module		: Saab.Foundation.Map.Manager
 // Description	: Map Manager of maps in BTA
 // Author		: Anders Modén		
-// Product		: Gizmo3D 2.11.70
+// Product		: Gizmo3D 2.11.74
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -506,8 +506,7 @@ namespace Saab.Foundation.Map
 
                 // The defined down vector
 
-                Vec3 down = new Vec3(-result.local_orientation.v13, -result.local_orientation.v23, -result.local_orientation.v33);
-
+                Vec3 down = -result.normal;
 
                 // Check triangel ground
 
