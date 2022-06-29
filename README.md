@@ -19,12 +19,6 @@ anders.moden@saabgroup.com
 Setup
 =====
 
-Setup the Unity git repository in a folder and extract the file http://www.tooltech-software.com/Maps.zip to the "Maps" folder under the Unity project.
-
-Or you can download another at http://www.tooltech-software.com/Maps.zip and uncompress to the "Maps" folder under the Unity project.
-
-The demo now comes with an URL to an existing test map http:/www.gizmosdk.se/archives/maps/sweden/eksjo/processed/map.gzd
-
 To run, open the InstallPackages.sln under directory 'InstallPackages' and select 'debug/release/x64/ARM64 etc' solution and build. This will fetch nuget packages for all components and update the Assets/Plugin folder with correct binaries. The solution can deploy both Debug and Release versions to be used in development. Only one "deploy" version at a time should be used. Dont mix both Debug and Release versions. To clear the plugin folder, run the script 'cleanup_plugins.bat' that will clean the Assets/Plugin folder. Use VS2019 to build the InstallPackages or use VS2017 and install support for .NET Core 3.1
 
 
@@ -32,7 +26,7 @@ Running the demo
 ================
 
 Press the "play" button in the Unity editor and use the keys 'a' and 'd' for left/right and the keys 'w' and 's' for forward/backward
-Use the arrow keys to rotate the view. Remember to install a "Maps" folder from the url http://www.tooltech-software.com/Maps.zip
+Use the arrow keys to rotate the view. 
 <b><u>Note Win64 only right now</u></b>
 Good Luck !
 
