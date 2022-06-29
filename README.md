@@ -5,7 +5,7 @@ Streaming Map Demo
 
 This is a generic streaming API for 3D engines (Unity,Unreal...) that allows fast streaming updates of huge 3D datasets located in cloud, from disc or procedural.
 
-This GIT repository will allow you to take a look at a Unity demo, written by the Open Saab Development community using the GizmoSDK code base from Saab Dynamics, Training & Simulation.
+This GIT repository will allow you to take a look at a Unity demo, written by the Open Saab Development community using the GizmoSDK code base from Saab Dynamics, Training & Simulation. Take a look at https://youtu.be/m2NsE8NBrB0
 
 The open source and open documentation in here are to be considered as GPL code and can be used in your own projects.
 
