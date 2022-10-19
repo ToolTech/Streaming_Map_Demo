@@ -106,7 +106,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             TerrainSettings.GrassDrawDistance = grassSetting.DrawDistance;
             TerrainSettings.TreeDensity = treeSetting.Density;
             TerrainSettings.TreeDrawDistance = treeSetting.DrawDistance;
-
             InitializeModule(SceneManager);
         }
 
@@ -117,11 +116,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             if (SceneManager)
             {
-
                 InitMapModules();
                 if (_treeModule != null || _grassModule != null)
                     SceneManager.OnPostTraverse += SceneManager_OnPostTraverse;
-
 
                 if (_treeModule != null)
                 {
@@ -132,8 +129,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 {
                     SceneManager.OnEnterPool += _grassModule.RemoveGrass;
                 }
-
             }
+        }
+
+        public void SetCamera(Camera camera)
+        {
+            _camera = camera;
         }
 
         public void GenerateFrustumPlane(Camera camera)
@@ -171,8 +172,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         private void SceneManager_OnPostTraverse()
         {
-            _camera = Camera.main;
-
             if (_camera == null)
                 return;
 

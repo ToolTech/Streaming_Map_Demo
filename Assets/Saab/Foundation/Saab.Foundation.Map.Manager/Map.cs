@@ -19,7 +19,7 @@
 // Module		: Saab.Foundation.Map.Manager
 // Description	: Map Manager of maps in BTA
 // Author		: Anders Modén		
-// Product		: Gizmo3D 2.11.74
+// Product		: Gizmo3D 2.12.20
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -82,6 +82,8 @@ namespace Saab.Foundation.Map
         const string DBI_ORIGIN                     = "DbI-Database Origin";
         const string DBI_MAX_LOD_RANGE			    = "DbI-LR";
         const string DBI_COORD_SYS                  = "DbI-CoordSystem";
+
+        const double MAX_TRIANGLE_CACHE_AGE = 3.0;
 
 
         public delegate void EventHandler_MapInfo(string url,MapType type,Node root);
@@ -206,7 +208,7 @@ namespace Saab.Foundation.Map
 
             if (!GlobalToWorld(converter, global_position))
             {
-                result = null;
+                result = default;
                 return false;
             }
 
@@ -219,7 +221,7 @@ namespace Saab.Foundation.Map
 
             if (!GlobalToWorld(converter, global_position))
             {
-                result = null;
+                result = default;
                 return false;
             }
 
@@ -346,6 +348,9 @@ namespace Saab.Foundation.Map
         {
             result = new MapPos();
 
+            if (_currentMap == null)
+                return false;
+
             // Coordinate is now in world Cartesian coordinates (Roi Position)
 
             Vec3D origo = new Vec3D(0, 0, 0);       // Set used origo for clamp operation
@@ -372,7 +377,7 @@ namespace Saab.Foundation.Map
                                                     IntersectQuery.NEAREST_POINT |
                                                      (flags.HasFlag(ClampFlags.ALIGN_NORMAL_TO_SURFACE) ? IntersectQuery.NORMAL : 0) | //IntersectQuery.NORMAL | 
                                                     (flags.HasFlag(ClampFlags.WAIT_FOR_DATA) ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0),
-                                                    1, true, origo))
+                                                    LodFactor, true, origo))
             {
                 IntersectorResult res = isect.GetResult();
 
@@ -388,6 +393,7 @@ namespace Saab.Foundation.Map
                     result.a = data.a + origo;
                     result.b = data.b + origo;
                     result.c = data.c + origo;
+                    result.t = Time.SystemSeconds + MAX_TRIANGLE_CACHE_AGE;
                 }
 
                 result.clampResult = data.resultMask;
@@ -422,68 +428,76 @@ namespace Saab.Foundation.Map
 
         public static bool Intersect(Vec3D origin, Vec3D direction, Vec3D V0, Vec3D V1, Vec3D V2, out Vec3D p)
         {
-            p = new Vec3D();
+            // Möller-Trumbore algorithm
+
+            const double EPSILON = 1e-8;
 
             Vec3D E1 = V1 - V0;
             Vec3D E2 = V2 - V0;
 
             Vec3D P = direction.Cross(E2);
 
-            double factor = P.Dot(E1);
+            double det = P.Dot(E1);
 
-            if (factor >= 0.0)
+            // ray and triangle are parallel if det is close to 0
+            if (det > -EPSILON && det < EPSILON)
             {
-                if (factor < 1e-8)
-                    return false;
-
-                Vec3D T = origin - V0;
-
-                double u = P.Dot(T);
-
-                if (u < 0 || u > factor)
-                    return false;
-
-                Vec3D Q = T.Cross(E1);
-
-                double v = Q.Dot(direction);
-
-                if (v < 0 || (u + v) > factor)
-                    return false;
-
-                double mag = Q.Dot(E2) / factor;
-
-                if (mag < 0)
-                    return false;
-
-                p = origin + mag * direction;
-            }
-            else
-            {
-                if (factor > -1e-8)
-                    return false;
-
-                Vec3D T = origin - V0;
-
-                double u = P.Dot(T);
-
-                if (u > 0 || u < factor)
-                    return false;
-
-                Vec3D Q = T.Cross(E1);
-
-                double v = Q.Dot(direction);
-
-                if (v > 0 || (u + v) < factor)
-                    return false;
-
-                double mag = Q.Dot(E2) / factor;
-
-                if (mag < 0)
-                    return false;
-
-                p = origin + mag * direction;
+                p = default;
+                return false;
             }
 
+            double invDet = 1.0 / det;
+
+            Vec3D T = origin - V0;
+
+            double u = P.Dot(T) * invDet;
+
+            if (u < 0 || u > 1)
+            {
+                p = default;
+                return false;
+            }
+
+            Vec3D Q = T.Cross(E1);
+
+            double v = Q.Dot(direction) * invDet;
+
+            if (v < 0 || (u + v) > 1)
+            {
+                p = default;
+                return false;
+            }
+
+            double t = Q.Dot(E2) * invDet;
+
+            p = origin + t * direction;
+            return true;
+        }
+
+        public static bool IntersectPlane(Vec3D origin, Vec3D direction, Vec3D V0, Vec3D V1, Vec3D V2, out Vec3D p)
+        {
+            const double EPSILON = 1e-8;
+
+            Vec3D E1 = V1 - V0;
+            Vec3D E2 = V2 - V0;
+
+            Vec3D N = E1.Cross(E2);
+            N.Normalize();
+
+            double d = -Vec3D.Dot(N, V0);
+
+            double denom = Vec3D.Dot(N, direction);
+
+            // ray and plane are parallel if denom is close to 0
+            if (denom > -EPSILON && denom < EPSILON)
+            {
+                p = default;
+                return false;
+            }
+
+            double t = -(Vec3D.Dot(N, origin) + d) / denom;
+
+            p = origin + t * direction;
             return true;
         }
 
@@ -492,6 +506,8 @@ namespace Saab.Foundation.Map
             if (_currentMap == null)    // No map
                 return false;
 
+            var normal = result.normal;
+            
             result.normal = result.local_orientation.GetCol(2);
 
             if (groundClamp != GroundClampType.NONE)
@@ -504,6 +520,10 @@ namespace Saab.Foundation.Map
                 if (roi != null && roi.IsValid())
                     result.position += roi.Position;
 
+                // store current global position
+                var globalPos = result.position;
+                
+
                 // The defined down vector
 
                 Vec3 down = -result.normal;
@@ -512,9 +532,14 @@ namespace Saab.Foundation.Map
 
                 if (result.clampResult.HasFlag(IntersectQuery.ABC_TRI))
                 {
-                    if (Intersect(result.position, down, result.a, result.b, result.c, out Vec3D p))
+                    // todo: temporary fix to force update after 3 seconds, actual fix will need map to notify objects
+                    // that LOD has been changed!
+                    var timeout = Time.SystemSeconds > result.t;
+
+                    if (!timeout && Intersect(result.position, down, result.a, result.b, result.c, out Vec3D p))
                     {
                         result.position = p;
+                        result.normal = normal;
                         ToLocal(result);
 
                         return true;
@@ -545,11 +570,13 @@ namespace Saab.Foundation.Map
                 isect.SetStartPosition((Vec3)(result.position - origo) - 10000.0f * down);  // Move backwards
                 isect.SetDirection(down);
 
+
+
                 if (isect.Intersect(_currentMap, IntersectQuery.NEAREST_POINT | IntersectQuery.ABC_TRI |
                                                     (flags.HasFlag(ClampFlags.ALIGN_NORMAL_TO_SURFACE) ? IntersectQuery.NORMAL : 0) | //IntersectQuery.NORMAL |
                                                     (flags.HasFlag(ClampFlags.WAIT_FOR_DATA) ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0) |
                                                     (flags.HasFlag(ClampFlags.UPDATE_DATA) ? IntersectQuery.UPDATE_DYNAMIC_DATA : 0)
-                                                    , 1, true, origo))
+                                                    , LodFactor, true, origo))
                 {
                     IntersectorResult res = isect.GetResult();
 
@@ -565,12 +592,23 @@ namespace Saab.Foundation.Map
                         result.a = data.a + origo;
                         result.b = data.b + origo;
                         result.c = data.c + origo;
+                        result.t = Time.SystemSeconds + MAX_TRIANGLE_CACHE_AGE;
                     }
 
                     result.clampResult = data.resultMask;
                 }
                 else
-                    result.clampResult = IntersectQuery.NULL;
+                {
+                    // we have failed to clamp, use earlier triangle as ground-plane
+                    if (result.clampResult.HasFlag(IntersectQuery.ABC_TRI))
+                    {
+                        IntersectPlane(globalPos, down, result.a, result.b, result.c, out result.position);
+                        result.clampResult = IntersectQuery.ABC_TRI | IntersectQuery.NORMAL;
+                        result.t = Time.SystemSeconds + MAX_TRIANGLE_CACHE_AGE;
+                    }
+                    else
+                        result.clampResult = IntersectQuery.NULL;
+                }
 
                 //if (groundClamp == GroundClampType.GROUND)
                 //{
@@ -618,7 +656,7 @@ namespace Saab.Foundation.Map
 
                 case MapType.GEOCENTRIC:
 
-                    return converter.GetOrientationMatrix(new CartPos(global_position.x+_origin.x,global_position.y+_origin.y, global_position.z+_origin.z));
+                    return Coordinate.GetOrientationMatrix(new CartPos(global_position.x+_origin.x,global_position.y+_origin.y, global_position.z+_origin.z));
             }
         }
 
@@ -654,7 +692,7 @@ namespace Saab.Foundation.Map
                         return new Matrix3();
                     }
 
-                    return  converter.GetOrientationMatrix(cartpos);
+                    return  Coordinate.GetOrientationMatrix(cartpos);
             }
         }
 
@@ -961,6 +999,12 @@ namespace Saab.Foundation.Map
             }
         }
 
+        public float LodFactor
+        {
+            get { return _lodFactor; }
+            set { _lodFactor = value; }
+        }
+
         public static MapControl SystemMap=new MapControl();
 
         #region ----- Private methods ------------------
@@ -1008,6 +1052,8 @@ namespace Saab.Foundation.Map
 
         private Camera  _camera;
         private string  _nodeURL;
+
+        private float _lodFactor = 1f;
         
 
         #endregion

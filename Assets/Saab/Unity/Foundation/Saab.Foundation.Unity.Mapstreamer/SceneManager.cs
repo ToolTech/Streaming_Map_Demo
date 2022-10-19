@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Management of dynamic asset loader from GizmoSDK
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.11.74
+// Product		: Gizmo3D 2.12.20
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -82,13 +82,16 @@ namespace Saab.Foundation.Unity.MapStreamer
         UnityEngine.Camera Camera { get; }
         Vec3D GlobalPosition { get; set; }           // Position in Global coordinate system
 
-        Vector3 Up { get; }                         // Get up vector in global coordinate system for current position                  
+        Vector3 Up { get; }                         // Get up vector in global coordinate system for current position
+        Vector3 North { get; }                      // Get north vector in global coordinate system for current position
 
         void PreTraverse();                         // Executed before scene is traversed and updated with new transform
 
         void PostTraverse();                        // Executed after nodes are repositioned with new transforms
 
         void MapChanged();                          // Executed when map is changed
+
+        float LodFactor { get; }                    // Current lod factor
     }
 
     [Serializable]
@@ -710,7 +713,8 @@ namespace Saab.Foundation.Unity.MapStreamer
                     Free(_root.transform);
                     _root = null;
                 }
-                
+
+                _native_scene?.RemoveAllNodes();
 
                 MapControl.SystemMap.Reset();
             }
@@ -839,8 +843,9 @@ namespace Saab.Foundation.Unity.MapStreamer
                 NodeLock.UnLock();
             }
 
-            // Drop platform streamer
-            GizmoSDK.Gizmo3D.Platform.Uninitialize();
+            // Dont do this as Unity wants to keep modules loaded
+            //// Drop platform streamer
+            //GizmoSDK.Gizmo3D.Platform.Uninitialize();
 
             _initialized = false;
 
@@ -1152,6 +1157,11 @@ namespace Saab.Foundation.Unity.MapStreamer
                     _native_camera.Transform = unity_camera_transform.ToZFlippedMatrix4();
 
                     _native_camera.Position = SceneManagerCamera.GlobalPosition;
+
+                    // lod bias
+                    var lodFactor = SceneManagerCamera.LodFactor;
+                    Lod.SetLODFactor(_native_context, lodFactor);
+                    MapControl.SystemMap.LodFactor = lodFactor;
 
                     _native_camera.Render(_native_context, 1000, 1000, 1000, _native_traverse_action);
 

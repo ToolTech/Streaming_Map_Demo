@@ -335,7 +335,7 @@ MonoBehaviour:
     SceneCleanupTime: 10
     MaxBuildTime: 0.01
     DynamicLoaders: 4
-  MapUrl: purl:maps,Sweden/Eksjo/data/map.gzd
+  MapUrl: C:\Maps\Eksjo\data\map.gzd
 --- !u!114 &534669908
 MonoBehaviour:
   m_ObjectHideFlags: 0

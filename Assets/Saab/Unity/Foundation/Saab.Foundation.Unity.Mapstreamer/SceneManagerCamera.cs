@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Extensions to convert between GizmoSDK and Unity3D
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.11.74
+// Product		: Gizmo3D 2.12.20
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -62,12 +62,19 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         private MapPos _position = new MapPos();
 
+        public float BaseLodFactorFieldOfView = 60;
+
+        public event Action OnMapChanged;
+
+        private string _mapUrl;
+
         public LatPos Latpos
         {
             get
             {
                 LatPos res;
-                MapControl.SystemMap.LocalToWorld(_position, out res);
+                if (!MapControl.SystemMap.LocalToWorld(_position, out res))
+                    return default;
                 return res;
             }
             set
@@ -86,6 +93,14 @@ namespace Saab.Foundation.Unity.MapStreamer
             get
             {
                 return _position.local_orientation.GetCol(2).ToVector3();
+            }
+        }
+
+        public Vector3 North
+        {
+            get
+            {
+                return _position.local_orientation.GetCol(1).ToVector3();
             }
         }
 
@@ -110,6 +125,9 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         public virtual void PreTraverse()
         {
+            if (_mapUrl != MapControl.SystemMap.NodeURL)
+                MapChanged();
+
             OnPreTraverse?.Invoke();
         }
 
@@ -120,7 +138,17 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         public virtual void MapChanged()
         {
+            _mapUrl = MapControl.SystemMap.NodeURL;
 
+            _position = new MapPos();
+            _position.local_orientation = MapControl.SystemMap.GetLocalOrientation(MapControl.SystemMap.Origin);
+            _position.position = default;
+            
+            
+            
+            OnMapChanged?.Invoke();
         }
+
+        public float LodFactor => Mathf.Max(BaseLodFactorFieldOfView / Camera.fieldOfView, 1f);
     }
 }

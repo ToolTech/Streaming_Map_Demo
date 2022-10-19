@@ -15,6 +15,7 @@
 
 using Saab.Unity.Core.ComputeExtension;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
@@ -193,18 +194,21 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _shader.SetInt(ComputeShaderID.indexCount, points.Length);
         }
 
+        List<int> _surfaceIndices = new List<int>();
+
         public void SetMesh(Mesh mesh, bool pointCloud = false)
         {
             var surfaceVertices = mesh.vertices;
-            var surfaceIndices = mesh.GetIndices(0);
+            _surfaceIndices.Clear();
+            mesh.GetIndices(_surfaceIndices, 0);
             var surfaceUVs = mesh.uv;
             var bounds = mesh.bounds;
 
-            if (surfaceIndices.Length > _maxIndices || surfaceVertices.Length > _maxVertices)
+            if (_surfaceIndices.Count > _maxIndices || surfaceVertices.Length > _maxVertices)
             {
-                Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "Shader: Updated vertices buffer size from: {0} -- {1}\nUpdated indices buffer size from: {2} -- {3}", _maxVertices, surfaceVertices.Length, _maxIndices, surfaceIndices.Length);
+                Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "Shader: Updated vertices buffer size from: {0} -- {1}\nUpdated indices buffer size from: {2} -- {3}", _maxVertices, surfaceVertices.Length, _maxIndices, _surfaceIndices.Count);
                 _maxVertices = surfaceVertices.Length;
-                _maxIndices = surfaceIndices.Length;
+                _maxIndices = _surfaceIndices.Count;
                 GenerateBuffers(_maxVertices, _maxIndices);
             }
 
@@ -215,7 +219,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             // fill surface vertices
             _vertices.SetData(surfaceVertices);
-            _indices.SetData(surfaceIndices);
+            _indices.SetData(_surfaceIndices);
             _texcoords.SetData(surfaceUVs);
 
             if(pointCloud)
@@ -224,7 +228,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             }
             else
             {
-                _shader.SetInt(ComputeShaderID.indexCount, surfaceIndices.Length);
+                _shader.SetInt(ComputeShaderID.indexCount, _surfaceIndices.Count);
             }
             
 

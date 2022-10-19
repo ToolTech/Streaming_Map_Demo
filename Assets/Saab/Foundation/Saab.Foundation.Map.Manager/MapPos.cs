@@ -19,7 +19,7 @@
 // Module		: Saab.Foundation.Map.Manager
 // Description	: Definition of the MapPos map position structure
 // Author		: Anders Modén		
-// Product		: Gizmo3D 2.11.74
+// Product		: Gizmo3D 2.12.20
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -112,6 +112,7 @@ namespace Saab.Foundation.Map
         public Matrix3               local_orientation;     // East North Up base matrix
         protected Vec3               euler_enu;             // Yaw, Pitch, Roll - euler angles around ENU in (yaw-U),(pitch-E),(roll-N) right ON
         public Vec3D                 a, b, c;             // Place on triangle
+        public double t;                                    // Time triangle was detected
 
         public IntersectQuery       clampResult;          // non zero if this position is clamped
         public GroundClampType      clampType;
@@ -170,7 +171,7 @@ namespace Saab.Foundation.Map
 
         public Quaternion Rotation
         {
-            get { return (EnuToLocal() * Matrix3.Euler_ZXY(euler_enu.x, euler_enu.y, euler_enu.z)* BodyToENU).Quaternion(); }
+            get { return (EnuToLocal() * Matrix3.CreateFrom_Euler_ZXY(euler_enu.x, euler_enu.y, euler_enu.z)* BodyToENU).Quaternion(); }
         }
 
         public Vec3 Orientation

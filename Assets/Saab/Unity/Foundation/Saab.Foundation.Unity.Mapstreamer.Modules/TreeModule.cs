@@ -87,7 +87,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         public void AddTree(GameObject go, Vector3[] placement, Vector4[] data)
         {
-            // fix tre pos to be on ground instead of center of tree.
+            // fix tree pos to be on ground instead of center of tree.
             // TODO: Future points should be placed on Ground
 
             var update = placement;
@@ -261,7 +261,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                     }
                     else
                     {
-                        pointGenerator.PlacementMap = new Texture2D(job.Diffuse.width, job.Diffuse.height);
+                        pointGenerator.PlacementMap = job.Diffuse; //new Texture2D(job.Diffuse.width, job.Diffuse.height);
                     }
 
                     pointGenerator.ColorMap = job.Diffuse;

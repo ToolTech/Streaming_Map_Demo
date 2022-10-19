@@ -65,3 +65,4 @@ Material:
     - _DefaultTiling: {r: 30, g: 30, b: 0, a: 0}
     - _SpecularTint: {r: 1, g: 1, b: 1, a: 1}
     - _Tiling: {r: 200, g: 200, b: 1, a: 1}
+  m_BuildTextureStacks: []
