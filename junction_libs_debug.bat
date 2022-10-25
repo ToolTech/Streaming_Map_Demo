@@ -14,11 +14,11 @@ mkdir Assets\Plugins\Android\Libs
 
 rem ............. plugin selections -----------------------------------------
 
-REM mklink /J Assets\Plugins\x86                %GIZMOSDK%\build\ws\vs16\GizmoSDK_Unity_Libs\Debug
-REM mklink /J Assets\Plugins\x86_64                %GIZMOSDK%\build\ws\vs16\GizmoSDK_Unity_Libs\x64\Debug
-REM mklink /J Assets\Plugins\Android\Libs\armeabi-v7a     %GIZMOSDK%\build\ws\vs16\GizmoSDK_Unity_Libs\ARM\Debug
-mklink /J Assets\Plugins\Android\Libs\arm64-v8a     %GIZMOSDK%\build\ws\vs16\GizmoSDK\ARM64\Debug
-REM mklink /J Assets\Plugins\Android\Libs\x86         %GIZMOSDK%\build\ws\vs16\GizmoSDK_Unity_Libs\x86\Debug
+REM mklink /J Assets\Plugins\x86                	%GIZMOSDK%\build\ws\vs16\GizmoSDK_Unity_Libs\Debug
+REM mklink /J Assets\Plugins\x86_64                	%GIZMOSDK%\build\ws\vs16\GizmoSDK_Unity_Libs\x64\Debug
+REM mklink /J Assets\Plugins\Android\Libs\armeabi-v7a 	%GIZMOSDK%\build\ws\vs16\GizmoSDK_Unity_Libs\ARM\Debug
+REM mklink /J Assets\Plugins\Android\Libs\arm64-v8a     %GIZMOSDK%\build\ws\vs16\GizmoSDK\ARM64\Debug
+REM mklink /J Assets\Plugins\Android\Libs\x86         	%GIZMOSDK%\build\ws\vs16\GizmoSDK_Unity_Libs\x86\Debug
 
 mkdir Assets\Saab\Foundation
 mkdir Assets\Saab\Utility

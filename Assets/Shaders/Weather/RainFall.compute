@@ -1,0 +1,161 @@
+#pragma kernel CSRain
+#pragma kernel CSRainParticles
+#pragma kernel CSCreateParticles
+#include "UnityCG.cginc"
+
+#define PHI 1.61803398874989484820459
+
+struct RainDrop
+{
+	float3 Position;
+};
+
+RWStructuredBuffer<RainDrop> RainBuffer;
+RWTexture2D<float4> Result;
+Texture2D<float4> Input;
+
+float2 Resolution;
+float2 Wind;
+float Speed;
+float Fade;
+uint ParticlesNum;
+
+uniform float4x4 ClipToWorld;
+uniform float4x4 WorldToScreen;
+
+Texture2D<float4> DepthTexture;
+Texture2D<float4> NoiseTexture;
+
+float Random(float input, float mutator = 0.546, float min = 0.0, float max = 1.0)
+{
+	float value = input % 43758.5453123;
+	float mod = abs(min - max);
+	float random = frac(sin(value + mutator) * 142375.554353);
+	return (random * mod)+min;
+}
+
+float3 World2Screen(float3 worldPos)
+{
+	float4 clipCoord = mul(WorldToScreen, float4(worldPos, 1));
+	float4 screenPos = clipCoord / clipCoord.w;
+
+	screenPos = screenPos * 0.5 + 0.5;
+	screenPos *= float4(Resolution.x, Resolution.y, 1, 1);
+
+	return uint3(screenPos.x, screenPos.y, screenPos.z);
+}
+
+float3 GetWorldPos(float2 uv, float Depth)
+{
+	float4 clip = float4(uv.xy * 2 - 1, 0.0, 1.0);
+	float3 worldDirection = mul(ClipToWorld, clip) - _WorldSpaceCameraPos;
+
+	return worldDirection * Depth + _WorldSpaceCameraPos;
+}
+
+void DrawLine(float3 from, float mask)
+{
+	float3 rainDir = normalize(float3(Wind.x, -1, Wind.y));
+	rainDir.y = -1;
+
+	float3 to = from + normalize(rainDir) * Speed * unity_DeltaTime.x;
+
+	float2 start = World2Screen(from).xy;
+	float2 end = World2Screen(to).xy;
+
+	// ********** Bresenhams Line **********
+
+	int dx = abs(end.x - start.x);
+	int dy = -abs(end.y - start.y);
+
+	int sx = start.x < end.x ? 1 : -1;
+	int sy = start.y < end.y ? 1 : -1;
+
+	int error = dx + dy;
+
+	int x = start.x;
+	int y = start.y;
+
+	int MaxVal = min(min(max(dx, abs(end.y - start.y)), Resolution.x), Resolution.y);
+
+	//while (true)
+	for (int i = 0; i <= MaxVal; i++)
+	{
+		Result[float2(x, y)] = 1 - mask;
+
+		if (x == end.x && y == end.y)
+			break;
+
+		int e2 = 2 * error;
+
+		if (e2 >= dy)
+		{
+			if (x == end.x) break;
+			error = error + dy;
+			x = x + sx;
+
+		}
+		if (e2 <= dx)
+		{
+			if (y == end.y) break;
+			error = error + dx;
+			y = y + sy;
+		}
+	}
+}
+
+[numthreads(10, 1, 1)]
+void CSCreateParticles(uint3 id : SV_DispatchThreadID)
+{
+	if (id.x >= ParticlesNum) { return; }
+
+	float3 screenPos = float3(Random(id.x + _Time, 0.37) * Resolution.x, Random(id.x + _Time, 0.61) * Resolution.y, Random(id.x + _Time, 0.34));
+	float3 wp = GetWorldPos(float2(screenPos.x / Resolution.x, screenPos.y / Resolution.y), 5 + screenPos.z * 100);
+
+	RainBuffer[id.x].Position = wp;
+}
+
+[numthreads(10, 1, 1)]
+void CSRainParticles(uint3 id : SV_DispatchThreadID)
+{
+	if (id.x >= ParticlesNum) { return; } 
+
+	RainDrop drop = RainBuffer[id.x];
+	float3 screenPos = World2Screen(drop.Position);
+	float farPlane = _ProjectionParams.z;
+
+	// ********** WorldPos **********
+	float4 depthEye = LinearEyeDepth(DepthTexture[screenPos.xy]);
+	float3 uv = float3(screenPos.x / Resolution.x, screenPos.y / Resolution.y, screenPos.z / farPlane);
+	// ********** Rain direction **********
+	float3 rainDir = normalize(float3(Wind.x, -1, Wind.y));
+	rainDir.y = -1;
+	float3 wp = drop.Position + normalize(rainDir) * Speed * unity_DeltaTime.x;
+	// ********** Rain Particles **********
+	float dist = length(wp - _WorldSpaceCameraPos);
+	float mask = (dist - 5) / 100;
+
+	if (screenPos.x <= 0|| screenPos.x >= Resolution.x || screenPos.y <= 0 || screenPos.y >= Resolution.y || dist > 105)
+	{
+		screenPos = float3(Random(id.x + screenPos.x + _Time, 0.23) * Resolution.x, Random(id.x + screenPos.x + _Time, 0.76) * Resolution.y, Random(id.x + screenPos.x + _Time, 0.16));
+		wp = GetWorldPos(float2(screenPos.x / Resolution.x, screenPos.y / Resolution.y), 5 + screenPos.z * 100);
+	}
+
+	DrawLine(wp, mask.x);
+	RainBuffer[id.x].Position = wp;
+}
+
+[numthreads(8, 8, 1)]
+void CSRain(uint3 screenPos : SV_DispatchThreadID)
+{
+	float4 orgCol = Result[screenPos.xy];
+	
+	// Fade
+	float fade = max(0, orgCol - Fade * unity_DeltaTime.x);
+	Result[screenPos.xy] = fade;
+
+	// ********* random function test *********
+	//Result[screenPos.xy] = Random(screenPos.x + screenPos.y * PHI);
+}
+
+

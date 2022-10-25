@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Special class for geometry builder
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.11.74
+// Product		: Gizmo3D 2.12.23
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  

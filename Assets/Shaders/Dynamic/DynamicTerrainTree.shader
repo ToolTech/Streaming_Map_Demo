@@ -205,7 +205,7 @@ Shader "Terrain/DynamicTerrain/Tree"
 				grassPosition = _PointBuffer[p];
 				half4 objPos = mul(_worldToObj, half4(grassPosition.xyz, 1));
 
-				half2 _uv = objPos.xz;
+				half2 _uv = floor(objPos.xz*10) * 0.1;
 				half4 uv = half4(_uv.xy, 1, 1);
 
 				//half4 colorVar = tex2Dlod(_ColorVariance, uv);

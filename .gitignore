@@ -33,7 +33,7 @@ ExportedObj/
 # Unity3D generated meta files 
 *.pidb.meta 
 *.pdb.meta 
-*.meta
+
 
 
 # Unity3D Generated File On Crash Reports 
@@ -53,3 +53,4 @@ Logs/
 [Tt]ools/*/*.lib
 [Tt]ools/*/*.txt
 *.recipe
+crossboard_res - FULL.gzd
