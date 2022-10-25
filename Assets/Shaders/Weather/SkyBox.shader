@@ -126,7 +126,7 @@ Shader "Unlit/SkyBox"
                 float ground = pow(minimum * -1, _GroundBlendPower);
                 float horizon = (1 - (sky + ground));
 
-                float scroll = (_Time * _Wind);
+                float scroll = (_Time * -_Wind);
 
                 float2 uv = i.worldPos.xz / i.worldPos.y;
                 uv = uv * pow(pos, _Warp);

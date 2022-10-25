@@ -8,7 +8,8 @@ Shader "Weather/NewFog"
         {
             HLSLPROGRAM
             #include "Packages/com.unity.postprocessing/PostProcessing/Shaders/StdLib.hlsl"
-
+            #define UNITY_MATRIX_MVP mul(unity_MatrixVP, unity_ObjectToWorld)
+          
             #pragma vertex vert
             #pragma fragment frag
 
@@ -20,8 +21,9 @@ Shader "Weather/NewFog"
             struct v2f
             {
                 float4 vertex : SV_POSITION;
-                float2 uv : TEXCOORD0;          
-                float2 uvStereo : TEXCOORD1;
+                float2 texcoord  : TEXCOORD0;
+                float2 texcoordStereo  : TEXCOORD1;
+                float3 worldDirection  : TEXCOORD2;
             };
 
             TEXTURE2D_SAMPLER2D(_MainTex, sampler_MainTex);
@@ -33,56 +35,54 @@ Shader "Weather/NewFog"
             float _FogHeight;
             float4 _Color;
             float3 _Forward;
-            float4x4 UnityWorldSpaceViewDir;
+            uniform float4x4 clipToWorld;
 
             v2f vert (appdata v)
             {
                 v2f o;
-                o.vertex = v.vertex;
-                o.uv = TransformTriangleVertexToUV(v.vertex.xy);
+                o.vertex = float4(v.vertex.xy, 0.0, 1.0);
+                o.texcoord = TransformTriangleVertexToUV(v.vertex.xy);
 
 #if UNITY_UV_STARTS_AT_TOP
-                o.uv = o.uv * float2(1.0, -1.0) + float2(0.0, 1.0);
+                o.texcoord = o.texcoord * float2(1.0, -1.0) + float2(0.0, 1.0);
 #endif
+                o.texcoordStereo = TransformStereoScreenSpaceTex(o.texcoord, 1.0);
 
-                o.uvStereo = TransformStereoScreenSpaceTex(o.uv, 1.0);
+                float4 clip = float4(o.texcoord.xy * 2 - 1, 0.0, 1.0);
+                o.worldDirection = mul(clipToWorld, clip) - _WorldSpaceCameraPos;
 
                 return o;
             }
 
             float4 frag(v2f i) : SV_Target
             {
-                float4 color = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv);
-                float nonLinearDepth = SAMPLE_TEXTURE2D(_CameraDepthTexture, sampler_CameraDepthTexture, i.uv).r;
-                float linearDepth = Linear01Depth(nonLinearDepth);
+                    float4 color = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.texcoord);
+                    float nonLinearDepth = SAMPLE_TEXTURE2D(_CameraDepthTexture, sampler_CameraDepthTexture, i.texcoord).r;
+                    float linearDepth = Linear01Depth(nonLinearDepth);
 
-                float farPlane = _ProjectionParams.z;
+                    float farPlane = _ProjectionParams.z;
 
-                float3 dir = float3(i.uv.x - 0.5, i.uv.y - 0.5, 0);
-                float3 coord = normalize(dir + _Forward);
+                    float3 worldspace = i.worldDirection * LinearEyeDepth(nonLinearDepth) + _WorldSpaceCameraPos;
+                    float mask = 1 - abs(dot(normalize(worldspace), float3(0, 1, 0)));
 
-                float mask = 1 - abs(dot(coord, float3(0, 1, 0)));
+                    //return mask;
+                    //return float4(coord.xyz * linearDepth * _ViewDistance, 0);
 
-                /*float3 camPos = float3(0, 0, 0);
-                float denominator = abs(dot(coord, float3(0, 1, 0)));
-                float distance = dot(float3(0, _FogHeight, 0) - camPos, float3(0, 1, 0)) / denominator;
-                float linearDistance = distance / farPlane;
+                    float3 plane = float3(0, -1, 0);
+                    float denominator = dot(normalize(worldspace), plane);
+                    //return denominator;
+                    float distPlane = dot(float3(0, _FogHeight, 0) - _WorldSpaceCameraPos, plane) / denominator;
+                    distPlane = clamp(distPlane, 0, farPlane);
 
-                linearDepth = min(linearDepth, linearDistance);*/
+                    distPlane = denominator <= 0 ? distPlane : farPlane;
+                    float dist = linearDepth * farPlane;
 
-                float angle = pow(dot(_Forward, float3(0, 1, 0)), 2);  //abs(dot(float3(0, -1, 0), _Forward));
-                angle = 0; // clamp(angle, 0, 0.5);
+                    dist = min(dist, distPlane);
 
-                float dist = linearDepth * farPlane;
-                float depth = 1 - clamp(_ViewDistance / dist, 0, 1);
+                    float depth = 1 - clamp(_ViewDistance / dist, 0, 1);
 
-                //return 1 - angle;
-                //return i.vertex.xyz; // abs(dot(i.vertex.xyz, float3(0, 1, 0));
-                //return abs(dot(float2(0,1), i.vertex.xy));//dist < 3000 ? depth : 0;
-
-                depth = mask * clamp(depth + _MinDensity, 0, _MaxDensity) * (_Density * (1 - angle));
-                //return angle;
-                return _Color * depth + (color * (1 - depth));
+                    depth = clamp(depth + _MinDensity, 0, _MaxDensity) * (_Density * mask);
+                    return _Color * depth + (color * (1 - depth));
             }
 
             ENDHLSL

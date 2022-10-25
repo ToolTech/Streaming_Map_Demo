@@ -26,7 +26,7 @@ RenderSettings:
   m_AmbientIntensity: 1
   m_AmbientMode: 0
   m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
-  m_SkyboxMaterial: {fileID: 10304, guid: 0000000000000000f000000000000000, type: 0}
+  m_SkyboxMaterial: {fileID: 2100000, guid: 2995ae3933759be4c9275a57ca8e36a6, type: 2}
   m_HaloStrength: 0.5
   m_FlareStrength: 1
   m_FlareFadeSpeed: 3
@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 170076734}
-  m_IndirectSpecularColor: {r: 0.4434472, g: 0.49273324, b: 0.5723498, a: 1}
+  m_IndirectSpecularColor: {r: 0.60091066, g: 0.67450327, b: 0.73226196, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -335,7 +335,7 @@ MonoBehaviour:
     SceneCleanupTime: 10
     MaxBuildTime: 0.01
     DynamicLoaders: 4
-  MapUrl: C:\Maps\Eksjo\data\map.gzd
+  MapUrl: C:\Maps\smaland_tree_II\data\map.gzd
 --- !u!114 &534669908
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -361,7 +361,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SceneManager: {fileID: 534669907}
-  DepthShader: {fileID: 0}
+  DepthShader: {fileID: 7200000, guid: 7efa00cde91893345ac06d76d72dcb3a, type: 3}
   OcclusionCulling: 0
   EnableTrees: 1
   EnableCross: 0

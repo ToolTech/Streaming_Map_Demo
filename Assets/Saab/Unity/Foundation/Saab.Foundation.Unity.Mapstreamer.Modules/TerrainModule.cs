@@ -129,6 +129,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 {
                     SceneManager.OnEnterPool += _grassModule.RemoveGrass;
                 }
+
+                if(sceneManager.SceneManagerCamera != null)
+                    _camera = sceneManager.SceneManagerCamera.Camera;
             }
         }
 
