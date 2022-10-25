@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 170076734}
-  m_IndirectSpecularColor: {r: 0.60091066, g: 0.67450327, b: 0.73226196, a: 1}
+  m_IndirectSpecularColor: {r: 0.657409, g: 0.7280995, b: 0.78541607, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -335,7 +335,7 @@ MonoBehaviour:
     SceneCleanupTime: 10
     MaxBuildTime: 0.01
     DynamicLoaders: 4
-  MapUrl: C:\Maps\smaland_tree_II\data\map.gzd
+  MapUrl: C:\Test\Tiles_test_skillingaryd_3d\map.gzd
 --- !u!114 &534669908
 MonoBehaviour:
   m_ObjectHideFlags: 0
