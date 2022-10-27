@@ -33,11 +33,9 @@ public sealed class RainRenderer : PostProcessEffectRenderer<Rain>
     private int _kernel;
     private int _kernelParticle;
     private RenderTexture _outputTexture;
-    private RenderTexture _inputTexture;
 
     private ComputeBuffer _rainBuffer;
     private Matrix4x4 _worldToClip;
-
     private float _fov;
     private Vector2Int _screenSize; 
 
@@ -53,11 +51,6 @@ public sealed class RainRenderer : PostProcessEffectRenderer<Rain>
         _outputTexture = new RenderTexture(Screen.width, Screen.height, 24);
         _outputTexture.enableRandomWrite = true;
         _outputTexture.Create();
-
-        _inputTexture = new RenderTexture(Screen.width, Screen.height, 24);
-        _inputTexture.enableRandomWrite = true;
-        _inputTexture.Create();
-
         ParticleSetup();
     }
 
@@ -76,9 +69,10 @@ public sealed class RainRenderer : PostProcessEffectRenderer<Rain>
         _kernelParticle = settings.RainShader.value.FindKernel("CSRainParticles");
 
         settings.RainShader.value.SetTexture(_kernel, "Result", _outputTexture);
-        settings.RainShader.value.SetTexture(_kernel, "Input", _inputTexture);
 
-        _rainBuffer = new ComputeBuffer(10000, sizeof(float) * 3, ComputeBufferType.Raw);
+        if(_rainBuffer == null)
+            _rainBuffer = new ComputeBuffer(10000, sizeof(float) * 3, ComputeBufferType.Default);
+
         settings.RainShader.value.SetTexture(_kernelParticle, "Result", _outputTexture);
         settings.RainShader.value.SetBuffer(_kernelParticle, "RainBuffer", _rainBuffer);
 
@@ -99,9 +93,12 @@ public sealed class RainRenderer : PostProcessEffectRenderer<Rain>
     public override void Render(PostProcessRenderContext context)
     {
         if (_screenSize.x != Screen.width || _screenSize.y != Screen.height)
-            Setup();
-        if(context.camera.fieldOfView != _fov)
         {
+            Setup();
+        }
+
+        if (context.camera.fieldOfView != _fov)
+        {        
             GeneratePoints();
         }
 
@@ -155,69 +152,11 @@ public sealed class RainRenderer : PostProcessEffectRenderer<Rain>
 
     public override void Release()
     {
-        _rainBuffer.SetCounterValue(0);
-
-        _outputTexture.Release();
-        _inputTexture.Release();
-        _rainBuffer.Release();
+        if(_outputTexture != null)
+            _outputTexture.Release();
+        //if(_inputTexture != null)
+        //    _inputTexture.Release();
+        if (_rainBuffer.IsValid())
+            _rainBuffer.Release();
     }
-
-    //void CreateWorlyTexture3D()
-    //{
-    //    kernel = noiseCompute.FindKernel("CSWorley");
-    //    var kernelNormal = noiseCompute.FindKernel("CSNormalize");
-    //    var numcells2 = Mathf.FloorToInt(settings.NumberOfCells * 0.5f);
-    //    var numcells3 = Mathf.FloorToInt(settings.NumberOfCells * 0.25f);
-
-    //    CreateNoisePoints(settings.NumberOfCells, "points");
-
-    //    noiseCompute.SetFloat("density", settings.Density);
-    //    noiseCompute.SetInt("numCells", settings.NumberOfCells);
-    //    noiseCompute.SetInt("resolution", settings.Resolution);
-
-    //    // Dispatch noise gen kernel
-    //    int numThreadGroups = Mathf.CeilToInt(settings.Resolution / (float)8);
-
-    //    var minMaxBuffer = CreateComputeBuffer(new int[] { int.MaxValue, 0 }, sizeof(int), "minMax", kernel);
-    //    noiseCompute.SetTexture(kernel, "Result", settings.Texture3D);
-    //    noiseCompute.Dispatch(kernel, numThreadGroups, numThreadGroups, numThreadGroups);
-
-    //    noiseCompute.SetBuffer(kernelNormal, "minMax", minMaxBuffer);
-    //    noiseCompute.SetTexture(kernelNormal, "Result", settings.Texture3D);
-    //    noiseCompute.Dispatch(kernelNormal, numThreadGroups, numThreadGroups, numThreadGroups);
-    //}
-    //void CreateNoisePoints(int count, string bufferName)
-    //{
-    //    var points = new Vector3[count * count * count];
-    //    float cellSize = 1f / count;
-
-    //    for (int x = 0; x < count; x++)
-    //    {
-    //        for (int y = 0; y < count; y++)
-    //        {
-    //            for (int z = 0; z < count; z++)
-    //            {
-    //                var offset = new Vector3(Random.value, Random.value, Random.value);
-    //                var pos = (new Vector3(x, y, z) + offset) * cellSize;
-    //                int index = x + count * (y + z * count);
-
-    //                points[index] = pos;
-    //            }
-    //        }
-    //    }
-
-    //    var kernel = noiseCompute.FindKernel("CSWorley");
-    //    CreateComputeBuffer(points, sizeof(float) * 3, bufferName, kernel);
-    //}
-    //ComputeBuffer CreateComputeBuffer(System.Array data, int byteSize, string bufferName, int kernel = 0, ComputeBuffer buffer = null)
-    //{
-    //    if (buffer == null)
-    //        buffer = new ComputeBuffer(data.Length, byteSize, ComputeBufferType.Raw);
-
-    //    //buffersToRelease.Add(buffer);
-    //    buffer.SetData(data);
-    //    noiseCompute.SetBuffer(kernel, bufferName, buffer);
-
-    //    return buffer;
-    //}
 }

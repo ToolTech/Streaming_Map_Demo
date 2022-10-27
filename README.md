@@ -19,7 +19,8 @@ anders.moden@saabgroup.com
 Setup
 =====
 
-To run, open the InstallPackages.sln under directory 'InstallPackages' and select 'debug/release/x64/ARM64 etc' solution and build. This will fetch nuget packages for all components and update the Assets/Plugin folder with correct binaries. The solution can deploy both Debug and Release versions to be used in development. Only one "deploy" version at a time should be used. Dont mix both Debug and Release versions. To clear the plugin folder, run the script 'cleanup_plugins.bat' that will clean the Assets/Plugin folder. Use VS2019 to build the InstallPackages or use VS2017 and install support for .NET Core 3.1
+To run, open the InstallPackages.sln under directory 'InstallPackages' and select 'debug/release/x64/ARM64 etc' solution and build. This will fetch nuget packages for all components and update the Assets/Plugin folder with correct binaries. The solution can deploy both Debug and Release versions to be used in development. Only one "deploy" version at a time should be used. Dont mix both Debug and Release versions. To clear the plugin folder, run the script 'cleanup_plugins.bat' that will clean the Assets/Plugin folder. Use VS2019 to build the InstallPackages or use VS2017 and install support for .NET Core 3.1 
+Dont use ARM and ARM64 builds in parallell or rename and configure dlls properly so Unity can select the right ones
 
 
 Running the demo

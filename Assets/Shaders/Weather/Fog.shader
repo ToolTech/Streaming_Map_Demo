@@ -8,7 +8,6 @@ Shader "Weather/Fog"
         {
             HLSLPROGRAM
             #include "Packages/com.unity.postprocessing/PostProcessing/Shaders/StdLib.hlsl"
-            #define UNITY_MATRIX_MVP mul(unity_MatrixVP, unity_ObjectToWorld)
 
             #pragma vertex vert
             #pragma fragment frag
@@ -34,7 +33,7 @@ Shader "Weather/Fog"
             float _MaxDensity;
             float _FogHeight;
             float4 _Color;
-            float4 _Ambient;
+            float _Ambient;
             float3 _Forward;
             uniform float4x4 clipToWorld;
 
@@ -66,9 +65,6 @@ Shader "Weather/Fog"
                     float3 worldspace = i.worldDirection * LinearEyeDepth(nonLinearDepth) + _WorldSpaceCameraPos;
                     float mask = 1 - abs(dot(normalize(worldspace), float3(0, 1, 0)));
 
-                    //return mask;
-                    //return float4(coord.xyz * linearDepth * _ViewDistance, 0);
-
                     float3 plane = float3(0, -1, 0);
                     float denominator = dot(normalize(worldspace), plane);
                     float distPlane = dot(float3(0, _FogHeight, 0) - _WorldSpaceCameraPos, plane) / denominator;
@@ -82,7 +78,7 @@ Shader "Weather/Fog"
                     float depth = 1 - clamp(_ViewDistance / dist, 0, 1);
 
                     depth = clamp(depth + _MinDensity, 0, _MaxDensity) * (_Density * mask);
-                    return (_Color * _Ambient * depth) + (color * (1 - depth));
+                    return lerp(color, _Color * _Ambient, depth);
             }
 
             ENDHLSL

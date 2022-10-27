@@ -8,7 +8,6 @@ Shader "Weather/Rain"
         {
             HLSLPROGRAM
             #include "Packages/com.unity.postprocessing/PostProcessing/Shaders/StdLib.hlsl"
-            #define UNITY_MATRIX_MVP mul(unity_MatrixVP, unity_ObjectToWorld)
 
             #pragma vertex vert
             #pragma fragment frag
@@ -70,7 +69,7 @@ Shader "Weather/Rain"
                 o.texcoordStereo = TransformStereoScreenSpaceTex(o.texcoord, 1.0);
 
                 float4 clip = float4(o.texcoord.xy * 2 - 1, 0.0, 1.0);
-                o.worldDirection = mul(_ClipToWorld, clip) - _WorldSpaceCameraPos;
+                o.worldDirection = mul(_ClipToWorld, clip).xyz - _WorldSpaceCameraPos;
 
                 return o;
             }
@@ -81,7 +80,7 @@ Shader "Weather/Rain"
             {
                     float time = unity_DeltaTime.x;
                     float farPlane = _ProjectionParams.z;
-                    float2 groundScroll = (_Time * normalize(_Wind) * 0.1);
+                    float2 groundScroll = (_Time.y * normalize(_Wind) * 0.1);
 
                     float4 color = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.texcoord);
                     float nonLinearDepth = SAMPLE_TEXTURE2D(_CameraDepthTexture, sampler_CameraDepthTexture, i.texcoord).r;
@@ -105,7 +104,7 @@ Shader "Weather/Rain"
 
                     float4 rainTex = SAMPLE_TEXTURE2D(_RainTex, sampler_RainTex, i.texcoord);
 
-                    float4 rain = lerp(ground, GammaToLinear(_Color), rainTex.a * _Color.a);
+                    float4 rain = lerp(GammaToLinear(color), GammaToLinear(_Color), rainTex.a * _Color.a);
 
 #if UNITY_COLORSPACE_GAMMA
                     return rain;

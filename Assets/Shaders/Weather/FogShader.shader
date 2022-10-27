@@ -8,7 +8,6 @@ Shader "Weather/NewFog"
         {
             HLSLPROGRAM
             #include "Packages/com.unity.postprocessing/PostProcessing/Shaders/StdLib.hlsl"
-            #define UNITY_MATRIX_MVP mul(unity_MatrixVP, unity_ObjectToWorld)
           
             #pragma vertex vert
             #pragma fragment frag
@@ -49,7 +48,7 @@ Shader "Weather/NewFog"
                 o.texcoordStereo = TransformStereoScreenSpaceTex(o.texcoord, 1.0);
 
                 float4 clip = float4(o.texcoord.xy * 2 - 1, 0.0, 1.0);
-                o.worldDirection = mul(clipToWorld, clip) - _WorldSpaceCameraPos;
+                o.worldDirection = mul(clipToWorld, clip).xyz - _WorldSpaceCameraPos;
 
                 return o;
             }
