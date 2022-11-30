@@ -19,7 +19,7 @@
 // Module		:
 // Description	: manages camera updates
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.23
+// Product		: Gizmo3D 2.12.33
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -68,7 +68,9 @@ namespace Saab.Foundation.Unity.MapStreamer
         public double Z = 0;
 
         public float LodFactor => 1f;
-                
+
+        private double _lastRenderTime = 0;
+        private double _currentRenderTime = 0;        
         
         public Camera Camera
         {
@@ -76,6 +78,14 @@ namespace Saab.Foundation.Unity.MapStreamer
             {
                 return GetComponent<Camera>();
             }
+        }
+
+        public float GetDeltaTime()
+        {
+            if (_lastRenderTime == 0)
+                return 0;
+            else
+                return (float)(_currentRenderTime - _lastRenderTime);
         }
 
         public Vec3D GlobalPosition
@@ -102,40 +112,40 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         private void MoveForward(float moveSpeed)
         {
-            X = X + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.forward.x;
-            Y = Y + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.forward.y;
+            X = X + moveSpeed * GetDeltaTime() * transform.forward.x;
+            Y = Y + moveSpeed * GetDeltaTime() * transform.forward.y;
 
             // As we have a Right Handed ON system and unitys Z into the screen we apply a negative direction
-            Z = Z - moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.forward.z;
+            Z = Z - moveSpeed * GetDeltaTime() * transform.forward.z;
         }
 
         private void MoveRight(float moveSpeed)
         {
-            X = X + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.right.x;
-            Y = Y + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.right.y;
+            X = X + moveSpeed * GetDeltaTime() * transform.right.x;
+            Y = Y + moveSpeed * GetDeltaTime() * transform.right.y;
 
             // As we have a Right Handed ON system and unitys Z points into the screen we apply a negative direction
-            Z = Z - moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.right.z;
+            Z = Z - moveSpeed * GetDeltaTime() * transform.right.z;
         }
 
         private void MoveUp(float moveSpeed)
         {
-            X = X + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.up.x;
-            Y = Y + moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.up.y;
+            X = X + moveSpeed * GetDeltaTime() * transform.up.x;
+            Y = Y + moveSpeed * GetDeltaTime() * transform.up.y;
 
             // As we have a Right Handed ON system and unitys Z points into the screen we apply a negative direction
-            Z = Z - moveSpeed * UnityEngine.Time.unscaledDeltaTime * transform.up.z;
+            Z = Z - moveSpeed * GetDeltaTime() * transform.up.z;
         }
 
         private Quaternion Tilt(float rotationSpeed)
         {
             System.Numerics.Quaternion.CreateFromYawPitchRoll(0, 0, 0);
-            return Quaternion.Euler(rotationSpeed * UnityEngine.Time.unscaledDeltaTime, 0, 0);
+            return Quaternion.Euler(rotationSpeed * GetDeltaTime(), 0, 0);
         }
 
         private Quaternion Pan(float rotationSpeed)
         {
-            return Quaternion.Euler(0, rotationSpeed * UnityEngine.Time.unscaledDeltaTime, 0);
+            return Quaternion.Euler(0, rotationSpeed * GetDeltaTime(), 0);
         }
 
             // Update is called once per frame
@@ -201,64 +211,21 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                 //transform.position;
 
-                if (Input.GetKey("w"))
+                
+                if(Input.GetKey("b"))
                 {
-                    MoveForward(speed);
-                }
-                if (Input.GetKey("s"))
-                {
-                    MoveForward(-speed);
+                    GizmoSDK.Gizmo3D.DynamicLoaderManager.StopManager();
                 }
 
-                if(Input.GetKey(KeyCode.Space))
+                if (Input.GetKey("v"))
                 {
-                    MoveUp(speed/2);
-                }
-                if (Input.GetKey(KeyCode.C))
-                {
-                    MoveUp(-speed/2);
-                }
-
-                if (Input.GetKey("d"))
-                {
-                    MoveRight(speed);
-                }
-                if (Input.GetKey("a"))
-                {
-                    MoveRight(-speed);
+                    GizmoSDK.Gizmo3D.DynamicLoaderManager.StartManager();
                 }
 
 
                 //transform.position = pos;
 
-                Quaternion rot = transform.rotation;
-
-                if (Input.GetKey(KeyCode.UpArrow))
-                {
-                    rot = rot * Tilt(rotspeed);
-                }
-
-                if (Input.GetKey(KeyCode.DownArrow))
-                {
-                    rot = rot * Tilt(-rotspeed);
-                }
-
-                if (Input.GetKey(KeyCode.LeftArrow))
-                {
-                    rot = Pan(-rotspeed) * rot;
-                }
-
-                if (Input.GetKey(KeyCode.RightArrow))
-                {
-                    rot = Pan(rotspeed) * rot;
-                }
-
-#if TEST_ROTATION
-                rot = Pan(-rotspeed) * rot;
-#endif
-
-                transform.rotation = rot;
-
+                
             }
             finally
             {
@@ -266,14 +233,83 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
         }
 
-        public void PreTraverse()
+        public void PreTraverse(bool locked)
         {
             // Called before traverser runs
         }
 
-        public void PostTraverse()
+        public void PostTraverse(bool locked)
         {
             // Called after all nodes have updated their transforms
+        }
+
+        public double UpdateCamera(double renderTime)
+        {
+            _lastRenderTime = _currentRenderTime;
+            _currentRenderTime = renderTime;
+
+            if (Input.GetKey("w"))
+            {
+                MoveForward(speed);
+            }
+            if (Input.GetKey("s"))
+            {
+                MoveForward(-speed);
+            }
+
+            if (Input.GetKey(KeyCode.Space))
+            {
+                MoveUp(speed / 2);
+            }
+            if (Input.GetKey(KeyCode.C))
+            {
+                MoveUp(-speed / 2);
+            }
+
+            if (Input.GetKey("d"))
+            {
+                MoveRight(speed);
+            }
+            if (Input.GetKey("a"))
+            {
+                MoveRight(-speed);
+            }
+
+            Quaternion rot = transform.rotation;
+
+            if (Input.GetKey(KeyCode.UpArrow))
+            {
+                rot = rot * Tilt(rotspeed);
+            }
+
+            if (Input.GetKey(KeyCode.DownArrow))
+            {
+                rot = rot * Tilt(-rotspeed);
+            }
+
+            if (Input.GetKey(KeyCode.LeftArrow))
+            {
+                rot = Pan(-rotspeed) * rot;
+            }
+
+            if (Input.GetKey(KeyCode.RightArrow))
+            {
+                rot = Pan(rotspeed) * rot;
+            }
+
+            if (Input.GetKeyDown("p"))
+            {
+                rot = Quaternion.Euler(0, 180, 0) * rot;
+            }
+
+#if TEST_ROTATION
+                rot = Pan(-rotspeed) * rot;
+#endif
+
+            transform.rotation = rot;
+
+
+            return renderTime;
         }
 
         public void MapChanged()

@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Management of dynamic asset loader from GizmoSDK
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.23
+// Product		: Gizmo3D 2.12.33
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -32,6 +32,7 @@
 //
 // AMO	180607	Created file        (2.9.1)
 // AMO  200304  Updated SceneManager with events for external users     (2.10.1)
+// AMO  221130  Updated SM with new locking and camera sync             (2.12.35)
 //
 //******************************************************************************
 
@@ -49,7 +50,6 @@ using UnityEngine;
 // Gizmo Managed classes
 using GizmoSDK.GizmoBase;
 using GizmoSDK.Gizmo3D;
-using GizmoSDK.Coordinate;
 
 // Fix some conflicts between unity and Gizmo namespaces
 using gzCamera = GizmoSDK.Gizmo3D.Camera;
@@ -71,7 +71,6 @@ using System.Collections.Generic;
 using System;
 using System.Collections;
 using UnityEngine.Networking;
-using System.Diagnostics;
 
 namespace Saab.Foundation.Unity.MapStreamer
 {
@@ -85,9 +84,11 @@ namespace Saab.Foundation.Unity.MapStreamer
         Vector3 Up { get; }                         // Get up vector in global coordinate system for current position
         Vector3 North { get; }                      // Get north vector in global coordinate system for current position
 
-        void PreTraverse();                         // Executed before scene is traversed and updated with new transform
+        void PreTraverse(bool locked);              // Executed before scene is traversed and updated with new transform and new geometry
 
-        void PostTraverse();                        // Executed after nodes are repositioned with new transforms
+        void PostTraverse(bool locked);             // Executed after nodes are repositioned with new transforms and correct activations
+
+        double UpdateCamera(double renderTime);     // Executed just before camera transform is used. Update you cam animation in this
 
         void MapChanged();                          // Executed when map is changed
 
@@ -124,6 +125,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         public delegate void EventHandler_OnGameObject(GameObject o);
         public delegate void EventHandler_OnNode(Node node);
+        public delegate void EventHandler_OnUpdateCamera(double renderTime);
         public delegate void EventHandler_OnMapLoadError(ref string url,string errorString,SerializeAdapter.AdapterError errorType,ref bool retry);
 
         // Notifications for external users that wants to add components to created game objects. Be swift as we are in edit lock
@@ -135,12 +137,13 @@ namespace Saab.Foundation.Unity.MapStreamer
         public event EventHandler_OnGameObject  OnNewLoader;        // GameObject that works like a dynamic loader
         public event EventHandler_OnGameObject  OnEnterPool;
 
-        public delegate void EventHandler_Traverse();
+        public delegate void EventHandler_Traverse(bool locked);    // Pre and Post traversal in locked or unlocked mode (edit)
 
-        public event EventHandler_Traverse          OnPreTraverse;
-        public event EventHandler_Traverse          OnPostTraverse;
+        public event EventHandler_Traverse          OnPreTraverse;  // Called after SceneManagerCamera is updated
+        public event EventHandler_Traverse          OnPostTraverse; // Called after SceneManagerCamera is updated
         public event EventHandler_OnNode            OnMapChanged;
         public event EventHandler_OnMapLoadError    OnMapLoadError;
+        public event EventHandler_OnUpdateCamera    OnUpdateCamera; // Called after SceneManagerCamera is updated
 
         #region ------------- Privates ----------------
 
@@ -218,6 +221,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         // A queue for new pending loads/unloads
         List<NodeLoadInfo> pendingLoaders = new List<NodeLoadInfo>(100);
+        Dictionary<IntPtr,NodeLoadInfo> activePendingLoaders = new Dictionary<IntPtr, NodeLoadInfo>();
 
         // A queue for pending activations/deactivations
         List<ActivationInfo> pendingActivations = new List<ActivationInfo>(100);
@@ -700,6 +704,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                 }
 
                 pendingLoaders.Clear();
+                activePendingLoaders.Clear();
 
                 foreach (var p in pendingActivations)
                 {
@@ -778,6 +783,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                 // If we want to visualize debug 3D
                 _native_camera.Debug(_native_context);      // Enable to debug view
+
 #endif // DEBUG_CAMERA
 
                 // Default travrser
@@ -918,7 +924,40 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             if (state == DynamicLoadingState.LOADED || state == DynamicLoadingState.UNLOADED)
             {
-                pendingLoaders.Add(new NodeLoadInfo(state, loader, node));
+                if (!activePendingLoaders.ContainsKey(loader.GetNativeReference()))
+                {
+                    NodeLoadInfo info = new NodeLoadInfo(state, loader, node);
+
+                    pendingLoaders.Add(info);       // Sorted order
+                    activePendingLoaders.Add(loader.GetNativeReference(), info);    // Lookup
+                }
+                else
+                {
+                    // Balanced add/remove that will cancel traversal or delete
+
+                    for (int i = pendingLoaders.Count - 1; i >= 0; i--)
+                    {
+                        if (pendingLoaders[i].loader.GetNativeReference() == loader.GetNativeReference())
+                        {
+                            pendingLoaders.RemoveAt(i);
+                            break;
+                        }
+                    }
+
+                    // remove reference
+                    activePendingLoaders.Remove(loader.GetNativeReference());
+                }
+
+            }
+            else if (state == DynamicLoadingState.REQUEST_LOAD || state == DynamicLoadingState.REQUEST_UNLOAD || state == DynamicLoadingState.REQUEST_LOAD_CANCEL || state == DynamicLoadingState.REQUEST_LOAD_CANCEL)
+            {
+                loader?.ReleaseNoDelete();      // Same here. We are getting refs to objects in scene graph that we shouldnt release in GC
+                node?.ReleaseNoDelete();
+            }
+            else if (state == DynamicLoadingState.IN_LOADING)
+            {
+                loader?.ReleaseNoDelete();      // Same here. We are getting refs to objects in scene graph that we shouldnt release in GC
+                node?.ReleaseNoDelete();
             }
             else
             {
@@ -929,7 +968,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         Timer _timeInPendingUpdates = new Timer();
 
-        private void ProcessPendingUpdates()
+        private void ProcessPendingUpdatesPreTraversal()
         {
             // We must be called in edit lock
 
@@ -941,7 +980,12 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             Performance.Leave();
 
-#endregion
+            #endregion
+        }
+
+        private void ProcessPendingUpdatesPostTraversal()
+        {
+            // We must be called in edit lock
 
             #region Activate/Deactivate GameObjects based on scenegraph -----------------------------------------------------
 
@@ -959,7 +1003,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             var _remainingTimeToBuild = Settings.MaxBuildTime - _timeInPendingUpdates.GetTime();
 
-            if(_remainingTimeToBuild>0)
+            //if(_remainingTimeToBuild>0)
                 ProcessPendingBuilders(_remainingTimeToBuild);
 
             Performance.Leave();
@@ -972,9 +1016,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             {             
                 Performance.Enter("SM.ProcessPendingUpdates.Cleanup");
 
-                //debug Remove unused Variable
-                //UnityEngine.Debug.LogFormat(LogType.Error, LogOption.NoStacktrace, this, "clean up! {0}", _sw.ElapsedMilliseconds);
-                _cleanupTimer.Reset();
+               _cleanupTimer.Reset();
 
                 Resources.UnloadUnusedAssets();
                 Performance.Leave();
@@ -1020,7 +1062,8 @@ namespace Saab.Foundation.Unity.MapStreamer
                 }
             }
 
-            pendingLoaders.Clear();
+            pendingLoaders.Clear();         // Clear List
+            activePendingLoaders.Clear();   // Clear index
         }
 
         private void ProcessPendingActivations()
@@ -1035,9 +1078,13 @@ namespace Saab.Foundation.Unity.MapStreamer
                     {
                         if (activationInfo.state == NodeActionEvent.IS_TRAVERSABLE)
                             obj.SetActive(true);
-                        else
+                        else if (activationInfo.state == NodeActionEvent.IS_NOT_TRAVERSABLE)
                             obj.SetActive(false);
                     }
+                }
+                else 
+                {
+                    Message.Send(ID, MessageLevel.DEBUG, $"Got Activation {activationInfo.state} for missing node");
                 }
             }
 
@@ -1080,9 +1127,28 @@ namespace Saab.Foundation.Unity.MapStreamer
         // Update is called once per frame
         private void Update()
         {
+            // Check if global world camera is present -----------------------
+
+            if (SceneManagerCamera == null)
+                return;
+
+            // Check if local unity camera is present ------------------------
+
+            var UnityCamera = SceneManagerCamera.Camera;
+
+            if (UnityCamera == null)
+                return;
+
+            // Check if local native camera is present ------------------------
+
+            if (_native_camera == null)
+                return;
+
             try
             {
                 Performance.Enter("SM.Update");
+
+                // Lets try to build a scenegraph from pending changes from previous pass
 
                 if (!NodeLock.TryLockEdit(30))      // 30 msek allow latency of other pending editor
                 {
@@ -1091,58 +1157,80 @@ namespace Saab.Foundation.Unity.MapStreamer
                     // We failed to refresh scene in reasonable time but we still need to issue updates;
 
                     Performance.Enter("SM.Update.PreTraverse");
-                    if(SceneManagerCamera!=null)
-                        SceneManagerCamera.PreTraverse();
-                    OnPreTraverse?.Invoke();
+                    SceneManagerCamera.PreTraverse(false);
+                    OnPreTraverse?.Invoke(false);
                     Performance.Leave();
 
                     return;
-                }
-
-                try // We are now locked in edit
-                {
-                    Performance.Enter("SM.ProcessPendingUpdates");
-                    ProcessPendingUpdates();
-                }
-                finally
-                {
-                    Performance.Leave();
-          
-                    NodeLock.UnLock();
                 }
 
                 // Notify about we are starting to traverse -----------------------
 
                 Performance.Enter("SM.Update.PreTraverse");
-                if (SceneManagerCamera != null)
-                    SceneManagerCamera.PreTraverse();
-                OnPreTraverse?.Invoke();
+
+                // Signal the world camera we are in pre traverse locked
+                SceneManagerCamera.PreTraverse(true);
+
+                // Signal the SM we are in pre traverse locked
+                OnPreTraverse?.Invoke(true);
+
                 Performance.Leave();
 
-                // Check if camera present ---------------------------------------
-
-                if (SceneManagerCamera == null)
-                    return;
-                              
-
-                // ---------------------------------------------------------------
-
-                var UnityCamera = SceneManagerCamera.Camera;
-
-                if (UnityCamera == null)
-                    return;
-
-                if (!NodeLock.TryLockRender(30))    // 30 millisek latency allowed
+                try // We are now locked in edit
                 {
-                    Message.Send(ID, MessageLevel.DEBUG, "Lock contention detected! NodeLock::TryLockRender() FRAME LOST");
+                    Performance.Enter("SM.ProcessPendingUpdatesPreTraversal");
+
+                    // Builds a scenegraph from changes from previous frame
+                    ProcessPendingUpdatesPreTraversal();
+                }
+                finally
+                {
+                    Performance.Leave();
+
+                    if (!NodeLock.ChangeToRenderLock())
+                    {
+                        NodeLock.UnLock();
+
+                        Message.Send(ID, MessageLevel.DEBUG, "Failed to change into RenderLock");
+                    }
+                }
+
+                if (!NodeLock.IsLockedRender())
+                    return;
+
+
+                if (activePendingLoaders.Count > 0) // Check if we got a mismatch in updates
+                {
+                    NodeLock.UnLock(); // Unlock render
+
+                    Message.Send(ID, MessageLevel.FATAL, "Mismatch in virtual context (loaded/unloaded data)");
+
                     return;
                 }
 
+
                 try // We are now locked in read
                 {
+                    // Setup LOD
+
+                    // lod bias
+                    var lodFactor = SceneManagerCamera.LodFactor;
+                    Lod.SetLODFactor(_native_context, lodFactor);
+                    MapControl.SystemMap.LodFactor = lodFactor;
+
                     // Transfer camera parameters
 
                     PerspCamera perspCamera = _native_camera as PerspCamera;
+
+                    // Right now we use system time as render time but this can be controlled externally in the future
+                    var renderTime = GizmoSDK.GizmoBase.Time.SystemSeconds;
+
+                    // Syncronized update. You should use the rendertime
+                    renderTime = SceneManagerCamera.UpdateCamera(renderTime);
+                    OnUpdateCamera?.Invoke(renderTime);
+
+                    // Use this time in render
+                    _native_context.SetCurrentRenderTime(renderTime);
 
                     if (perspCamera != null)
                     {
@@ -1158,11 +1246,6 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                     _native_camera.Position = SceneManagerCamera.GlobalPosition;
 
-                    // lod bias
-                    var lodFactor = SceneManagerCamera.LodFactor;
-                    Lod.SetLODFactor(_native_context, lodFactor);
-                    MapControl.SystemMap.LodFactor = lodFactor;
-
                     _native_camera.Render(_native_context, 1000, 1000, 1000, _native_traverse_action);
 
 #if DEBUG_CAMERA
@@ -1171,6 +1254,28 @@ namespace Saab.Foundation.Unity.MapStreamer
                 }
                 finally
                 {
+                    if (!NodeLock.ChangeToEditLock())
+                    {
+                        NodeLock.UnLock();
+
+                        Message.Send(ID, MessageLevel.DEBUG, "Failed to change into EditLock");
+                    }
+                }
+
+                if (!NodeLock.IsLockedByMe())
+                    return;
+
+                try // We are now locked in edit
+                {
+                    Performance.Enter("SM.ProcessPendingUpdatesPostTraversal");
+
+                    // Builds a scenegraph from changes from previous frame
+                    ProcessPendingUpdatesPostTraversal();
+                }
+                finally
+                {
+                    Performance.Leave();
+
                     NodeLock.UnLock();
                 }
 
@@ -1183,9 +1288,8 @@ namespace Saab.Foundation.Unity.MapStreamer
                 // Notify about we are ready in traverse -----------------------
 
                 Performance.Enter("SM.Update.PostTraverse");
-                if(SceneManagerCamera!=null)
-                    SceneManagerCamera.PostTraverse();
-                OnPostTraverse?.Invoke();
+                SceneManagerCamera.PostTraverse(false);
+                OnPostTraverse?.Invoke(false);
                 Performance.Leave();
 
                 // Leave Scm update -------------------------------------------

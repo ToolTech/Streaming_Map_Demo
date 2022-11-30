@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Extensions to convert between GizmoSDK and Unity3D
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.23
+// Product		: Gizmo3D 2.12.33
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -52,7 +52,7 @@ using UnityEngine;
 
 namespace Saab.Foundation.Unity.MapStreamer
 {
-    public delegate void Traverse();
+    public delegate void Traverse(bool locked);
 
     [RequireComponent(typeof(Camera))]
     public class SceneManagerCamera : MonoBehaviour, ISceneManagerCamera
@@ -123,17 +123,22 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
         }
 
-        public virtual void PreTraverse()
+        public virtual void PreTraverse(bool locked)
         {
             if (_mapUrl != MapControl.SystemMap.NodeURL)
                 MapChanged();
 
-            OnPreTraverse?.Invoke();
+            OnPreTraverse?.Invoke(locked);
         }
 
-        public virtual void PostTraverse()
+        public virtual void PostTraverse(bool locked)
         {
-            OnPostTraverse?.Invoke();
+            OnPostTraverse?.Invoke(locked);
+        }
+
+        public virtual double UpdateCamera(double renderTime)
+        {
+            return renderTime;
         }
 
         public virtual void MapChanged()

@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Adds PropertyAttributes to GizmoSDK NodeHandler
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.23
+// Product		: Gizmo3D 2.12.33
 //
 //
 //

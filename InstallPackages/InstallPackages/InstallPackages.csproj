@@ -6,42 +6,42 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutputPath>..\..\Assets\Plugins\x64\Debug</OutputPath>
+    <OutputPath>..\..\Assets\Plugins\x64\</OutputPath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutputPath>..\..\Assets\Plugins\x64\Release</OutputPath>
+    <OutputPath>..\..\Assets\Plugins\x64\</OutputPath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'">
-    <OutputPath>..\..\Assets\Plugins\x86\Debug</OutputPath>
+    <OutputPath>..\..\Assets\Plugins\x86\</OutputPath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x86'">
-    <OutputPath>..\..\Assets\Plugins\x86\Release</OutputPath>
+    <OutputPath>..\..\Assets\Plugins\x86\</OutputPath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
-    <OutputPath>..\..\Assets\Plugins\ARM\Debug</OutputPath>
+    <OutputPath>..\..\Assets\Plugins\ARM\</OutputPath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
-    <OutputPath>..\..\Assets\Plugins\ARM\Release</OutputPath>
+    <OutputPath>..\..\Assets\Plugins\ARM\</OutputPath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
-    <OutputPath>..\..\Assets\Plugins\ARM64\Debug</OutputPath>
+    <OutputPath>..\..\Assets\Plugins\ARM64\</OutputPath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
-    <OutputPath>..\..\Assets\Plugins\ARM64\Release</OutputPath>
+    <OutputPath>..\..\Assets\Plugins\ARM64\</OutputPath>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Coordinate" Version="2.12.23.1" />
-    <PackageReference Include="Gizmo3D" Version="2.12.23.1" />
-    <PackageReference Include="GizmoBase" Version="2.12.23.1" />
-    <PackageReference Include="GizmoDistribution" Version="2.12.23.1" />
+    <PackageReference Include="Coordinate" Version="2.12.35.1" />
+    <PackageReference Include="Gizmo3D" Version="2.12.35.1" />
+    <PackageReference Include="GizmoBase" Version="2.12.35.1" />
+    <PackageReference Include="GizmoDistribution" Version="2.12.35.1" />
   </ItemGroup>
 
 </Project>

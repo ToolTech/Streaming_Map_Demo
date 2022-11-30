@@ -12,7 +12,7 @@ struct RainDrop
 
 RWStructuredBuffer<RainDrop> RainBuffer;
 RWTexture2D<float4> Result;
-Texture2D<float4> Input;
+//Texture2D<float4> Input;
 
 float2 Resolution;
 float2 Wind;
@@ -109,7 +109,7 @@ void CSCreateParticles(uint3 id : SV_DispatchThreadID)
 {
 	if (id.x >= ParticlesNum) { return; }
 
-	float3 screenPos = float3(Random(id.x + _Time, 0.37) * Resolution.x, Random(id.x + _Time, 0.61) * Resolution.y, Random(id.x + _Time, 0.34));
+	float3 screenPos = float3(Random(id.x + _Time.x, 0.37) * Resolution.x, Random(id.x + _Time.x, 0.61) * Resolution.y, Random(id.x + _Time.x, 0.34));
 	float3 wp = GetWorldPos(float2(screenPos.x / Resolution.x, screenPos.y / Resolution.y), 5 + screenPos.z * 100);
 
 	RainBuffer[id.x].Position = wp;
@@ -137,7 +137,7 @@ void CSRainParticles(uint3 id : SV_DispatchThreadID)
 
 	if (screenPos.x <= 0|| screenPos.x >= Resolution.x || screenPos.y <= 0 || screenPos.y >= Resolution.y || dist > 105)
 	{
-		screenPos = float3(Random(id.x + screenPos.x + _Time, 0.23) * Resolution.x, Random(id.x + screenPos.x + _Time, 0.76) * Resolution.y, Random(id.x + screenPos.x + _Time, 0.16));
+		screenPos = float3(Random(id.x + screenPos.x + _Time.x, 0.23) * Resolution.x, Random(id.x + screenPos.x + _Time.x, 0.76) * Resolution.y, Random(id.x + screenPos.x + _Time.x, 0.16));
 		wp = GetWorldPos(float2(screenPos.x / Resolution.x, screenPos.y / Resolution.y), 5 + screenPos.z * 100);
 	}
 

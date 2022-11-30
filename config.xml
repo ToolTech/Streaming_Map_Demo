@@ -9,7 +9,7 @@
             UseDynamicTreeCrossboards   => 4 
             UseDynamicGrassCrossboards  => 8
         ***********************************************-->
-        <CurrentCaps>4</CurrentCaps>
+        <CurrentCaps>12</CurrentCaps>
         <Grass>
             <Density info="Density of Dynamic grass">0.15</Density>
             <DrawDistance info="DrawDistance for grass">250</DrawDistance>
