@@ -173,7 +173,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             DepthShader.Dispatch(_kernelHandle, Mathf.CeilToInt(camera.pixelWidth / 32), Mathf.CeilToInt(camera.pixelHeight / 32), 1);
         }
 
-        private void SceneManager_OnPostTraverse()
+        private void SceneManager_OnPostTraverse(bool locked)
         {
             if (_camera == null)
                 return;

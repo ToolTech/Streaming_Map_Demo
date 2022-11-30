@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Bindings stub for Gizmo Messages
 // Author		: Anders Modén
-// Product		: GizmoBase 2.10.5
+// Product		: GizmoBase 2.12.33
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -54,6 +54,8 @@ namespace Saab.Unity.Initializer
     public class Initializer : MonoBehaviour
     {
         //private DebugCommandStation station=null;
+
+        private PerformanceTracer tracer;
 
 #if UNITY_ANDROID
 

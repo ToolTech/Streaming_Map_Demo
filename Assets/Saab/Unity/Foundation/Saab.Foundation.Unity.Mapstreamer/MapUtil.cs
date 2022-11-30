@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Utilities for Map  
 // Author		: Johan Gustavsson
-// Product		: Gizmo3D 2.12.24
+// Product		: Gizmo3D 2.12.33
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
