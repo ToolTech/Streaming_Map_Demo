@@ -7,7 +7,7 @@ This is a generic streaming API for 3D engines (Unity,Unreal...) that allows fas
 
 This GIT repository will allow you to take a look at a Unity demo, written by the Open Saab Development community using the GizmoSDK code base from Saab Dynamics, Training & Simulation. Take a look at https://youtu.be/m2NsE8NBrB0
 
-The open source and open documentation in here are to be considered as GPL code and can be used in your own projects.
+The open source and open documentation in here are to be considered as LGPL code and can be used in your own projects.
 
 The binaries are licensed by Saab Dynamics. If you are interested in using this for commersial use, please contact 
 
@@ -19,7 +19,7 @@ anders.moden@saabgroup.com
 Setup
 =====
 
-To run, open the InstallPackages.sln under directory 'InstallPackages' and select 'debug/release/x64/ARM64 etc' solution and build. This will fetch nuget packages for all components and update the Assets/Plugin folder with correct binaries. The solution can deploy both Debug and Release versions to be used in development. Only one "deploy" version at a time should be used. Dont mix both Debug and Release versions. To clear the plugin folder, run the script 'cleanup_plugins.bat' that will clean the Assets/Plugin folder. Use VS2019 to build the InstallPackages or use VS2017 and install support for .NET Core 3.1 
+To run, open the InstallPackages.sln under directory 'InstallPackages' and select 'debug/release for each x64/ARM64 etc' solution and build. Select only one configration at a time and build this for all platforms. This will fetch nuget packages for all components and update the Assets/Plugin folder with correct binaries. The solution can deploy both Debug and Release versions to be used in development. Only one "deploy" version at a time should be used. Dont mix both Debug and Release versions. To clear the plugin folder, run the script 'cleanup_plugins.bat' that will clean the Assets/Plugin folder. Use VS2019 to build the InstallPackages or use VS2017 and install support for .NET Core 3.1 
 Dont use ARM and ARM64 builds in parallell or rename and configure dlls properly so Unity can select the right ones
 
 
