@@ -27,6 +27,10 @@ Material:
         m_Texture: {fileID: 2800000, guid: 6c01dd27775156c45b9914ba2f4bbb6e, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _StarCubeMap:
+        m_Texture: {fileID: 8900000, guid: f57dbde3b4b93e248bf5498bbbb84781, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Floats:
     - _CloudBlendPower: 0.05
     - _CloudDensity: 0.8
@@ -39,13 +43,14 @@ Material:
     - _SkyBlendPower: 0.7
     - _SunAura: 1
     - _SunIntensity: 2
-    - _SunSize: 0.03
+    - _SunSize: 0.02
     - _Warp: 0.6
     - _ZenithBlendPower: 0
     m_Colors:
-    - _CloudColor: {r: 0.8207547, g: 0.8207547, b: 0.8207547, a: 1}
+    - _CloudColor: {r: 0.9150943, g: 0.9150943, b: 0.9150943, a: 1}
     - _GroundColor: {r: 0.19744839, g: 0.254717, b: 0.06848522, a: 1}
     - _HorizonColor: {r: 1, g: 1, b: 1, a: 1}
     - _SkyColor: {r: 0, g: 0.50196075, b: 1, a: 1}
     - _SunriseColor: {r: 1, g: 0.65330946, b: 0.43867922, a: 1}
     - _Wind: {r: -0.1, g: 0.4, b: 0, a: 0}
+  m_BuildTextureStacks: []

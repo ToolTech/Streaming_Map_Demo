@@ -4,6 +4,9 @@ Shader "Unlit/SkyBox"
     {
         _MainTex ("Texture", 2D) = "white" {}
         _NightTex("Star Texture", 2D) = "white" {}
+
+        [NoScaleOffset] _StarCubeMap("Star cube map", Cube) = "black" {}
+
         _SkyBlendPower("Sky Blend", Range(0.05,1)) = 0.3
         _GroundBlendPower("Ground Blend", Range(0.05,1)) = 0.3
         _CloudBlendPower("Cloud Blend", Range(0.05,1)) = 0.3
@@ -52,6 +55,9 @@ Shader "Unlit/SkyBox"
 
             sampler2D _MainTex;
             sampler2D _NightTex;
+
+            samplerCUBE _StarCubeMap;
+            half4 _StarCubeMap_HDR;
 
             float4 _MainTex_ST;
             float _SkyBlendPower;
@@ -126,7 +132,7 @@ Shader "Unlit/SkyBox"
                 float ground = pow(minimum * -1, _GroundBlendPower);
                 float horizon = (1 - (sky + ground));
 
-                float scroll = (_Time * -_Wind);
+                float2 scroll = (_Time.z * -_Wind);
 
                 float2 uv = i.worldPos.xz / i.worldPos.y;
                 uv = uv * pow(pos, _Warp);
@@ -161,7 +167,9 @@ Shader "Unlit/SkyBox"
                 sunRise = 0;
 
                 fixed4 skynight = GammaToLinear(tex2D(_NightTex, uv)) * sky * 3;
-                //return clamp(1 - (nightsky + sunDot), 0, 1);
+
+                float4 starData = texCUBE(_StarCubeMap, i.worldPos.xyz);
+                float4 starMap = pow(float4(DecodeHDR(starData, _StarCubeMap_HDR).xyz * 2, 1), 3);
 
                 float4 skycol = lerp(GammaToLinear(_SkyColor), skynight, clamp(1 - (nightsky + sunDot), 0, 1));
 

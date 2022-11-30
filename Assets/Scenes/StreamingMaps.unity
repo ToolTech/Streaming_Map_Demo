@@ -441,7 +441,7 @@ MonoBehaviour:
     GrassDensity: 0.0912
     TreeDensity: 29.123
     TreeTestMesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 3}
-    TreeTestMaterial: {fileID: 2100000, guid: 250724218cbc6e743b8c647cf0951eaf, type: 2}
+    TreeTestMaterial: {fileID: 0}
     GrassDrawDistance: 300
     TreeDrawDistance: 5000
     GrassShadows: 0

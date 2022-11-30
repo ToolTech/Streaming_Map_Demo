@@ -223,7 +223,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                     if (!IsInFrustum(centerWorld - CameraPosition, -maxExtent * 1.75f))
                         continue;
 
-                    var triangleCount = mesh.GetIndices(0).Length / 3f;
+                    var triangleCount = mesh.GetIndexCount(0) / 3f;
                     var bufferSize = Math.Max(1, (maxExtent * maxExtent) / Density);
 
                     bufferSize = bufferSize < mesh.vertexCount ? mesh.vertexCount : bufferSize;

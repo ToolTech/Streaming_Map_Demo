@@ -78,7 +78,7 @@ Shader "Weather/Rain"
 
             float4 frag(v2f i) : SV_Target
             {
-                    float time = unity_DeltaTime.x;
+                    float time = unity_DeltaTime.z;
                     float farPlane = _ProjectionParams.z;
                     float2 groundScroll = (_Time.y * normalize(_Wind) * 0.1);
 

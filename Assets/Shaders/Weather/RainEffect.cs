@@ -24,6 +24,9 @@ public sealed class Rain : PostProcessEffectSettings
     [Range(0, 10), Tooltip("Rain Fade.")]
     public FloatParameter Fade = new FloatParameter { value = 5 };
 
+    [Range(0, 5), Tooltip("Rain Radius.")]
+    public FloatParameter Radius = new FloatParameter { value = 1 };
+
     [Tooltip("Wind")]
     public Vector2Parameter Wind = new Vector2Parameter { value = Vector2.zero };
 }
@@ -37,21 +40,17 @@ public sealed class RainRenderer : PostProcessEffectRenderer<Rain>
     private ComputeBuffer _rainBuffer;
     private Matrix4x4 _worldToClip;
     private float _fov;
-    private Vector2Int _screenSize; 
+    private Vector2Int _screenSize;
+    private int _resolution = 1024;
 
     public override void Init()
     {
-        Setup();
-    }
-
-    private void Setup()
-    {
-        _screenSize = new Vector2Int(Screen.width, Screen.height);
-
-        _outputTexture = new RenderTexture(Screen.width, Screen.height, 24);
+        _outputTexture = new RenderTexture(_resolution, _resolution, 24);
         _outputTexture.enableRandomWrite = true;
         _outputTexture.Create();
         ParticleSetup();
+
+        _screenSize = new Vector2Int(Screen.width, Screen.height);
     }
 
     public Matrix4x4 GetClipToWorld(Camera camera)
@@ -88,13 +87,21 @@ public sealed class RainRenderer : PostProcessEffectRenderer<Rain>
 
         if (settings.Density > 0)
             settings.RainShader.value.Dispatch(setup, threads, 1, 1);
+
+        RenderTexture rt = RenderTexture.active;
+        RenderTexture.active = _outputTexture;
+        GL.Clear(true, true, Color.clear);
+        RenderTexture.active = rt;
     }
 
     public override void Render(PostProcessRenderContext context)
     {
-        if (_screenSize.x != Screen.width || _screenSize.y != Screen.height)
+        var height = _resolution;
+        var width = _resolution;
+
+        if (_screenSize.x < Screen.width || _screenSize.y < Screen.height)
         {
-            Setup();
+            GeneratePoints();
         }
 
         if (context.camera.fieldOfView != _fov)
@@ -102,14 +109,17 @@ public sealed class RainRenderer : PostProcessEffectRenderer<Rain>
             GeneratePoints();
         }
 
+        _screenSize = new Vector2Int(Screen.width, Screen.height);
+
         _fov = context.camera.fieldOfView;
         var clipToWorld = GetClipToWorld(context.camera);
         Matrix4x4 world2Screen = context.camera.projectionMatrix * context.camera.worldToCameraMatrix;
 
-        settings.RainShader.value.SetVector("Resolution", new Vector2(Screen.width, Screen.height));
+        settings.RainShader.value.SetVector("Resolution", new Vector2(width, height));
         settings.RainShader.value.SetInt("ParticlesNum", settings.Density.value);
         settings.RainShader.value.SetFloat("Speed", settings.Speed.value);
         settings.RainShader.value.SetFloat("Fade", settings.Fade.value);
+        settings.RainShader.value.SetFloat("Radius", settings.Radius.value);
         settings.RainShader.value.SetVector("Wind", settings.Wind.value);
         settings.RainShader.value.SetTextureFromGlobal(_kernel, "DepthTexture", "_CameraDepthTexture");
         settings.RainShader.value.SetTextureFromGlobal(_kernelParticle, "DepthTexture", "_CameraDepthTexture");
@@ -118,10 +128,7 @@ public sealed class RainRenderer : PostProcessEffectRenderer<Rain>
 
         int threads = settings.Density.value > 10 ? settings.Density.value / 10 : 1;
 
-        //RenderTexture rt = RenderTexture.active;
-        //RenderTexture.active = _outputTexture;
-        //GL.Clear(true, true, Color.clear);
-        //RenderTexture.active = rt;
+       
 
         _rainBuffer.SetCounterValue(0);
         settings.RainShader.value.SetBuffer(_kernelParticle, "RainBuffer", _rainBuffer);

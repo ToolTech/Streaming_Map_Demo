@@ -374,12 +374,13 @@ namespace Saab.Foundation.Unity.MapStreamer
         private NodeHandle CreateNodeHandle(Node node, PoolObjectFeature feature)
         {
             var nodeHandle = Allocate(feature, node);
-
+            // we only use the name inside editor to avoid allocations in runtime
+#if UNITY_EDITOR
             nodeHandle.name = node.GetName();
             
             if (string.IsNullOrEmpty(nodeHandle.name))
                 nodeHandle.name = node.GetType().Name;
-  
+#endif
             return nodeHandle;
         }
 
@@ -1003,7 +1004,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             var _remainingTimeToBuild = Settings.MaxBuildTime - _timeInPendingUpdates.GetTime();
 
-            //if(_remainingTimeToBuild>0)
+            if(_remainingTimeToBuild>0)
                 ProcessPendingBuilders(_remainingTimeToBuild);
 
             Performance.Leave();

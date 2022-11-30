@@ -5,10 +5,13 @@
 		[PerRendererData] _MainTex("Sprite Texture", 2D) = "white" {}
 		_Color("Tint", Color) = (1,1,1,1)
 		[MaterialToggle] PixelSnap("Pixel snap", Float) = 0
+		[MaterialToggle] Scale("Scale By Distance", Float) = 0
+		[MaterialToggle] View("Scale By View", Float) = 0
 		[HideInInspector] _RendererColor("RendererColor", Color) = (1,1,1,1)
 		[HideInInspector] _Flip("Flip", Vector) = (-1,1,1,1)
 		[PerRendererData] _AlphaTex("External Alpha", 2D) = "white" {}
 		[PerRendererData] _EnableExternalAlpha("Enable External Alpha", Float) = 0
+		
 	}
 
 		SubShader
@@ -24,7 +27,7 @@
 
 			Cull Off
 			Lighting Off
-			ZWrite Off
+			ZWrite On
 			Blend One OneMinusSrcAlpha
 
 			Pass
@@ -35,6 +38,8 @@
 				#pragma target 2.0
 				#pragma multi_compile_instancing
 				#pragma multi_compile _ PIXELSNAP_ON
+				#pragma multi_compile _ SCALE_ON
+				#pragma multi_compile _ VIEW_ON
 				#pragma multi_compile _ ETC1_EXTERNAL_ALPHA
 				#include "UnitySprites.cginc"
 
@@ -57,16 +62,19 @@
 					// transform pivot position into view space
 					float4 viewPos = mul(UNITY_MATRIX_V, float4(worldPos, 1.0));
 
-					// Adjust scale by distance
-					float z = -viewPos.z;
-					scale = lerp(scale, scale * 0.25, clamp(z / 5000, 0, 1));
+					#ifdef SCALE_ON
+						// Adjust scale by distance
+						float z = -viewPos.z;
+						scale = lerp(scale, scale * 0.5, clamp(z / 5000, 0, 1));
+					#endif
 
 					// apply transform scale to xy vertex positions
 					float2 vertex = IN.vertex.xy * scale;
 
-					// multiply by view depth for constant view size scaling
-					vertex *= -viewPos.z;
-
+					#ifdef VIEW_ON
+						// multiply by view depth for constant view size scaling
+						vertex *= -viewPos.z;
+					#endif
 
 					// divide by perspective projection matrix [1][1] if you don't want camera FOV to displayed size
 					// the * 0.5 is to make a default quad with a scale of 1 be exactly the height of the view
@@ -86,15 +94,15 @@
 					OUT.texcoord = IN.texcoord;
 
 					#ifdef UNITY_COLORSPACE_GAMMA
-					fixed4 color = IN.color;
+						fixed4 color = IN.color;
 					#else
-					fixed4 color = fixed4(GammaToLinearSpace(IN.color.rgb), IN.color.a);
+						fixed4 color = fixed4(GammaToLinearSpace(IN.color.rgb), IN.color.a);
 					#endif
 
 					OUT.color = color * _Color * _RendererColor;
 
 					#ifdef PIXELSNAP_ON
-					OUT.vertex = UnityPixelSnap(OUT.vertex);
+						OUT.vertex = UnityPixelSnap(OUT.vertex);
 					#endif
 
 					return OUT;
