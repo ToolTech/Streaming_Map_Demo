@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Extensions to convert between GizmoSDK and Unity3D
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.33
+// Product		: Gizmo3D 2.12.35
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -56,10 +56,18 @@ namespace Saab.Unity.Extensions
         {
             return new Vec3D(vec.x, vec.y, vec.z);
         }
+        public static Vec3D FlipZ(this Vec3D vec)
+        {
+            return new Vec3D(vec.x, vec.y, -vec.z);
+        }
 
         public static Vec3 ToVec3(this Vector3 vec)
         {
             return new Vec3(vec.x, vec.y, vec.z);
+        }
+        public static Vec3 FlipZ(this Vec3 vec)
+        {
+            return new Vec3(vec.x, vec.y, -vec.z);
         }
 
         public static GizmoSDK.GizmoBase.Quaternion ToQuaternion(this UnityEngine.Quaternion quat)
@@ -132,6 +140,18 @@ namespace Saab.Unity.Extensions
         public static Vector3 ToVector3(this Vec3 vec)
         {
             return new Vector3(vec.x, vec.y, vec.z);
+        }
+        public static Vector3 ToVector3FlipZ(this Vec3D vec)
+        {
+            return new Vector3((float)vec.x, (float)vec.y, (float)-vec.z);
+        }
+        public static Vector3 ToVector3FlipZ(this Vec3 vec)
+        {
+            return new Vector3(vec.x, vec.y, -vec.z);
+        }
+        public static Vector3 FlipZ(this Vector3 vec)
+        {
+            return new Vector3(vec.x, vec.y, -vec.z);
         }
 
         public static UnityEngine.Quaternion ToQuaternion(this GizmoSDK.GizmoBase.Quaternion quat)
