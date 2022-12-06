@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Helper for texture and state uploads
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.35
+// Product		: Gizmo3D 2.12.36
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -66,6 +66,7 @@ namespace Saab.Foundation.Unity.MapStreamer
     {
         bool TryGet(TKey key, out TValue value);
         bool TryAdd(TKey key, TValue value);
+        void CleanUp();
     }
 
     // Basic threadsafe implementation of a texture cache
@@ -78,7 +79,34 @@ namespace Saab.Foundation.Unity.MapStreamer
         }
         public bool TryAdd(IntPtr key, Texture2D value)
         {
-            return _cache.TryAdd(key, value);
+            if (_cache.TryAdd(key, value))
+            {
+                Reference.Ref(key);
+                return true;
+            }
+
+            return false;
+        }
+
+        public void CleanUp()
+        {
+            foreach (var item in _cache)
+            {
+                var count = Reference.GetRef(item.Key);
+
+                if(count<=2)    // Possibly One native (+1) and one managed (1)
+                {
+                    // Move dealloc to NodeLocked by secondary thread
+                    ThreadEditLockedDeallocator.Dealloc(item.Key);
+
+                    Reference.UnRef(item.Key);
+
+                    Texture2D tex;
+
+                    _cache.TryRemove(item.Key, out tex);
+                        
+                }
+            }
         }
     }
 
@@ -116,15 +144,57 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             using (var texture = state.GetTexture(0))
             {
+                if (textureCache != null)
+                {
+                    // Check possible shared states
 
-                if (textureCache != null && textureCache.TryGet(texture.GetNativeReference(), out result))
-                    return true;
+                    var stateShare = state.GetReferenceCount();
+
+                    if(stateShare>2)             // Share: 1 native, 1 managed, extra shared>2
+                    {
+                        if (textureCache.TryGet(state.GetNativeReference(), out result))
+                        {
+                            texture.ReleaseAlreadyLocked();
+                            return true;
+                        }
+
+                        if (!CopyTexture(texture, out result))
+                            return false;
+
+                        // Add a reference to data
+
+                        textureCache.TryAdd(state.GetNativeReference(), result);
+
+                        texture.ReleaseAlreadyLocked();
+
+                        return true;
+                    }
+
+                    var texShare = texture.GetReferenceCount();
+
+                    if (texShare > 2)             // Share: 1 native, 1 managed, extra shared>2
+                    {
+                        if (textureCache.TryGet(texture.GetNativeReference(), out result))
+                        {
+                            texture.ReleaseAlreadyLocked();
+                            return true;
+                        }
+
+                        if (!CopyTexture(texture, out result))
+                            return false;
+
+                        textureCache.TryAdd(texture.GetNativeReference(), result);
+
+                        texture.ReleaseAlreadyLocked();
+
+                        return true;
+                    }
+                }
 
                 if (!CopyTexture(texture, out result))
                     return false;
 
-                if (textureCache != null)
-                    textureCache.TryAdd(texture.GetNativeReference(), result);
+                texture.ReleaseAlreadyLocked();
             }
 
             return true;

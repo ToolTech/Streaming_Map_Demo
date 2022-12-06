@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Handle to native Gizmo3D nodes
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.35
+// Product		: Gizmo3D 2.12.36
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -165,6 +165,9 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         public void UpdateNodeInternals()
         {
+            // Roi and RoiNodes are updated here as they have a relative position to the ROI camera position
+            // They are the ones that move the large parts of a map
+
             if (!updateTransform)
                 return;
 
