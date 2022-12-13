@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Management of dynamic asset loader from GizmoSDK
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.33
+// Product		: Gizmo3D 2.12.40
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -240,6 +240,8 @@ namespace Saab.Foundation.Unity.MapStreamer
         
         private bool _initialized;
 
+        // Builders. Right now only one builder per node type hierarchy
+
         private readonly List<INodeBuilder> _builders = new List<INodeBuilder>();
 
         public void AddBuilder(INodeBuilder builder)
@@ -250,6 +252,14 @@ namespace Saab.Foundation.Unity.MapStreamer
         public void RemoveBuilder(INodeBuilder builder)
         {
             _builders.Remove(builder);
+        }
+
+        private void CleanUpBuilders()
+        {
+            foreach (var builder in _builders)
+            {
+                builder.CleanUp();
+            }
         }
 
         private INodeBuilder GetBuilderForNode(Node node)
@@ -288,6 +298,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         private void ProcessTransformNode(gzTransform node, unTransform transform)
         {
+            // Check if transform is Active and not unit (1)
             if (!node.IsActive())
                 return;
 
@@ -340,7 +351,7 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             var parent = nodeHandle.transform;
 
-            if (addActionInterfaces)
+            if (addActionInterfaces)        // use addActionInterface if we shall be able to enable/disable part of the tree using action callbacks
             {
                 foreach (var child in node)
                 {
@@ -374,12 +385,13 @@ namespace Saab.Foundation.Unity.MapStreamer
         private NodeHandle CreateNodeHandle(Node node, PoolObjectFeature feature)
         {
             var nodeHandle = Allocate(feature, node);
-
+            // we only use the name inside editor to avoid allocations in runtime
+#if UNITY_EDITOR
             nodeHandle.name = node.GetName();
             
             if (string.IsNullOrEmpty(nodeHandle.name))
                 nodeHandle.name = node.GetType().Name;
-  
+#endif
             return nodeHandle;
         }
 
@@ -430,7 +442,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             var gameObject = nodeHandle.gameObject;
 
-
+            // ------- GROUP based ITEMS first --------------------------------------------------
 
             // ---------------------------- Transform check -------------------------------------
 
@@ -452,16 +464,14 @@ namespace Saab.Foundation.Unity.MapStreamer
                 finally
                 {
                     Performance.Leave();
-                }
-
-                    
+                }    
             }
 
             // ---------------------------- DynamicLoader check -------------------------------------
 
             // Add dynamic loader as game object in dictionary
             // so other dynamic loaded data can parent them as child to loader
-            if (node is DynamicLoader dl)
+            else if (node is DynamicLoader dl)
             {
                 try
                 {
@@ -489,7 +499,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             // ---------------------------- Lod check -------------------------------------
 
-            if (node is Lod ld)
+            else if (node is Lod ld)
             {
                 ProcessLodNode(ld, nodeHandle, activeStateNode);
 
@@ -516,9 +526,11 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             // ---------------------------- RoiNode check -------------------------------------
 
-            if (node is RoiNode)
+            else if (node is RoiNode)
             {
                 RegisterNodeForUpdate(nodeHandle);
+
+                // Fall through to group 
             }
 
             // ---------------------------- Group check -------------------------------------
@@ -529,28 +541,30 @@ namespace Saab.Foundation.Unity.MapStreamer
                 return gameObject;
             }
 
-            // ---------------------------ExtRef check -----------------------------------------
+            // -------------- ITEMS not built by builders --------------------------------------
 
-            if (node is ExtRef extRef)
-            {
-                var info = new AssetLoadInfo(gameObject, extRef.ResourceURL, extRef.ObjectID);
-
-                pendingAssetLoads.Push(info);
-            }
-
-
-            // ---------------------------- Crossboard check -------------------------------------
-
-            if (node is Crossboard cross)
-            {
-                OnNewCrossboard?.Invoke(gameObject);
-            }
 
             // ---------------------------- Geometry check -------------------------------------
 
             if (node is Geometry geom)
             {
                 OnNewGeometry?.Invoke(gameObject);
+            }
+
+            // ---------------------------- Crossboard check -------------------------------------
+
+            else if (node is Crossboard cross)
+            {
+                OnNewCrossboard?.Invoke(gameObject);
+            }
+
+            // ---------------------------ExtRef check -----------------------------------------
+
+            else if (node is ExtRef extRef)
+            {
+                var info = new AssetLoadInfo(gameObject, extRef.ResourceURL, extRef.ObjectID);
+
+                pendingAssetLoads.Push(info);
             }
 
             return gameObject;
@@ -949,16 +963,16 @@ namespace Saab.Foundation.Unity.MapStreamer
                 }
 
             }
-            else if (state == DynamicLoadingState.REQUEST_LOAD || state == DynamicLoadingState.REQUEST_UNLOAD || state == DynamicLoadingState.REQUEST_LOAD_CANCEL || state == DynamicLoadingState.REQUEST_LOAD_CANCEL)
-            {
-                loader?.ReleaseNoDelete();      // Same here. We are getting refs to objects in scene graph that we shouldnt release in GC
-                node?.ReleaseNoDelete();
-            }
-            else if (state == DynamicLoadingState.IN_LOADING)
-            {
-                loader?.ReleaseNoDelete();      // Same here. We are getting refs to objects in scene graph that we shouldnt release in GC
-                node?.ReleaseNoDelete();
-            }
+            //else if (state == DynamicLoadingState.REQUEST_LOAD || state == DynamicLoadingState.REQUEST_UNLOAD || state == DynamicLoadingState.REQUEST_LOAD_CANCEL || state == DynamicLoadingState.REQUEST_LOAD_CANCEL)
+            //{
+            //    loader?.ReleaseNoDelete();      // Same here. We are getting refs to objects in scene graph that we shouldnt release in GC
+            //    node?.ReleaseNoDelete();
+            //}
+            //else if (state == DynamicLoadingState.IN_LOADING)
+            //{
+            //    loader?.ReleaseNoDelete();      // Same here. We are getting refs to objects in scene graph that we shouldnt release in GC
+            //    node?.ReleaseNoDelete();
+            //}
             else
             {
                 loader?.ReleaseNoDelete();      // Same here. We are getting refs to objects in scene graph that we shouldnt release in GC
@@ -976,7 +990,11 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             Performance.Enter("SM.ProcessPendingUpdates.BuildGO");
 
+            // Process changes of the scenegraph
             ProcessPendingLoaders();
+
+            // Potentiallly cleanup after pending unloads
+            CleanUpBuilders();
 
             Performance.Leave();
 
@@ -1003,7 +1021,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             var _remainingTimeToBuild = Settings.MaxBuildTime - _timeInPendingUpdates.GetTime();
 
-            //if(_remainingTimeToBuild>0)
+            if(_remainingTimeToBuild>0)
                 ProcessPendingBuilders(_remainingTimeToBuild);
 
             Performance.Leave();
@@ -1279,6 +1297,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                     NodeLock.UnLock();
                 }
 
+                // Unlocked updates
                 UpdateNodeInternals();
 
                 // -------------------------------------------------------------

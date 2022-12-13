@@ -8,3 +8,4 @@ purl:maps?nic=${wlan0},sweden\smaland\data\rapid.gzd
 // Local files
 Maps/jkg_small/roi.gzl
 Maps\Sweden\Eksjo\data\map.gzd
+C:\Maps\swe_kungsangen_eval\vricon_3d_terrain_model_collada\processed\map.gzd

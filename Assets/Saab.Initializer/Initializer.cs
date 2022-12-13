@@ -36,18 +36,16 @@
 
 // ----------- Some defines ---------------------------------
 
-//#define SHOW_MEMORY       // Show memory used in PlotViz
-#define SHOW_FPS            // Show FPS in PlotViz
-//#define SHOW_TRACERS
+//#define SHOW_MEMORY         // Show memory used in PlotViz
+//#define SHOW_FPS            // Show FPS in PlotViz
+//#define SHOW_TRACERS        // Show perf in PlotViz
 
 // ------------------------ Code ----------------------------
 
 using GizmoSDK.GizmoBase;
 using UnityEngine;
-using System.Threading;
 using Saab.Foundation.Unity.MapStreamer;
-using UnityEngine.Profiling;
-using System;
+
 
 namespace Saab.Unity.Initializer
 {

@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Special class for geometry builder
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.33
+// Product		: Gizmo3D 2.12.40
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -55,6 +55,9 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         public PoolObjectFeature Feature => PoolObjectFeature.StaticMesh;
 
+        // we will cache shared textures
+        private readonly TextureCache _textureCache = new TextureCache();
+
         // lifetime data
         private readonly Material _defaultMaterial;
 
@@ -83,6 +86,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             // Renderer, state and material ---------------------------------
 
             var meshRenderer = gameObject.GetComponent<MeshRenderer>();
+
             if (meshRenderer == null)
                 meshRenderer = gameObject.AddComponent<MeshRenderer>();
 
@@ -95,11 +99,13 @@ namespace Saab.Foundation.Unity.MapStreamer
                 {
                     var state = activeStateNode.node.State;
 
-                    if (!StateHelper.Build(state, out StateBuildOutput buildOutput, null))
+                    if (!StateHelper.Build(state, out StateBuildOutput buildOutput, _textureCache))
                         return false;
 
                     activeStateNode.stateLoadInfo |= StateLoadInfo.Texture;
                     activeStateNode.texture = buildOutput.Texture;
+
+                    state.ReleaseAlreadyLocked();
                 }
 
                 meshRenderer.material.mainTexture = activeStateNode.texture;
@@ -126,6 +132,11 @@ namespace Saab.Foundation.Unity.MapStreamer
         public void BuiltObjectReturnedToPool(GameObject gameObject)
         {
             // NOP
+        }
+
+        public void CleanUp()
+        {
+            _textureCache.CleanUp();
         }
     }
 }

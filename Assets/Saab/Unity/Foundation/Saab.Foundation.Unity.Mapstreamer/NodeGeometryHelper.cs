@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Helper class for vertice updates
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.33
+// Product		: Gizmo3D 2.12.40
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -79,19 +79,9 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             uint numVertices = 0;
             uint numIndices = 0;
-            if (!geom.GetVertexData(ref _float_data, ref numVertices, ref _indices, ref numIndices))
+
+            if (!geom.GetVertexData<Vector3>(ref _positions, ref numVertices, ref _indices, ref numIndices))
                 return false;
-
-            if (_positions == null || _positions.Length < numVertices)
-                _positions = new Vector3[numVertices];
-
-            var float_index = 0;
-            for (var i = 0; i < _positions.Length; i++)
-            {
-                _positions[i].x = _float_data[float_index++];
-                _positions[i].y = _float_data[float_index++];
-                _positions[i].z = _float_data[float_index++];
-            }
 
             mesh.SetVertices(_positions, 0, (int)numVertices);
             mesh.SetIndices(_indices, 0, (int)numIndices, MeshTopology.Triangles, 0);
@@ -107,20 +97,8 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             // Right now we are not able to set an overall color of the geometry or per primitive color so we just skip it
 
-            if (!geom.GetColorData(ref _float_data, ref numColors))
+            if (!geom.GetColorData<Color>(ref _colors, ref numColors))
                 return false;
-
-            if (_colors == null || _colors.Length < numColors)
-                _colors = new Color[numColors];
-
-            var float_index = 0;
-            for (var i = 0; i < _colors.Length; i++)
-            {
-                _colors[i].r = _float_data[float_index++];
-                _colors[i].g = _float_data[float_index++];
-                _colors[i].b = _float_data[float_index++];
-                _colors[i].a = _float_data[float_index++];
-            }
 
             if (numColors == 1)    // Overall color, not per vertex
             {
@@ -140,19 +118,9 @@ namespace Saab.Foundation.Unity.MapStreamer
             var numVertices = mesh.vertexCount;
 
             uint numNormals = 0;
-            if (!geom.GetNormalData(ref _float_data, ref numNormals) || numNormals != numVertices)
+
+            if (!geom.GetNormalData<Vector3>(ref _normals, ref numNormals) /*|| numNormals != numVertices*/)
                 return false;
-
-            if (_normals == null || _normals.Length < numNormals)
-                _normals = new Vector3[numNormals];
-
-            var float_index = 0;
-            for (var i = 0; i < _normals.Length; i++)
-            {
-                _normals[i].x = _float_data[float_index++];
-                _normals[i].y = _float_data[float_index++];
-                _normals[i].z = _float_data[float_index++];
-            }
 
             mesh.SetNormals(_normals, 0, numVertices);
 
@@ -163,50 +131,31 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             var numVertices = mesh.vertexCount;
 
-            if (_normals == null || _normals.Length < numVertices)
-                _normals = new Vector3[numVertices];
-
-            for (var i = 0; i < _normals.Length; i++)
+            if (Geometry.GenerateNormalData<Vector3>(ref _normals, (uint)numVertices, new Vec3(0,1,0)))
             {
-                _normals[i].x = 0;
-                _normals[i].y = 1;
-                _normals[i].z = 0;
+                mesh.SetNormals(_normals, 0, numVertices);
             }
-
-            mesh.SetNormals(_normals, 0, numVertices);
         }
 
-        private static int CopyTexcoords(Geometry geom, Mesh mesh)
+        private static bool CopyTexcoords(Geometry geom, Mesh mesh)
         {
             var numVertices = mesh.vertexCount;
 
             var texture_units = geom.GetTextureUnits();
 
-            var totalTexCoords = numVertices * texture_units;
+            uint numTexCoords=0;
 
-            if (_texCoords == null || _texCoords.Length < totalTexCoords)
-                _texCoords = new Vector2[totalTexCoords];
-
-            var offset = 0;
-            for (var ch = 0; ch < texture_units; ++ch)
+            for (uint ch = 0; ch < texture_units; ++ch)
             {
-                uint numCoords = 0;
-                if (geom.GetTexCoordData(ref _float_data, ref numCoords, (uint)ch) && numCoords == numVertices)
+                if (geom.GetTexCoordData<Vector2>(ref _texCoords, ref numTexCoords, ch))
                 {
-                    var float_index = 0;
-                    for (var i = offset; i < (offset + numCoords); i++)
-                    {
-                        _texCoords[i].x = _float_data[float_index++];
-                        _texCoords[i].y = _float_data[float_index++];
-                    }
-
-                    mesh.SetUVs(ch, _texCoords, offset, numVertices);
+                    mesh.SetUVs((int)ch, _texCoords, 0, (int)numTexCoords);
                 }
-
-                offset += numVertices;
+                else
+                    return false;
             }
 
-            return (int)texture_units;
+            return true;
         }
 
         private static bool BuildInternal(Geometry geom, out Mesh mesh,MeshRenderer renderer)
@@ -242,9 +191,10 @@ namespace Saab.Foundation.Unity.MapStreamer
             CopyColors(geom, mesh,renderer);
 
             if (!CopyNormals(geom, mesh))
-                GenerateNormals(mesh);
-            
-            CopyTexcoords(geom, mesh);
+                GenerateNormals(mesh);          // Todo: 221205 AMO This must be changed if we have an overall normal ! AMO
+
+            if (!CopyTexcoords(geom, mesh))
+                return false;
 
             return true;
         }

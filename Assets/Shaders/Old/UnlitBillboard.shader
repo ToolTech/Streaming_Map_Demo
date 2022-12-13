@@ -55,6 +55,13 @@
 
 					OUT.texcoord = IN.texcoord;
 
+
+					// extract x and y scale from object to world transform matrix
+					float2 scale = float2(
+						length(unity_ObjectToWorld._m00_m10_m20),
+						length(unity_ObjectToWorld._m01_m11_m21)
+						);
+
 					#ifdef UNITY_COLORSPACE_GAMMA
 					fixed4 color = IN.color;
 					#else
@@ -64,7 +71,7 @@
 					OUT.color = color * _Color * _RendererColor;
 
 					#ifdef PIXELSNAP_ON
-					OUT.vertex = UnityPixelSnap(OUT.vertex);
+					OUT.vertex = UnityPixelSnap(OUT.vertex * scale);
 					#endif
 
 					return OUT;

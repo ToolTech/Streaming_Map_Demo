@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 170076734}
-  m_IndirectSpecularColor: {r: 0.657409, g: 0.7280995, b: 0.78541607, a: 1}
+  m_IndirectSpecularColor: {r: 0.7106216, g: 0.77918786, b: 0.83737713, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -314,9 +314,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   speed: 2000
   rotspeed: 20
-  X: -1182.022649996661
-  Y: 11894.271189406654
-  Z: 19689.772483025783
+  X: -1000
+  Y: 1000
+  Z: 1000
 --- !u!114 &534669907
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -441,7 +441,7 @@ MonoBehaviour:
     GrassDensity: 0.0912
     TreeDensity: 29.123
     TreeTestMesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 3}
-    TreeTestMaterial: {fileID: 2100000, guid: 250724218cbc6e743b8c647cf0951eaf, type: 2}
+    TreeTestMaterial: {fileID: 0}
     GrassDrawDistance: 300
     TreeDrawDistance: 5000
     GrassShadows: 0

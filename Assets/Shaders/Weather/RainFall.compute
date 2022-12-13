@@ -18,6 +18,7 @@ float2 Resolution;
 float2 Wind;
 float Speed;
 float Fade;
+float Radius;
 uint ParticlesNum;
 
 uniform float4x4 ClipToWorld;
@@ -53,12 +54,28 @@ float3 GetWorldPos(float2 uv, float Depth)
 	return worldDirection * Depth + _WorldSpaceCameraPos;
 }
 
+void DrawPixel(float2 pos, float r, float col)
+{
+	float sqr = r * r;
+
+	for (int x = pos.x - r; x < pos.x + r + 1; x++)
+	{
+		for (int y = pos.y - r; y < pos.y + r + 1; y++)
+		{
+			if ((pos.x - x) * (pos.x - x) + (pos.y - y) * (pos.y - y) < sqr)
+			{
+				Result[float2(x, y)] = col;
+			}
+		}
+	}
+}
+
 void DrawLine(float3 from, float mask)
 {
 	float3 rainDir = normalize(float3(Wind.x, -1, Wind.y));
 	rainDir.y = -1;
 
-	float3 to = from + normalize(rainDir) * Speed * unity_DeltaTime.x;
+	float3 to = from + normalize(rainDir) * Speed * unity_DeltaTime.z;
 
 	float2 start = World2Screen(from).xy;
 	float2 end = World2Screen(to).xy;
@@ -81,7 +98,7 @@ void DrawLine(float3 from, float mask)
 	//while (true)
 	for (int i = 0; i <= MaxVal; i++)
 	{
-		Result[float2(x, y)] = 1 - mask;
+		DrawPixel(float2(x,y), Radius, 1 - mask);
 
 		if (x == end.x && y == end.y)
 			break;
@@ -109,7 +126,7 @@ void CSCreateParticles(uint3 id : SV_DispatchThreadID)
 {
 	if (id.x >= ParticlesNum) { return; }
 
-	float3 screenPos = float3(Random(id.x + _Time.x, 0.37) * Resolution.x, Random(id.x + _Time.x, 0.61) * Resolution.y, Random(id.x + _Time.x, 0.34));
+	float3 screenPos = float3(Random(id.x + _Time.x + id.y * PHI, 0.37) * Resolution.x, Random(id.x + _Time.x + id.y * PHI, 0.61) * Resolution.y, Random(id.x + _Time.x + id.y * PHI, 0.34));
 	float3 wp = GetWorldPos(float2(screenPos.x / Resolution.x, screenPos.y / Resolution.y), 5 + screenPos.z * 100);
 
 	RainBuffer[id.x].Position = wp;
@@ -130,14 +147,14 @@ void CSRainParticles(uint3 id : SV_DispatchThreadID)
 	// ********** Rain direction **********
 	float3 rainDir = normalize(float3(Wind.x, -1, Wind.y));
 	rainDir.y = -1;
-	float3 wp = drop.Position + normalize(rainDir) * Speed * unity_DeltaTime.x;
+	float3 wp = drop.Position + normalize(rainDir) * Speed * unity_DeltaTime.z;
 	// ********** Rain Particles **********
 	float dist = length(wp - _WorldSpaceCameraPos);
 	float mask = (dist - 5) / 100;
 
 	if (screenPos.x <= 0|| screenPos.x >= Resolution.x || screenPos.y <= 0 || screenPos.y >= Resolution.y || dist > 105)
 	{
-		screenPos = float3(Random(id.x + screenPos.x + _Time.x, 0.23) * Resolution.x, Random(id.x + screenPos.x + _Time.x, 0.76) * Resolution.y, Random(id.x + screenPos.x + _Time.x, 0.16));
+		screenPos = float3(Random(id.x + screenPos.x + unity_DeltaTime.x + screenPos.y * PHI, 0.23) * Resolution.x, Random(id.x + screenPos.x + unity_DeltaTime.x + screenPos.y * PHI, 0.76) * Resolution.y, Random(id.x + screenPos.x + unity_DeltaTime.x + screenPos.y * PHI, 0.16));
 		wp = GetWorldPos(float2(screenPos.x / Resolution.x, screenPos.y / Resolution.y), 5 + screenPos.z * 100);
 	}
 
@@ -151,10 +168,11 @@ void CSRain(uint3 screenPos : SV_DispatchThreadID)
 	float4 orgCol = Result[screenPos.xy];
 	
 	// Fade
-	float fade = max(0, orgCol - Fade * unity_DeltaTime.x);
+	float fade = max(0, orgCol - Fade * unity_DeltaTime.z);
 	Result[screenPos.xy] = fade;
 
 	// ********* random function test *********
+	//Result[screenPos.xy] = Random(screenPos.x + unity_DeltaTime.x + screenPos.y * PHI);
 	//Result[screenPos.xy] = Random(screenPos.x + screenPos.y * PHI);
 }
 

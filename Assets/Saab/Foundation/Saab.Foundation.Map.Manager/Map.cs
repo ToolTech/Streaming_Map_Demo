@@ -19,7 +19,7 @@
 // Module		: Saab.Foundation.Map.Manager
 // Description	: Map Manager of maps in BTA
 // Author		: Anders Modén		
-// Product		: Gizmo3D 2.12.33
+// Product		: Gizmo3D 2.12.40
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -356,6 +356,8 @@ namespace Saab.Foundation.Map
             Vec3D origo = new Vec3D(0, 0, 0);       // Set used origo for clamp operation
 
             Intersector isect = new Intersector();
+
+            isect.SetIntersectMask(IntersectMaskValue.GROUND);  // Lets hit the ground
 
             // Check camera frustrum -----------------------------------------------------------
 

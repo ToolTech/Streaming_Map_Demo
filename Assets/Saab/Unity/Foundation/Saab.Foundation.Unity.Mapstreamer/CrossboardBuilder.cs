@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Special class for Crossboard builder
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.33
+// Product		: Gizmo3D 2.12.40
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -176,6 +176,8 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                     activeStateNode.stateLoadInfo |= StateLoadInfo.Texture;
                     activeStateNode.texture = buildOutput.Texture;
+
+                    state.ReleaseAlreadyLocked();
                 }
 
                 material.mainTexture = activeStateNode.texture;
@@ -194,6 +196,11 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             // crossboard renderer uses alot of resources, so we will release it
             GameObject.Destroy(crossboardRenderer);
+        }
+
+        public void CleanUp()
+        {
+            throw new System.NotImplementedException();
         }
     }
 }

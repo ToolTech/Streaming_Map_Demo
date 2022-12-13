@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Utility to control access between native handles and game objects
 // Author		: Anders Modén	
-// Product		: Gizmo3D 2.12.33
+// Product		: Gizmo3D 2.12.40
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows (Win32) and IRIX® for  
@@ -138,11 +138,13 @@ namespace Saab.Utility.Unity.NodeUtils
 
         public static bool AddGameObjectReferenceUnsafe(IntPtr nativeReference, GameObject gameObject)
         {
-            if (!currentObjects.TryGetValue(nativeReference.ToInt64(), out List<GameObject> gameObjectList))
+            var key = nativeReference.ToInt64(); 
+            
+            if (!currentObjects.TryGetValue(key, out List<GameObject> gameObjectList))
             {
                 gameObjectList = _gameObjectListPool.Count > 0 ? _gameObjectListPool.Pop() : new List<GameObject>(1);
 
-                currentObjects.Add(nativeReference.ToInt64(), gameObjectList);
+                currentObjects.Add(key, gameObjectList);
             }
 
             gameObjectList.Add(gameObject);
@@ -167,20 +169,20 @@ namespace Saab.Utility.Unity.NodeUtils
 
         public static bool RemoveGameObjectReferenceUnsafe(IntPtr nativeReference, GameObject gameObject)
         {
-            if (currentObjects.TryGetValue(nativeReference.ToInt64(), out List<GameObject> gameObjectList))
+            var key = nativeReference.ToInt64();
+
+            if (!currentObjects.TryGetValue(key, out List<GameObject> gameObjectList))
+                return false;
+
+            var removed = gameObjectList.Remove(gameObject);
+
+            if (gameObjectList.Count == 0) // We should remove list as no objects are registered
             {
-                var removed = gameObjectList.Remove(gameObject);
-
-                if (gameObjectList.Count == 0) // We should remove list as no objects are registered
-                {
-                    _gameObjectListPool.Push(gameObjectList); // but we recycle it instead to avoid allocating new lists all the time
-                    currentObjects.Remove(nativeReference.ToInt64());
-                }
-
-                return removed;
+                _gameObjectListPool.Push(gameObjectList); // but we recycle it instead to avoid allocating new lists all the time
+                currentObjects.Remove(key);
             }
 
-            return false;
+            return removed;
         }
 
 
