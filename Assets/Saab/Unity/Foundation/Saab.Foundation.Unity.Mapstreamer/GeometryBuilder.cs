@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Special class for geometry builder
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.40
+// Product		: Gizmo3D 2.12.47
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -31,6 +31,7 @@
 // Who	Date	Description
 //
 // ZJP	200625	Created file                                        (2.10.6)
+// AMO  230113  Added Feature Maps from texture 1                   (2.12.43)
 //
 //******************************************************************************
 
@@ -87,11 +88,13 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             var meshRenderer = gameObject.GetComponent<MeshRenderer>();
 
+            // Check if we didnt have a material already in pool
             if (meshRenderer == null)
+            {
                 meshRenderer = gameObject.AddComponent<MeshRenderer>();
-
-            meshRenderer.sharedMaterial = _defaultMaterial;
-
+                meshRenderer.sharedMaterial = _defaultMaterial;
+            }
+          
             // check if the texture is loaded for this state, otherwise load it
             if (activeStateNode != null)
             {
@@ -104,11 +107,18 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                     activeStateNode.stateLoadInfo |= StateLoadInfo.Texture;
                     activeStateNode.texture = buildOutput.Texture;
+                    activeStateNode.feature = buildOutput.Feature;
 
                     state.ReleaseAlreadyLocked();
                 }
 
                 meshRenderer.material.mainTexture = activeStateNode.texture;
+
+                if (activeStateNode.feature != null)
+                {
+                    meshRenderer.material.SetTexture("feature", activeStateNode.feature);
+                    meshRenderer.material.EnableKeyword("feature");
+                }
             }
 
             // --------- Mesh ---------------------------------------------------------

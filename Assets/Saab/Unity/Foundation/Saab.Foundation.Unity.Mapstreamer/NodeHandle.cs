@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Handle to native Gizmo3D nodes
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.40
+// Product		: Gizmo3D 2.12.47
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -115,6 +115,9 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         // state-data (for now only single texture)
         internal Texture2D texture;
+
+        // state-data-feature (for now only single texture)
+        internal Texture2D feature;
 
         private const string ID = "Saab.Foundation.Unity.MapStreamer.NodeHandle";
 

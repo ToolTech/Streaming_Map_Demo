@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 170076734}
-  m_IndirectSpecularColor: {r: 0.7106216, g: 0.77918786, b: 0.83737713, a: 1}
+  m_IndirectSpecularColor: {r: 0.6678559, g: 0.74322885, b: 0.8100859, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -335,6 +335,7 @@ MonoBehaviour:
     SceneCleanupTime: 10
     MaxBuildTime: 0.01
     DynamicLoaders: 4
+    RenderInUpdate: 1
   MapUrl: http://gizmosdk.blob.core.windows.net/maps/skillingaryd/map.gzd?nic=${wlan0}
 --- !u!114 &534669908
 MonoBehaviour:

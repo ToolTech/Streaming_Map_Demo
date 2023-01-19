@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Helper for texture and state uploads
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.40
+// Product		: Gizmo3D 2.12.47
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -60,6 +60,7 @@ namespace Saab.Foundation.Unity.MapStreamer
     public struct StateBuildOutput
     {
         public Texture2D Texture;
+        public Texture2D Feature;
     }
 
     public interface ICache<in TKey, TValue>
@@ -126,6 +127,9 @@ namespace Saab.Foundation.Unity.MapStreamer
                     return false;
 
                 output.Texture = texture;
+
+                if(ReadTextureFromState(state, out Texture2D feature,null,1))       // Features always singletons
+                        output.Feature = feature;
             }
             finally
             {
@@ -135,14 +139,14 @@ namespace Saab.Foundation.Unity.MapStreamer
             return true;
         }
 
-        private static bool ReadTextureFromState(State state, out Texture2D result, ICache<IntPtr, Texture2D> textureCache)
+        private static bool ReadTextureFromState(State state, out Texture2D result, ICache<IntPtr, Texture2D> textureCache, uint unit=0)
         {
             result = null;
 
-            if (!state.HasTexture(0) || state.GetMode(StateMode.TEXTURE) != StateModeActivation.ON)
+            if (!state.HasTexture(unit) || state.GetMode(StateMode.TEXTURE) != StateModeActivation.ON)
                 return false;
 
-            using (var texture = state.GetTexture(0))
+            using (var texture = state.GetTexture(unit))
             {
                 if (textureCache != null)
                 {
