@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<licenses>
+  <customer info="License Configuration for Streaming Map Demo" />
+  <license name="GIZMO_LICENSE" feature="1"/>
+</licenses>

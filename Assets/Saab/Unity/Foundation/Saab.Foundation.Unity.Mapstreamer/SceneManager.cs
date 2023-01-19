@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Management of dynamic asset loader from GizmoSDK
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.40
+// Product		: Gizmo3D 2.12.47
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -105,12 +105,14 @@ namespace Saab.Foundation.Unity.MapStreamer
         public int      SceneCleanupTime;                   // Time interval to cleanup scene and do gc
         public double   MaxBuildTime;                       // Max time to spend in frame to build objects
         public byte     DynamicLoaders;
+        public bool RenderInUpdate;                         // true to render during component update method
 
         public static readonly SceneManagerSettings Default = new SceneManagerSettings 
         { 
             SceneCleanupTime = 10, 
             MaxBuildTime = 0.016,
             DynamicLoaders = 4,
+            RenderInUpdate = true,
         };
     }
 
@@ -1145,6 +1147,13 @@ namespace Saab.Foundation.Unity.MapStreamer
         // Update is called once per frame
         private void Update()
         {
+            if (Settings.RenderInUpdate)
+                Render();
+        }
+
+        
+        public void Render()
+        {
             // Check if global world camera is present -----------------------
 
             if (SceneManagerCamera == null)
@@ -1389,7 +1398,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             if (node != null)
             {
-                node.Dispose();
+                node.ReleaseAlreadyLocked();
                 nodeHandle.node = null;
             }
             
