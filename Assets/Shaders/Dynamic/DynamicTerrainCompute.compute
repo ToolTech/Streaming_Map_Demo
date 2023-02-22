@@ -74,7 +74,7 @@ RWStructuredBuffer<int> indirectBuffer;
 
 // Textures
 Texture2D<float4> splatMap;                     // Grass splatMap
-Texture2D<float3> PlacementMap;                 // placementMap
+Texture2D<unorm float> PlacementMap;                 // placementMap
 Texture2D<float4> NodeTexture;                  // Map tile texture
 Texture2D<float4> BillboardPlane;               // Billboard
 
@@ -252,9 +252,10 @@ void MeshGrassGenerator(int3 id : SV_DispatchThreadID)
 
 		float4 color = splatMap[uv * terrainResolution];
 		float4 nodeColor = NodeTexture[uv * terrainResolution];
-		float3 placement = PlacementMap[uv * terrainResolution];
+		//float3 placement = PlacementMap[uv * terrainResolution];
+		unorm float placement = PlacementMap[uv * terrainResolution];
 
-		uint value = (uint)(placement.x * 255) | (uint)(placement.y * 255) << 8 | (uint)(placement.z * 255) << 16;
+		//uint value = (uint)(placement.x * 255) | (uint)(placement.y * 255) << 8 | (uint)(placement.z * 255) << 16;
 		uint blueColor = (color.z >= 1.0 ? 255 : color.z * 256.0);
 
 		int valid = GetType(blueColor, i);
@@ -265,7 +266,9 @@ void MeshGrassGenerator(int3 id : SV_DispatchThreadID)
 
 			if (PlacementMapEnabled)
 			{
-				Append = ((value >> 0) & 1 || (value >> 1) & 1);
+				uint feauture = uint(placement >= 1.0 ? 255 : placement * 256.0);
+				//uint green = uint(placement.y >= 1.0 ? 255 : placement.y * 256.0);
+				Append = feauture == 21 || feauture == 40;
 			}
 			else
 			{
@@ -303,7 +306,7 @@ void MeshTreeGenerator(int3 id : SV_DispatchThreadID)
 
 	float area = length(cross((v2 - v1), (v3 - v1))) / 2;
 	//if (area < density) { return; }
-	float TreeAmount = area / density;
+	float TreeAmount = ceil(area / density);
 
 	uint start = sub * ceil(TreeAmount / SUBS);
 	uint end = (sub + 1) * ceil(TreeAmount / SUBS);
@@ -333,7 +336,8 @@ void MeshTreeGenerator(int3 id : SV_DispatchThreadID)
 
 		float4 color = splatMap[uv * terrainResolution];
 		float4 nodeColor = NodeTexture[uv * terrainResolution];
-		float3 placement = PlacementMap[uv * terrainResolution];
+		//float3 placement = PlacementMap[uv * terrainResolution];
+		unorm float placement = PlacementMap[uv * terrainResolution];
 
 		uint blueColor = (color.z >= 1.0 ? 255 : color.z * 256.0);
 
@@ -341,12 +345,14 @@ void MeshTreeGenerator(int3 id : SV_DispatchThreadID)
 
 		float3 HSV = RGBToHSV(nodeColor.xyz);
 
-		uint value = (uint)(placement.x * 255) | (uint)(placement.y * 255) << 8 | (uint)(placement.z * 255) << 16;
+		//uint value = (uint)(placement.x * 255) | (uint)(placement.y * 255) << 8 | (uint)(placement.z * 255) << 16;
 		bool Append = PlacementMapEnabled;
 
 		if (PlacementMapEnabled)
 		{
-			Append = ((value >> 4) & 1 || (value >> 5) & 1);
+			//uint green = uint(placement.y >= 1.0 ? 255 : placement.y * 256.0);
+			//Append = green == 40;
+			Append = uint(placement >= 1.0 ? 255 : placement * 256.0) == 40;
 		}
 		else
 		{
@@ -360,8 +366,8 @@ void MeshTreeGenerator(int3 id : SV_DispatchThreadID)
 
 	}
 }
-// ************* Point Cloud Placement ************
 
+// ************* Point Cloud Placement ************
 [numthreads(16, 1, 1)]
 void PointCloudPlacement(int3 id : SV_DispatchThreadID)
 {
@@ -372,7 +378,8 @@ void PointCloudPlacement(int3 id : SV_DispatchThreadID)
 	float2 uv = surfaceUVs[index];
 
 	float4 color = splatMap[uv * terrainResolution];
-	float3 placement = PlacementMap[uv * terrainResolution];
+	//float3 placement = PlacementMap[uv * terrainResolution];
+	unorm float placement = PlacementMap[uv * terrainResolution];
 
 	uint blueColor = (color.z >= 1.0 ? 255 : color.z * 256.0);
 	int valid = GetType(blueColor, id.x);
@@ -380,12 +387,14 @@ void PointCloudPlacement(int3 id : SV_DispatchThreadID)
 	float4 nodeColor = NodeTexture[uv * terrainResolution];
 	float3 HSV = RGBToHSV(nodeColor.xyz);
 
-	uint value = (uint)(placement.x * 255) | (uint)(placement.y * 255) << 8 | (uint)(placement.z * 255) << 16;
+	//uint value = (uint)(placement.x * 255) | (uint)(placement.y * 255) << 8 | (uint)(placement.z * 255) << 16;
 	bool Append = PlacementMapEnabled;
 
 	if (PlacementMapEnabled)
 	{
-		Append = ((value >> 4) & 1 || (value >> 5) & 1);
+		//uint green = uint(placement.y >= 1.0 ? 255 : placement.y * 256.0);
+		//Append = green == 40;
+		Append = uint(placement >= 1.0 ? 255 : placement * 256.0) == 40;
 	}
 	else
 	{

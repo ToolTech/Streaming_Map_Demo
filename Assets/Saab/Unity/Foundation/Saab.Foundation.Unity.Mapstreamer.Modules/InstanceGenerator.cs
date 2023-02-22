@@ -97,7 +97,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         public Feature GetFeature
         {
-            get 
+            get
             {
                 return _feature;
             }
@@ -222,7 +222,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _indices.SetData(_surfaceIndices);
             _texcoords.SetData(surfaceUVs);
 
-            if(pointCloud)
+            if (pointCloud)
             {
                 _shader.SetInt(ComputeShaderID.indexCount, surfaceVertices.Length);
             }
@@ -230,7 +230,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             {
                 _shader.SetInt(ComputeShaderID.indexCount, _surfaceIndices.Count);
             }
-            
+
 
             var extents = bounds.extents;
             var maxExtent = Mathf.Max(extents.x, extents.y, extents.z);

@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Utilities for Map  
 // Author		: Johan Gustavsson
-// Product		: Gizmo3D 2.12.47
+// Product		: Gizmo3D 2.12.59
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -124,8 +124,8 @@ namespace Saab.Foundation.Unity.MapStreamer
             position = new MapPos();
             position.node = node.node;
 
-            var local = node.transform.InverseTransformPoint(transform.localPosition);
-            position.position = new GizmoSDK.GizmoBase.Vec3D(local.x, local.y, local.z);
+            var nodeRelative = node.transform.InverseTransformPoint(transform.position);
+            position.position = new GizmoSDK.GizmoBase.Vec3D(nodeRelative.x, nodeRelative.y, nodeRelative.z);
 
             return true;
         }
@@ -188,6 +188,56 @@ namespace Saab.Foundation.Unity.MapStreamer
                 if (color.HasValue)
                     go.GetComponent<Renderer>().material.color = color.Value;
 
+                return go;
+            }
+
+            public static GameObject DrawLine(CartPos from, CartPos to, float size = 1f, Color? color = null)
+            {
+                if (!WorldToMap(from, out var mapFrom, false))
+                    return null;
+                
+                if (!WorldToMap(to, out var mapTo, false))
+                    return null;
+
+                return DrawLine(mapFrom, mapTo, size, color);
+
+
+                
+            }
+
+            public static GameObject DrawLine(MapPos from, MapPos to, float size = 1f, Color? color = null)
+            {
+                var go = new GameObject("Line");
+
+                if (!MapToUnity(go.transform, from))
+                {
+                    GameObject.Destroy(go);
+                    return null;
+                }
+
+                var d = to.position - from.position;
+
+
+
+                var lr = go.AddComponent<LineRenderer>();
+                lr.useWorldSpace = false;
+                lr.numCapVertices = 2;
+
+                lr.SetPositions(new Vector3[]
+                {
+                    Vector3.zero,
+                    new Vector3((float)d.x, (float)d.y, -(float)d.z),
+                });
+
+                lr.widthMultiplier = size;
+
+                if (color.HasValue)
+                {
+                    lr.material = new Material(Shader.Find("Legacy Shaders/Particles/Alpha Blended Premultiply"));
+                    lr.startColor = color.Value;
+                    lr.endColor = color.Value;
+                }
+                
                 return go;
             }
         }

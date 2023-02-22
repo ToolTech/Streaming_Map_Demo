@@ -28,7 +28,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public Texture2D PerlinNoise;
         public Texture2D DefaultSplatMap;
         public ComputeShader ComputeShader; // <-- TODO: Replace with 1 shader per responsibility (generator, culling, rendering)
-        public int BufferLimit = 1000000;
+        public int BufferLimit = 2000000;
         public bool UsePlacementMap;
         public bool PointCloud;
         public bool MeshTree;
@@ -225,7 +225,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
                     var triangleCount = mesh.GetIndexCount(0) / 3f;
                     var bufferSize = Math.Max(1, (maxExtent * maxExtent) / Density);
-
+                    bufferSize = bufferSize + triangleCount * 2;
                     bufferSize = bufferSize < mesh.vertexCount ? mesh.vertexCount : bufferSize;
 
                     _frustum = frustum;

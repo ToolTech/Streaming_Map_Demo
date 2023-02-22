@@ -336,7 +336,7 @@ MonoBehaviour:
     MaxBuildTime: 0.01
     DynamicLoaders: 4
     RenderInUpdate: 1
-  MapUrl: http://gizmosdk.blob.core.windows.net/maps/skillingaryd/map.gzd?nic=${wlan0}
+  MapUrl: http://gizmosdk.blob.core.windows.net/maps/stock/map.gzd
 --- !u!114 &534669908
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -403,48 +403,48 @@ MonoBehaviour:
       Yoffset: 0
     TreeTextures:
     - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
-      Height: {x: 7, y: 14}
-      Width: {x: 7, y: 14}
+      Height: {x: 12, y: 18}
+      Width: {x: 12, y: 18}
       Yoffset: 0.2
     - FeatureTexture: {fileID: 2800000, guid: 17a742decc8fba5488cac793d64a0d79, type: 3}
-      Height: {x: 7, y: 16}
-      Width: {x: 7, y: 16}
-      Yoffset: 0.2
+      Height: {x: 12, y: 18}
+      Width: {x: 12, y: 18}
+      Yoffset: 0
     - FeatureTexture: {fileID: 2800000, guid: 068b08ab1f96ae448a9cb2cfa1140fe4, type: 3}
-      Height: {x: 7, y: 14}
-      Width: {x: 7, y: 14}
-      Yoffset: 0.12
+      Height: {x: 12, y: 18}
+      Width: {x: 12, y: 18}
+      Yoffset: 0.2
     - FeatureTexture: {fileID: 2800000, guid: bafbcfee8f8bed34f88c84bd3dc1fc8a, type: 3}
       Height: {x: 5, y: 12}
       Width: {x: 5, y: 12}
-      Yoffset: 0.12
+      Yoffset: 0.2
     - FeatureTexture: {fileID: 2800000, guid: e722561d90ea85448b100a299a03ccf2, type: 3}
-      Height: {x: 7, y: 14}
-      Width: {x: 7, y: 14}
-      Yoffset: 0.12
+      Height: {x: 12, y: 18}
+      Width: {x: 12, y: 18}
+      Yoffset: 0
     - FeatureTexture: {fileID: 2800000, guid: aa8fa2e5a2dcdd942bea00bad42a66f2, type: 3}
-      Height: {x: 7, y: 14}
-      Width: {x: 7, y: 14}
-      Yoffset: 0.12
+      Height: {x: 12, y: 18}
+      Width: {x: 12, y: 18}
+      Yoffset: 0.2
     - FeatureTexture: {fileID: 2800000, guid: 068b08ab1f96ae448a9cb2cfa1140fe4, type: 3}
-      Height: {x: 7, y: 14}
-      Width: {x: 7, y: 14}
-      Yoffset: 0.12
+      Height: {x: 12, y: 18}
+      Width: {x: 12, y: 18}
+      Yoffset: 0.2
     - FeatureTexture: {fileID: 2800000, guid: 17a742decc8fba5488cac793d64a0d79, type: 3}
-      Height: {x: 7, y: 14}
-      Width: {x: 7, y: 14}
-      Yoffset: 0.12
+      Height: {x: 12, y: 18}
+      Width: {x: 12, y: 18}
+      Yoffset: 0
     PerlinNoise: {fileID: 2800000, guid: 7e19882b01255364e9c1cfbd084e8cd6, type: 3}
     DefaultSplatMap: {fileID: 2800000, guid: 4ae789d2ed9128d4fb4f00384e672ce9, type: 3}
     PlacementMap: {fileID: 2800000, guid: 0b35cd2ec975cae4297a5700bb887c3c, type: 3}
     wind: 0.02
     SortByDistance: 1
-    GrassDensity: 0.0912
-    TreeDensity: 29.123
+    GrassDensity: 0.1
+    TreeDensity: 300
     TreeTestMesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 3}
     TreeTestMaterial: {fileID: 0}
     GrassDrawDistance: 300
-    TreeDrawDistance: 5000
+    TreeDrawDistance: 2000
     GrassShadows: 0
     TreeShadows: 0
     ComputeTerrainShader: {fileID: 7200000, guid: 513988170bf57ee4487af2231d625bad,

@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Helper for texture and state uploads
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.47
+// Product		: Gizmo3D 2.12.59
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -61,6 +61,18 @@ namespace Saab.Foundation.Unity.MapStreamer
     {
         public Texture2D Texture;
         public Texture2D Feature;
+        public Texture2D SurfaceHeight;
+
+        public Matrix3D Feature_homography;
+        public Matrix3D SurfaceHeight_homography;
+    }
+
+    public class TextureImageInfo
+    {
+        public DynamicType homography;
+
+        public DynamicType border_x;
+        public DynamicType border_y;
     }
 
     public interface ICache<in TKey, TValue>
@@ -123,13 +135,30 @@ namespace Saab.Foundation.Unity.MapStreamer
             {
                 Performance.Enter("StateBuilder.Build");
 
-                if (!ReadTextureFromState(state, out Texture2D texture, textureCache))
+                if (!ReadTextureFromState(state, out Texture2D texture,textureCache,null))
                     return false;
 
                 output.Texture = texture;
 
-                if(ReadTextureFromState(state, out Texture2D feature,null,1))       // Features always singletons
-                        output.Feature = feature;
+                TextureImageInfo info=new TextureImageInfo();
+
+                if (ReadTextureFromState(state, out Texture2D feature, null, info, 1, false))       // Features always singletons and no mipmap force
+                {
+                    output.Feature = feature;
+                    
+                    if(info.homography.Is("gzImageHomography"))
+                        output.Feature_homography = ((ImageHomography)info.homography);
+                }
+
+                info = new TextureImageInfo();
+
+                if (ReadTextureFromState(state, out Texture2D surface, null, info, 2, false))       // Features always singletons and no mipmap force
+                {
+                    output.SurfaceHeight = surface;
+                                        
+                    if (info.homography.Is("gzImageHomography"))
+                        output.SurfaceHeight_homography = ((ImageHomography)info.homography);
+                }
             }
             finally
             {
@@ -139,7 +168,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             return true;
         }
 
-        private static bool ReadTextureFromState(State state, out Texture2D result, ICache<IntPtr, Texture2D> textureCache, uint unit=0)
+        private static bool ReadTextureFromState(State state, out Texture2D result, ICache<IntPtr, Texture2D> textureCache, TextureImageInfo tex_image_info, uint unit=0,bool useMipMap=true)
         {
             result = null;
 
@@ -162,7 +191,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                             return true;
                         }
 
-                        if (!CopyTexture(texture, out result))
+                        if (!CopyTexture(texture, out result, tex_image_info, useMipMap))
                             return false;
 
                         // Add a reference to data
@@ -184,7 +213,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                             return true;
                         }
 
-                        if (!CopyTexture(texture, out result))
+                        if (!CopyTexture(texture, out result, tex_image_info, useMipMap))
                             return false;
 
                         textureCache.TryAdd(texture.GetNativeReference(), result);
@@ -195,7 +224,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                     }
                 }
 
-                if (!CopyTexture(texture, out result))
+                if (!CopyTexture(texture, out result, tex_image_info, useMipMap))
                     return false;
 
                 texture.ReleaseAlreadyLocked();
@@ -204,7 +233,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             return true;
         }
 
-        private static bool CopyTexture(gzTexture gzTexture, out Texture2D result, bool mipChain = true)
+        private static bool CopyTexture(gzTexture gzTexture, out Texture2D result, TextureImageInfo tex_image_info, bool mipChain = true)
         {
             result = null;
 
@@ -215,7 +244,11 @@ namespace Saab.Foundation.Unity.MapStreamer
             {
                 var imageFormat = image.GetFormat();
 
-                var textureFormat = GetUnityTextureFormat(imageFormat);
+                var componentType = image.GetComponentType();
+
+                var components = image.GetComponents();
+
+                var textureFormat = GetUnityTextureFormat(imageFormat,componentType,components);
 
                 var uncompress = !IsTextureFormatSupported(textureFormat);
 
@@ -256,26 +289,43 @@ namespace Saab.Foundation.Unity.MapStreamer
                     case gzTexture.TextureMinFilter.LINEAR_MIPMAP_LINEAR:
                         result.filterMode = FilterMode.Trilinear;
                         break;
+
                     default:
                         result.filterMode = FilterMode.Point;
                         break;
                 }
 
                 result.Apply(mipChain, true);
+
+                if (tex_image_info != null)
+                {
+                    tex_image_info.homography = image.GetAttribute("UserDataImInfo", "ImI-Wrld-Hom");
+
+                    tex_image_info.border_x = image.GetAttribute("UserDataImInfo", "ImI-Pixel-X-border");
+                    tex_image_info.border_y = image.GetAttribute("UserDataImInfo", "ImI-Pixel-Y-border");
+                }
             }
 
             return true;
         }
 
-        private static TextureFormat GetUnityTextureFormat(ImageFormat imageFormat)
+        private static TextureFormat GetUnityTextureFormat(ImageFormat imageFormat , ComponentType compType, byte components)
         {
             switch (imageFormat)
             {
                 case ImageFormat.RGBA:
-                    return TextureFormat.RGBA32;
+                    if (compType == ComponentType.UNSIGNED_BYTE)
+                        return TextureFormat.RGBA32;
+                    if (compType == ComponentType.FLOAT)
+                        return TextureFormat.RGBA32;
+                    if (compType == ComponentType.HALF_FLOAT)
+                        return TextureFormat.RGBAHalf;
+                    break;
 
                 case ImageFormat.RGB:
-                    return TextureFormat.RGB24;
+                    if (compType == ComponentType.UNSIGNED_BYTE)
+                        return TextureFormat.RGB24;
+                    break;
 
                 case ImageFormat.COMPRESSED_RGBA8_ETC2:
                     return TextureFormat.ETC2_RGBA8;
@@ -290,9 +340,22 @@ namespace Saab.Foundation.Unity.MapStreamer
                 case ImageFormat.COMPRESSED_RGBA_S3TC_DXT5:
                     return TextureFormat.DXT5;
 
-                default:
-                    throw new NotSupportedException();
+                case ImageFormat.LUMINANCE:
+                    if(compType==ComponentType.UNSIGNED_BYTE)
+                        return TextureFormat.R8;
+                    if (compType == ComponentType.FLOAT)
+                        return TextureFormat.RFloat;
+                    break;
+
+                case ImageFormat.LUMINANCE_ALPHA:
+                    if (compType == ComponentType.UNSIGNED_BYTE)
+                        return TextureFormat.RG16;
+                    if (compType == ComponentType.FLOAT)
+                        return TextureFormat.RGFloat;
+                    break;
             }
+
+            throw new NotSupportedException();
         }
 
         private static bool IsTextureFormatSupported(TextureFormat format)

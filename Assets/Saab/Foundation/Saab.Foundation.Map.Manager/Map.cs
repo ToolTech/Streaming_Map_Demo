@@ -19,7 +19,7 @@
 // Module		: Saab.Foundation.Map.Manager
 // Description	: Map Manager of maps in BTA
 // Author		: Anders Modén		
-// Product		: Gizmo3D 2.12.47
+// Product		: Gizmo3D 2.12.59
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -153,7 +153,8 @@ namespace Saab.Foundation.Map
         /// <param name="result"></param>
         /// <param name="flags"></param>
         /// <returns></returns>
-        public bool GetScreenGroundPosition(int x, int y, uint size_x, uint size_y, out MapPos result, ClampFlags flags = ClampFlags.DEFAULT)
+        public bool GetScreenGroundPosition(int x, int y, uint size_x, uint size_y, out MapPos result, 
+            GroundClampType clampType, ClampFlags flags = ClampFlags.DEFAULT)
         {
             Vec3D position;
             Vec3 direction;
@@ -165,7 +166,7 @@ namespace Saab.Foundation.Map
                 return false;
             }
 
-            return GetGroundPosition(position, direction, out result, flags);
+            return GetGroundPosition(position, direction, out result, clampType, flags);
         }
 
         #endregion
@@ -344,7 +345,8 @@ namespace Saab.Foundation.Map
         /// <param name="result"></param>
         /// <param name="flags"></param>
         /// <returns></returns>
-        public bool GetGroundPosition(Vec3D global_position, Vec3 direction, out MapPos result, ClampFlags flags = ClampFlags.DEFAULT)
+        public bool GetGroundPosition(Vec3D global_position, Vec3 direction, out MapPos result,
+            GroundClampType clampType, ClampFlags flags = ClampFlags.DEFAULT)
         {
             result = new MapPos();
 
@@ -357,7 +359,8 @@ namespace Saab.Foundation.Map
 
             Intersector isect = new Intersector();
 
-            isect.SetIntersectMask(IntersectMaskValue.GROUND);  // Lets hit the ground
+            var mask = GetMask(clampType);
+            isect.SetIntersectMask(mask);  // Lets hit the ground
 
             // Check camera frustrum -----------------------------------------------------------
 
@@ -384,6 +387,8 @@ namespace Saab.Foundation.Map
                 IntersectorResult res = isect.GetResult();
 
                 IntersectorData data = res.GetData(0);
+
+                
 
                 result.position = data.coordinate + origo;
 
@@ -571,8 +576,7 @@ namespace Saab.Foundation.Map
 
                 isect.SetStartPosition((Vec3)(result.position - origo) - 10000.0f * down);  // Move backwards
                 isect.SetDirection(down);
-
-
+                isect.SetIntersectMask(GetMask(groundClamp));
 
                 if (isect.Intersect(_currentMap, IntersectQuery.NEAREST_POINT | IntersectQuery.ABC_TRI |
                                                     (flags.HasFlag(ClampFlags.ALIGN_NORMAL_TO_SURFACE) ? IntersectQuery.NORMAL : 0) | //IntersectQuery.NORMAL |
@@ -633,7 +637,18 @@ namespace Saab.Foundation.Map
 
         #endregion
 
+        private static IntersectMaskValue GetMask(GroundClampType clampType)
+        {
+            var mask = IntersectMaskValue.NOTHING;
 
+            if ((clampType & GroundClampType.GROUND) != GroundClampType.NONE)
+                mask |= IntersectMaskValue.GROUND;
+            
+            if ((clampType & GroundClampType.BUILDING) != GroundClampType.NONE)
+                mask |= IntersectMaskValue.BUILDING;
+
+            return mask;
+        }
 
         /// <summary>
         /// Get local ENU orientation matrix for Global Position Vec3D
@@ -796,7 +811,17 @@ namespace Saab.Foundation.Map
             return SetPosition(result, pos, groundClamp, flags);                 
         }
 
-        
+        public bool GetPosition(CartPos pos, out MapPos result, GroundClampType groundClamp = GroundClampType.NONE, ClampFlags flags = ClampFlags.DEFAULT)
+        {
+            result = new MapPos
+            {
+                local_orientation = new Matrix3(new Vec3(1, 0, 0), new Vec3(0, 0, -1), new Vec3(0, 1, 0))    // East North Up vectors
+            };
+
+            return SetPosition(result, pos, groundClamp, flags);
+        }
+
+
         public Vec3D Origin
         {
             get

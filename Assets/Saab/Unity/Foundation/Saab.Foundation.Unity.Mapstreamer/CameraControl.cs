@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Manages camera updates with large coordinates
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.47
+// Product		: Gizmo3D 2.12.59
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -40,7 +40,7 @@
 //
 // *****************************************************************************
 
-#define TEST_ROTATION   // Just test some default rotation
+//#define TEST_ROTATION   // Just test some default rotation
 
 using GizmoSDK.GizmoBase;
 using Saab.Foundation.Map;
@@ -160,7 +160,9 @@ namespace Saab.Foundation.Unity.MapStreamer
                 {
                     Map.MapPos mapPos;
 
-                    if (Map.MapControl.SystemMap.GetScreenGroundPosition((int)Input.mousePosition.x, (int)(Screen.height - Input.mousePosition.y), (uint)Screen.width, (uint)Screen.height, out mapPos, Map.ClampFlags.DEFAULT))
+                    var layerMask = GroundClampType.GROUND;
+
+                    if (Map.MapControl.SystemMap.GetScreenGroundPosition((int)Input.mousePosition.x, (int)(Screen.height - Input.mousePosition.y), (uint)Screen.width, (uint)Screen.height, out mapPos, layerMask, Map.ClampFlags.DEFAULT))
                     {
                         List<GameObject> list;
 

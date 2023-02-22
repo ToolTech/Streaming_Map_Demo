@@ -52,4 +52,4 @@ Material:
     - _HorizonColor: {r: 1, g: 1, b: 1, a: 1}
     - _SkyColor: {r: 0, g: 0.50196075, b: 1, a: 1}
     - _SunriseColor: {r: 1, g: 0.65330946, b: 0.43867922, a: 1}
-    - _Wind: {r: -0.01, g: 0.04, b: 0, a: 0}
+    - _Wind: {r: -0.001, g: 0.012, b: 0, a: 0}

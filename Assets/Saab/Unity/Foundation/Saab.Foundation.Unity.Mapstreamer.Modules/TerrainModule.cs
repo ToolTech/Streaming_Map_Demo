@@ -225,7 +225,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 if (_treeModule != null)
                     size += _treeModule.GetMemoryFootprint;
 
-                Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Memory Footprint {0} MB", (size / 1000000f).ToString("F2"));
+                //Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "Memory Footprint {0} MB", (size / 1000000f).ToString("F2"));
             }
         }
 
@@ -252,7 +252,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 _grassModule.Wind = TerrainSettings.wind;
 
                 _grassModule.Density = TerrainSettings.GrassDensity;
-                //_grassModule.PlacementMap = TerrainSettings.PlacementMap;
+                _grassModule.UsePlacementMap = true;
             }
 
             if (EnableTrees || EnableCross)
@@ -282,7 +282,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 _treeModule.Wind = TerrainSettings.wind / 100;
 
                 _treeModule.Density = TerrainSettings.TreeDensity;
-                //_treeModule.PlacementMap = TerrainSettings.PlacementMap;
+                _treeModule.UsePlacementMap = true;
             }
 
             SceneManager.OnNewGeometry += SceneManager_OnNewGeometry;
@@ -339,14 +339,14 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 {
                     if (nodehandler.node.BoundaryRadius < 190 && nodehandler.node.BoundaryRadius > 0)
                     {
-                        _grassModule.AddGrass(go);
+                        _grassModule.AddGrass(go, nodehandler.feature);
                     }
                 }
                 if (EnableTrees)
                 {
                     if (nodehandler.node.BoundaryRadius < 890 && nodehandler.node.BoundaryRadius > 0)
                     {
-                        _treeModule.AddTree(go);
+                        _treeModule.AddTree(go, nodehandler.feature);
                     }
                 }
             }

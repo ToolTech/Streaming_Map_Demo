@@ -19,7 +19,7 @@
 // Module		: Saab.Foundation.Map.Manager
 // Description	: Definition of the MapPos map position structure
 // Author		: Anders Modén		
-// Product		: Gizmo3D 2.12.47
+// Product		: Gizmo3D 2.12.59
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -197,10 +197,8 @@ namespace Saab.Foundation.Map
            
             Vec3 east = local_orientation.GetCol(0);
 
-            Vec3 north = local_orientation.GetCol(1);
-
             east = Vec3.Orthogonal(east,up);            // East will be orthogonal to up in east direction
-            north = up.Cross(east);                     // North will be orthogonal to east and up
+            Vec3 north = up.Cross(east);                     // North will be orthogonal to east and up
   
             return new Matrix3(east, north, up);
         }
