@@ -43,3 +43,6 @@ The system handles geocentric coordinate systems as well as flat UTM and other c
 The SceneGraph API also allows a fast intersector query to be performed to find ground features and clamp object to the ground.
 
 The demo shows an example of SBD maps (Streaming Binary Data) that are quad or octree based spatial data in 3D. The format allows very large databases (entire globe) to be divided on multiple servers and that can have details down to (mm) in resolution.
+
+![Screenshot](https://gizmosdk.blob.core.windows.net/maps/stock/thumb.png)
+
