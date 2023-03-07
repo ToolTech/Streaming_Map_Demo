@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Special class for geometry builder
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.59
+// Product		: Gizmo3D 2.12.66
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -108,6 +108,8 @@ namespace Saab.Foundation.Unity.MapStreamer
                     activeStateNode.stateLoadInfo |= StateLoadInfo.Texture;
                     activeStateNode.texture = buildOutput.Texture;
                     activeStateNode.feature = buildOutput.Feature;
+                    activeStateNode.surfaceHeight = buildOutput.SurfaceHeight;
+                    activeStateNode.featureInfo = buildOutput.Feature_homography;
 
                     state.ReleaseAlreadyLocked();
                 }

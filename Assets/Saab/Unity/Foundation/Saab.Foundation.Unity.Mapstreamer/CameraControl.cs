@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Manages camera updates with large coordinates
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.59
+// Product		: Gizmo3D 2.12.66
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -58,10 +58,11 @@ namespace Saab.Foundation.Unity.MapStreamer
     public class CameraControl : MonoBehaviour , ISceneManagerCamera
     {
 
-        public float speed = 20f;
+        public float Speed = 20f;
+        public float ShiftMultiplier = 2f;
         // Use this for initialization
 
-        public float rotspeed = 20f;
+        public float RotSpeed = 20f;
 
         public double X = 0;
         public double Y = 0;
@@ -249,6 +250,10 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             _lastRenderTime = _currentRenderTime;
             _currentRenderTime = renderTime;
+            var speed = Speed;
+
+            if (Input.GetKey(KeyCode.LeftShift))
+                speed *= ShiftMultiplier; 
 
             if (Input.GetKey("w"))
             {
@@ -263,7 +268,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             {
                 MoveUp(speed / 2);
             }
-            if (Input.GetKey(KeyCode.C))
+            if (Input.GetKey(KeyCode.C) || Input.GetKey(KeyCode.LeftControl))
             {
                 MoveUp(-speed / 2);
             }
@@ -281,22 +286,22 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             if (Input.GetKey(KeyCode.UpArrow))
             {
-                rot = rot * Tilt(rotspeed);
+                rot = rot * Tilt(RotSpeed);
             }
 
             if (Input.GetKey(KeyCode.DownArrow))
             {
-                rot = rot * Tilt(-rotspeed);
+                rot = rot * Tilt(-RotSpeed);
             }
 
             if (Input.GetKey(KeyCode.LeftArrow))
             {
-                rot = Pan(-rotspeed) * rot;
+                rot = Pan(-RotSpeed) * rot;
             }
 
             if (Input.GetKey(KeyCode.RightArrow))
             {
-                rot = Pan(rotspeed) * rot;
+                rot = Pan(RotSpeed) * rot;
             }
 
             if (Input.GetKeyDown("p"))

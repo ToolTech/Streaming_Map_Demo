@@ -34,13 +34,13 @@ Material:
     m_Floats:
     - _CloudBlendPower: 0.05
     - _CloudDensity: 0.8
-    - _CloudIntesity: 4
-    - _CloudScale: 0.08
+    - _CloudIntesity: 4.5
+    - _CloudScale: 0.09
     - _Cutoff: 1
     - _Gamma: 0
-    - _GroundBlendPower: 0.708
+    - _GroundBlendPower: 0.3
     - _HorizonBlendPower: 1
-    - _SkyBlendPower: 0.578
+    - _SkyBlendPower: 0.369
     - _SunAura: 1
     - _SunIntensity: 2
     - _SunSize: 0.02
@@ -52,4 +52,4 @@ Material:
     - _HorizonColor: {r: 1, g: 1, b: 1, a: 1}
     - _SkyColor: {r: 0, g: 0.50196075, b: 1, a: 1}
     - _SunriseColor: {r: 1, g: 0.65330946, b: 0.43867922, a: 1}
-    - _Wind: {r: -0.001, g: 0.012, b: 0, a: 0}
+    - _Wind: {r: -0.0005, g: 0.004, b: 0, a: 0}

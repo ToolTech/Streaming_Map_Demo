@@ -8,16 +8,22 @@
             UseTreeCrossboards          => 2
             UseDynamicTreeCrossboards   => 4 
             UseDynamicGrassCrossboards  => 8
+            UseFoliageCrossboards       => 16
         ***********************************************-->
-        <CurrentCaps>4</CurrentCaps>
+        <CurrentCaps>16</CurrentCaps>
         <Grass>
-            <Density info="Density of Dynamic grass">0.15</Density>
+            <Density info="Density of Dynamic grass (distance in meters)">0.15</Density>
             <DrawDistance info="DrawDistance for grass">250</DrawDistance>
         </Grass>
         <Tree>
-            <Density info="Density of Dynamic Tree">15.0</Density>
-            <DrawDistance info="DrawDistance for Tree">5000</DrawDistance>
+            <Density info="Density of Dynamic Tree (distance in meters)">15.0</Density>
+            <DrawDistance info="DrawDistance for Tree">4000</DrawDistance>
         </Tree>
+        <Foliage>
+            <Density info="Density of Foliage">0.25</Density>
+            <DrawDistance info="DrawDistance for Tree">5000</DrawDistance>
+            <Shadows info="foliage cast shadows">true</Shadows>
+        </Foliage>
   </GfxCaps>
 
 

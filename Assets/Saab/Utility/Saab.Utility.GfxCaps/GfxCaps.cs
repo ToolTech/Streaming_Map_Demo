@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Manage selected capabilities of Graphics Performance
 // Author		: Anders Modén	
-// Product		: GizmoBase 2.12.59
+// Product		: GizmoBase 2.12.66
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -53,6 +53,7 @@ namespace Saab.Utility.GfxCaps
         UseTreeCrossboards          = 1 << 1,
         UseDynamicTreeCrossboards   = 1 << 2,
         UseDynamicGrassCrossboards  = 1 << 3,
+        UseFoliageCrossboards       = 1 << 4,
 
         DefaultCaps                 = 0x0,
     }
@@ -61,11 +62,13 @@ namespace Saab.Utility.GfxCaps
     {
         public int DrawDistance;
         public float Density;
+        public bool Shadows;
 
-        public RenderSettings(int drawDistance, float density)
+        public RenderSettings(int drawDistance, float density, bool shadows = false)
         {
             DrawDistance = drawDistance;
             Density = density;
+            Shadows = shadows;
         }
     }
 
@@ -91,6 +94,18 @@ namespace Saab.Utility.GfxCaps
                 var renderSettings = new RenderSettings(5000, 20);
                 renderSettings.DrawDistance = KeyDatabase.GetDefaultUserKey("GfxCaps/Tree/DrawDistance", renderSettings.DrawDistance);
                 renderSettings.Density = KeyDatabase.GetDefaultUserKey("GfxCaps/Tree/Density", renderSettings.Density);
+                return renderSettings;
+            }
+        }
+
+        public static RenderSettings GetFoliageSettings
+        {
+            get
+            {
+                var renderSettings = new RenderSettings(5000, 0.1f);
+                renderSettings.DrawDistance = KeyDatabase.GetDefaultUserKey("GfxCaps/Foliage/DrawDistance", renderSettings.DrawDistance);
+                renderSettings.Density = KeyDatabase.GetDefaultUserKey("GfxCaps/Foliage/Density", renderSettings.Density);
+                renderSettings.Shadows = KeyDatabase.GetDefaultUserKey("GfxCaps/Foliage/Shadows", renderSettings.Shadows);
                 return renderSettings;
             }
         }

@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Handle to native Gizmo3D nodes
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.59
+// Product		: Gizmo3D 2.12.66
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -42,23 +42,17 @@
 // *****************************************************************************
 
 // Framework
-using System;
-
-// Unity Managed classes
-using UnityEngine;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
-
+using GizmoSDK.Gizmo3D;
 // Gizmo Managed classes
 using GizmoSDK.GizmoBase;
-using GizmoSDK.Gizmo3D;
+// Helper for working with GizmoSDK in unity
+using Saab.Unity.Extensions;
+using System;
+// Unity Managed classes
+using UnityEngine;
 
 // Fix some conflicts between unity and Gizmo namespaces
 using gzTransform = GizmoSDK.Gizmo3D.Transform;
-
-// Helper for working with GizmoSDK in unity
-using Saab.Unity.Extensions;
-
 
 namespace Saab.Foundation.Unity.MapStreamer
 {
@@ -118,6 +112,12 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         // state-data-feature (for now only single texture)
         internal Texture2D feature;
+
+        // state-data-height (for now only single texture)
+        internal Texture2D surfaceHeight;
+
+        // resolution in meters for feauture map
+        internal Matrix3D featureInfo;
 
         private const string ID = "Saab.Foundation.Unity.MapStreamer.NodeHandle";
 
