@@ -71,7 +71,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _renderingShader.DebugMode = DebugMode;
 
 #if UNITY_ANDROID
-            var format = TextureFormat.ARGB32;
+            var format = TextureFormat.ETC2_RGBA8;
             Debug.Log("Tree Use ETC2");
 #else
             var format = TextureFormat.DXT5;

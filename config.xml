@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Generic Configuration for Unity -->
 <Unity>
-
   <GfxCaps>
     <!-- *********************************************
             UseGeneralShaders           => 1    
@@ -10,7 +9,7 @@
             UseDynamicGrassCrossboards  => 8
             UseFoliageCrossboards       => 16
         ***********************************************-->
-        <CurrentCaps>16</CurrentCaps>
+        <CurrentCaps>48</CurrentCaps>
         <Grass>
             <Density info="Density of Dynamic grass (distance in meters)">0.15</Density>
             <DrawDistance info="DrawDistance for grass">250</DrawDistance>
@@ -20,12 +19,15 @@
             <DrawDistance info="DrawDistance for Tree">4000</DrawDistance>
         </Tree>
         <Foliage>
-            <Density info="Density of Foliage">0.25</Density>
+            <Density info="Density of Foliage">0.15</Density>
             <DrawDistance info="DrawDistance for Tree">5000</DrawDistance>
             <Shadows info="foliage cast shadows">true</Shadows>
         </Foliage>
   </GfxCaps>
 
+  <!--<SceneManager>
+    <MapUrl>C:\Maps\3D\map.gzd</MapUrl>
+  </SceneManager>-->
 
   <GizmoSDK>
     <!-- GIZMO_PATH is a comma (,) or semi (;) separated list with abs or relative directories -->

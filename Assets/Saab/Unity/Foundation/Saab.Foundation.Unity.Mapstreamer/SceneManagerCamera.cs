@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Extensions to convert between GizmoSDK and Unity3D
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.66
+// Product		: Gizmo3D 2.12.75
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -67,6 +67,15 @@ namespace Saab.Foundation.Unity.MapStreamer
         public event Action OnMapChanged;
 
         private string _mapUrl;
+
+        //public void OnDrawGizmos()
+        //{
+        //    var v0 = new Vector3();
+        //    var v1 = new Vector3(0, -1, 0);
+        //    v1 = transform.rotation * v1;
+        //    Gizmos.color = new Color(1, 0, 0);
+        //    Gizmos.DrawLine(v0, v1);
+        //}
 
         private void Awake()
         {

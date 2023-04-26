@@ -4,6 +4,7 @@
 #include "UnityCG.cginc"
 
 #define PHI 1.61803398874989484820459
+#define PI  3.14159265359
 
 struct RainDrop
 {
@@ -37,6 +38,11 @@ float Random(float input, float mutator = 0.546, float min = 0.0, float max = 1.
 
 float3 World2Screen(float3 worldPos)
 {
+	/*float4 clipCoord = mul(WorldToScreen, float4(worldPos, 1));
+	float4 screenPos = clipCoord / clipCoord.w;
+	screenPos *= float4(Resolution.x, Resolution.y, 1, 1);
+	return uint3(screenPos.x, screenPos.y, screenPos.z);*/
+
 	float4 clipCoord = mul(WorldToScreen, float4(worldPos, 1));
 	float4 screenPos = clipCoord / clipCoord.w;
 
@@ -121,13 +127,46 @@ void DrawLine(float3 from, float mask)
 	}
 }
 
+float cbrt(float x)
+{
+	return pow(x, 1.0f / 3.0f);
+}
+
+bool IsPointOutsideSphere(float3 p, float3 center, float radius)
+{
+	float dist = distance(p, center);
+	return dist > radius;
+}
+
+float3 GetPointInSphere(float3 center, float radius, float id)
+{
+	float theta = Random(id.x + _Time.x, 0.952) * 2.0 * PI;
+	float phi = Random(id.x + _Time.x, 0.821) * 2.0 * PI;
+	float r = radius * cbrt(Random(id.x + _Time.x, 0.376));
+
+	float sinTheta = sin(theta);
+	float cosTheta = cos(theta);
+	float sinPhi = sin(phi);
+	float cosPhi = cos(phi);
+
+	float3 randomPoint;
+	randomPoint.x = center.x + r * sinTheta * cosPhi;
+	randomPoint.y = center.y + r * sinTheta * sinPhi;
+	randomPoint.z = center.z + r * cosTheta;
+
+	return randomPoint;
+}
+
+
 [numthreads(10, 1, 1)]
 void CSCreateParticles(uint3 id : SV_DispatchThreadID)
 {
 	if (id.x >= ParticlesNum) { return; }
 
-	float3 screenPos = float3(Random(id.x + _Time.x + id.y * PHI, 0.37) * Resolution.x, Random(id.x + _Time.x + id.y * PHI, 0.61) * Resolution.y, Random(id.x + _Time.x + id.y * PHI, 0.34));
+	float3 screenPos = float3(Random(id.x + _Time.x * PHI, 0.37) * Resolution.x, Random(id.x + _Time.x * PHI, 0.61) * Resolution.y, Random(id.x + _Time.x + id.y * PHI, 0.34));
 	float3 wp = GetWorldPos(float2(screenPos.x / Resolution.x, screenPos.y / Resolution.y), 5 + screenPos.z * 100);
+
+	//float3 wp = GetPointInSphere(_WorldSpaceCameraPos, 100, id.x);
 
 	RainBuffer[id.x].Position = wp;
 }
@@ -142,17 +181,22 @@ void CSRainParticles(uint3 id : SV_DispatchThreadID)
 	float farPlane = _ProjectionParams.z;
 
 	// ********** WorldPos **********
-	float4 depthEye = LinearEyeDepth(DepthTexture[screenPos.xy]);
-	float3 uv = float3(screenPos.x / Resolution.x, screenPos.y / Resolution.y, screenPos.z / farPlane);
+	//float4 depthEye = LinearEyeDepth(DepthTexture[screenPos.xy]);
+	//float3 uv = float3(screenPos.x / Resolution.x, screenPos.y / Resolution.y, screenPos.z / farPlane);
 	// ********** Rain direction **********
 	float3 rainDir = normalize(float3(Wind.x, -1, Wind.y));
 	rainDir.y = -1;
 	float3 wp = drop.Position + normalize(rainDir) * Speed * unity_DeltaTime.z;
 	// ********** Rain Particles **********
 	float dist = length(wp - _WorldSpaceCameraPos);
-	float mask = (dist - 5) / 100;
+	float mask = dist / 100;
 
-	if (screenPos.x <= 0|| screenPos.x >= Resolution.x || screenPos.y <= 0 || screenPos.y >= Resolution.y || dist > 105)
+	//if (IsPointOutsideSphere(wp, _WorldSpaceCameraPos, 100))
+	//{
+	//	wp = GetPointInSphere(_WorldSpaceCameraPos, 100, id.x);
+	//}
+
+	if (screenPos.x <= 0 || screenPos.x >= Resolution.x || screenPos.y <= 0 || screenPos.y >= Resolution.y || dist > 105)
 	{
 		screenPos = float3(Random(id.x + screenPos.x + unity_DeltaTime.x + screenPos.y * PHI, 0.23) * Resolution.x, Random(id.x + screenPos.x + unity_DeltaTime.x + screenPos.y * PHI, 0.76) * Resolution.y, Random(id.x + screenPos.x + unity_DeltaTime.x + screenPos.y * PHI, 0.16));
 		wp = GetWorldPos(float2(screenPos.x / Resolution.x, screenPos.y / Resolution.y), 5 + screenPos.z * 100);

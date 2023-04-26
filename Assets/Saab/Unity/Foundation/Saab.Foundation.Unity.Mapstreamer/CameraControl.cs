@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Manages camera updates with large coordinates
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.66
+// Product		: Gizmo3D 2.12.75
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -55,6 +55,15 @@ using Quaternion = UnityEngine.Quaternion;
 
 namespace Saab.Foundation.Unity.MapStreamer
 {
+    public struct AutoMovement
+    {
+        public float forward;
+        public float right;
+        public float up;
+        public float pan;
+        public float tilt;
+    }
+
     public class CameraControl : MonoBehaviour , ISceneManagerCamera
     {
 
@@ -71,8 +80,10 @@ namespace Saab.Foundation.Unity.MapStreamer
         public float LodFactor => 1f;
 
         private double _lastRenderTime = 0;
-        private double _currentRenderTime = 0;        
-        
+        private double _currentRenderTime = 0;
+        private bool _inputLocked;
+        private AutoMovement _autoMovement = default;
+
         public Camera Camera
         {
             get
@@ -149,6 +160,28 @@ namespace Saab.Foundation.Unity.MapStreamer
             return Quaternion.Euler(0, rotationSpeed * GetDeltaTime(), 0);
         }
 
+        public void UpdateMoveCamera(float forward, float right, float up, float pan, float tilt, bool lockOtherInput = true)
+        {
+            _autoMovement.forward = forward;
+            _autoMovement.right = right;
+            _autoMovement.up = up;
+            _autoMovement.pan = pan;
+            _autoMovement.tilt = tilt;
+            _inputLocked = lockOtherInput;
+        }
+
+        private void Move(AutoMovement movement)
+        {
+            MoveForward(movement.forward);
+            MoveRight(movement.right);
+            MoveUp(movement.up);
+
+            Quaternion rot = transform.rotation;
+            rot = rot * Tilt(movement.tilt);
+            rot = Pan(-movement.pan) * rot;
+            transform.rotation = rot;
+        }
+
             // Update is called once per frame
         void Update()
         {
@@ -157,7 +190,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                 Performance.Enter("CameraControl.Update");
                 // Check mouse click
 
-                if (Input.GetButtonDown("Fire1"))
+                if (Input.GetButtonDown("Fire1") &&  Input.GetKey(KeyCode.LeftShift) && !_inputLocked)
                 {
                     Map.MapPos mapPos;
 
@@ -205,8 +238,6 @@ namespace Saab.Foundation.Unity.MapStreamer
                     if (Map.MapControl.SystemMap.GetPosition(latpos, out mappos, Map.GroundClampType.GROUND, Map.ClampFlags.WAIT_FOR_DATA))
                     {
                         Debug.Log("Hit Ground ok");
-
-                    
                     }
 
                     //Performance.DumpPerformanceInfo();
@@ -250,6 +281,12 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             _lastRenderTime = _currentRenderTime;
             _currentRenderTime = renderTime;
+
+            Move(_autoMovement);
+
+            if (_inputLocked)
+                return renderTime;
+
             var speed = Speed;
 
             if (Input.GetKey(KeyCode.LeftShift))

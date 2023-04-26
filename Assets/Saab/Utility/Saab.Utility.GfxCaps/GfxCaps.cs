@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Manage selected capabilities of Graphics Performance
 // Author		: Anders Modén	
-// Product		: GizmoBase 2.12.66
+// Product		: GizmoBase 2.12.75
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -54,8 +54,9 @@ namespace Saab.Utility.GfxCaps
         UseDynamicTreeCrossboards   = 1 << 2,
         UseDynamicGrassCrossboards  = 1 << 3,
         UseFoliageCrossboards       = 1 << 4,
+        UseTerrainDetailTextures    = 1 << 5,
 
-        DefaultCaps                 = 0x0,
+        DefaultCaps                 = 0x0
     }
 
     public struct RenderSettings

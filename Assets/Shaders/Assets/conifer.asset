@@ -18,7 +18,7 @@ MonoBehaviour:
   Normal: {fileID: 0}
   Mesh: {fileID: 0}
   MeshMaterial: {fileID: 0}
-  MaxMin: {x: 10, y: 25}
+  MaxMin: {x: 15, y: 25}
   Offset: {x: 0, y: 0}
   Weight: 1
   Feature: 4

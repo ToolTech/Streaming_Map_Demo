@@ -20,7 +20,7 @@ MonoBehaviour:
   MeshMaterial: {fileID: 0}
   MaxMin: {x: 4, y: 9}
   Offset: {x: 0, y: 0.19}
-  Weight: 0.5
+  Weight: 1
   Feature: 4
   Biome: 0
   TextureMode: 1

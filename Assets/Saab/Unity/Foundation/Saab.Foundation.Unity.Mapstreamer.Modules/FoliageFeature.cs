@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System;
 using GizmoSDK.GizmoBase;
 using System.Linq;
+//using System.IO;
 
 namespace Saab.Foundation.Unity.MapStreamer.Modules
 {
@@ -17,30 +18,35 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
     public class FeatureData : IDisposable
     {
         public GameObject Object { get; private set; }
-        public ComputeBuffer Matrix { get; private set; }
+        public ComputeBuffer PlacementMatrix { get; private set; }
+        public Vector2 NodeOffset { get; private set; }
         public ComputeBuffer MinXY { get; private set; }
         public ComputeBuffer TerrainPoints;
         public Texture2D FeatureMap;
         public Texture2D Texture;
         public Texture2D surfaceHeight;
+        public Texture2D surfaceHeightNew;
         public RenderTexture HeightMap;
 
-        public FeatureData(GameObject gameObject, Matrix3D matrix, float density, float scale = 1)
+        public FeatureData(GameObject gameObject, Matrix3D matrix, float density, uint maxSide, float scale = 1000)
         {
             Object = gameObject;
-            var stepsize = (1 / density) * scale;
+            var stepsize = (1 / density) * 10;
 
-            MinXY = new ComputeBuffer(1, sizeof(float) * 2, ComputeBufferType.Default);
+            MinXY = new ComputeBuffer(2, sizeof(uint), ComputeBufferType.Default);
+            uint[] max = { maxSide * 2, maxSide * 2 };
+            MinXY.SetData(max);
 
-            Matrix = new ComputeBuffer(9, sizeof(float), ComputeBufferType.Default);
+            PlacementMatrix = new ComputeBuffer(9, sizeof(float), ComputeBufferType.Default);
             float[] data = {
-                (float)matrix.v11, (float)matrix.v12, (float)(matrix.v13 % stepsize),
-                (float)matrix.v21, (float)matrix.v22, (float)(matrix.v23 % stepsize),
+                (float)matrix.v11, (float)matrix.v12, (float)((matrix.v13) % stepsize),
+                (float)matrix.v21, (float)matrix.v22, (float)((matrix.v23) % stepsize),
                 (float)matrix.v31, (float)matrix.v32, (float)matrix.v33
             };
 
-            Matrix.SetData(data);
-        }
+            NodeOffset = new Vector2((float)(matrix.v13 + matrix.v11) % scale, (float)(matrix.v23 + matrix.v22) % scale);
+            PlacementMatrix.SetData(data);
+        } 
 
         public void Dispose()
         {
@@ -49,7 +55,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             TerrainPoints.Release();
 
             HeightMap.Release();
-            Matrix.Release();
+            PlacementMatrix.Release();
             MinXY.Release();
         }
     }
@@ -78,7 +84,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _pointCloud = new ComputeBuffer(BufferSize, sizeof(float) * 8, ComputeBufferType.Append);
         }
 
-        public void AddFoliage(GameObject go, NodeHandle node)
+        public FeatureData AddFoliage(GameObject go, NodeHandle node)
         {
             Texture2D featureMap = node.feature;
             Texture2D texture = node.texture;
@@ -87,29 +93,33 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             if (featureMap == null)
             {
                 //Debug.LogWarning($"node:{go.name}, no feature Map exist");
-                return;
+                return null;
             }
             if (texture == null)
             {
                 //Debug.LogWarning($"node:{go.name}, no texture exist");
-                return;
+                return null;
             }
-            if(height == null)
+            if (height == null)
             {
                 //Debug.LogWarning($"node:{go.name}, no surface height exist");
-                return;
+                return null;
             }
             if (!go.activeInHierarchy)
             {
                 Debug.LogWarning($"node:{go.name}, gameobject disabled");
-                return;
+                return null;
             }
 
+            //if (go.name != "15_48_1")
+            //    return;
 
             var mesh = go.GetComponent<MeshFilter>().sharedMesh;
             _resolution = new Vector2((float)node.featureInfo.v11, (float)node.featureInfo.v22);
 
-            var data = new FeatureData(go, node.featureInfo, _density, _scale)
+            var maxside = Mathf.Max(featureMap.width, featureMap.height);
+
+            var data = new FeatureData(go, node.featureInfo, _density, (uint)maxside, _scale)
             {
                 FeatureMap = featureMap,
                 Texture = texture,
@@ -121,7 +131,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             FeauturePlacement(data);
 
             _items.Add(data);
-            //return toTexture2D(data.HeightMap);
+            return data;
         }
         public void RemoveFoliage(GameObject gameobj)
         {
@@ -153,7 +163,20 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _indices?.Release();
             _texcoords?.Release();
         }
-
+        public int GetVideoMemoryUsage()
+        {
+            var size = 0;
+            foreach(var item in _items)
+            {
+                size += item.TerrainPoints.stride * item.TerrainPoints.count;
+                size += item.HeightMap.width * item.HeightMap.width * sizeof(float);
+            }
+            size += _pointCloud.stride * _pointCloud.count;
+            size += _indices.stride * _indices.count;
+            size += _vertices.stride * _vertices.count;
+            size += _texcoords.stride * _texcoords.count;
+            return size;
+        }
         private void SetupBuffers(Mesh mesh)
         {
             if (mesh.vertexCount > _maxVertexCount)
@@ -180,7 +203,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             }
 
         }
-
         private int FindBufferSize(FeatureData node)
         {
             var maxSize =
@@ -198,7 +220,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _placement.SetBuffer(bufferKernel, "BufferSize", sizeBuffer);
             _placement.SetTexture(bufferKernel, "SplatMap", node.FeatureMap);
             _placement.Dispatch(bufferKernel, Mathf.CeilToInt((node.FeatureMap.width - 2) / 8f) < 1 ? 1 : Mathf.CeilToInt((node.FeatureMap.height - 2) / 8f), 1, 1);
-            
+
             sizeBuffer.GetData(result);
             var percentage = (result[0] * 8 * 8) / (float)((node.FeatureMap.width - 2) * (node.FeatureMap.height - 2));
             Debug.Log($"{(result[0] * 8 * 8)}/{node.FeatureMap.width * node.FeatureMap.height}");
@@ -217,6 +239,56 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             return maxSize;
         }
 
+        Texture2D toTexture2D(RenderTexture rTex)
+        {
+            var tmp = RenderTexture.active;
+            Texture2D tex = new Texture2D(rTex.width, rTex.height, TextureFormat.RFloat, false);
+            tex.filterMode = rTex.filterMode;
+            // ReadPixels looks at the active RenderTexture.
+            RenderTexture.active = rTex;
+            tex.ReadPixels(new Rect(0, 0, rTex.width, rTex.height), 0, 0);
+            tex.Apply();
+            RenderTexture.active = tmp;
+            return tex;
+        }
+        //private void SaveImage(Texture2D tex, string name)
+        //{
+        //    if (!tex.isReadable)
+        //    {
+        //        Debug.LogWarning("could not read file");
+        //        return;
+        //    }
+
+        //    var data = tex.EncodeToPNG();
+        //    var dirPath = Application.dataPath + "/../SaveImages/";
+        //    if (!Directory.Exists(dirPath))
+        //    {
+        //        Directory.CreateDirectory(dirPath);
+        //    }
+        //    File.WriteAllBytes(dirPath + name + ".png", data);
+        //}
+
+        private RenderTexture GenerateSurfaceHeight(FeatureData node)
+        {
+            var kernel = _placement.FindKernel("CSUpSampleVegetation");
+
+            var surfaceHeightMap = new RenderTexture(node.surfaceHeight.width , node.surfaceHeight.height, 24, RenderTextureFormat.RFloat);
+            surfaceHeightMap.filterMode = FilterMode.Point;
+            surfaceHeightMap.enableRandomWrite = true;
+            surfaceHeightMap.Create();
+
+            _placement.SetVector("heightResolution", new Vector2(node.surfaceHeight.width, node.surfaceHeight.height));
+            _placement.SetTexture(kernel, "VegetationHeightMap", surfaceHeightMap);
+            _placement.SetTexture(kernel, "HeightSurface", node.surfaceHeight);
+            _placement.SetTexture(kernel, "SplatMap", node.FeatureMap);
+
+            var threadx = Mathf.CeilToInt(surfaceHeightMap.width / 4f) < 1 ? 1 : Mathf.CeilToInt(surfaceHeightMap.width / 4f);
+            var thready = Mathf.CeilToInt(surfaceHeightMap.height / 4f) < 1 ? 1 : Mathf.CeilToInt(surfaceHeightMap.height / 4f);
+
+            _placement.Dispatch(kernel, threadx, thready, 1);
+
+            return surfaceHeightMap;
+        }
         private void GenerateSharedData(FeatureData node)
         {
             var size = FindBufferSize(node);
@@ -224,32 +296,39 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             var mesh = node.Object.GetComponent<MeshFilter>().sharedMesh;
             _placement.SetVector("terrainResolution", new Vector2(node.FeatureMap.width, node.FeatureMap.height));
-            _placement.SetVector("heightResolution", new Vector2(node.surfaceHeight.width, node.surfaceHeight.height));
             _placement.SetVector("terrainSize", mesh.bounds.size);
 
+            _placement.SetVector("NodeOffset", node.NodeOffset);
             _placement.SetVector("Resolution", _resolution);
             _placement.SetFloat("Density", _density);
             _placement.SetMatrix("ObjToWorld", node.Object.transform.localToWorldMatrix);
         }
         private void GenerateHeight(FeatureData node, Mesh mesh)
         {
-            // ************* hack to find min uv ************* //
+            // ************* hack to find min uv, a bit of a performance thief ************* //
 
             SetupBuffers(mesh);
+
+            _vertices.SetData(mesh.vertices);
+            _indices.SetData(mesh.GetIndices(0));
+            _texcoords.SetData(mesh.uv);
 
             var kernelFindUV = _placement.FindKernel("CSFindMinUv");
             _placement.SetInt("uvCount", mesh.vertexCount);
             _placement.SetBuffer(kernelFindUV, "MinXY", node.MinXY);
             _placement.SetBuffer(kernelFindUV, "surfaceUVs", _texcoords);
-            _placement.Dispatch(kernelFindUV, 1, 1, 1);
+            var threads = Mathf.CeilToInt(mesh.vertexCount / 32f) < 1 ? 1 : Mathf.CeilToInt(mesh.vertexCount / 32f);
+            _placement.Dispatch(kernelFindUV, threads, 1, 1);
 
-            var data = new Vector2[1];
+            var data = new uint[2];
             node.MinXY.GetData(data);
 
+            // ************* Find center of Node ************* //
+
             var offsetX = ((node.FeatureMap.width - 2) * _resolution.x / 2 - mesh.bounds.extents.x);
-            offsetX = data[0].x > 0 ? -offsetX : offsetX;
+            offsetX = data[0] > 0 ? -offsetX : offsetX;
             var offsetY = ((node.FeatureMap.height - 2) * _resolution.y / 2 - mesh.bounds.extents.z);
-            offsetY = data[0].y > 0 ? offsetY : -offsetY;
+            offsetY = data[1] > 0 ? offsetY : -offsetY;
 
             var center = mesh.bounds.center;
             center.x += offsetX;
@@ -266,10 +345,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             node.HeightMap.enableRandomWrite = true;
             node.HeightMap.Create();
 
-            _vertices.SetData(mesh.vertices);
-            _indices.SetData(mesh.GetIndices(0));
-            _texcoords.SetData(mesh.uv);
-
             var triangleCount = Mathf.CeilToInt(mesh.GetIndices(0).Length / 3f);
 
             _placement.SetInt("indexCount", triangleCount);
@@ -278,26 +353,33 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _placement.SetBuffer(kernelHeight, "surfaceUVs", _texcoords);
             _placement.SetTexture(kernelHeight, "HeightMap", node.HeightMap);
 
-            var threads = Mathf.CeilToInt(triangleCount / 4f) < 1 ? 1 : Mathf.CeilToInt(triangleCount / 4f);
+            threads = Mathf.CeilToInt(triangleCount / 4f) < 1 ? 1 : Mathf.CeilToInt(triangleCount / 4f);
             _placement.Dispatch(kernelHeight, threads, 1, 1);
         }
-
         private void FeauturePlacement(FeatureData node)
         {
+            //var surfaceHeight = GenerateSurfaceHeight(node);
+
             var kernelPlacement = _placement.FindKernel("CSPlacement");
             _placement.SetTexture(kernelPlacement, "SplatMap", node.FeatureMap);
             _placement.SetTexture(kernelPlacement, "Texture", node.Texture);
             _placement.SetTexture(kernelPlacement, "HeightMap", node.HeightMap);
             _placement.SetTexture(kernelPlacement, "HeightSurface", node.surfaceHeight);
 
+            _placement.SetVector("heightResolution", new Vector2(node.surfaceHeight.width, node.surfaceHeight.height));
+            //node.surfaceHeightNew = toTexture2D(surfaceHeight);
+            //SaveImage(toTexture2D(surfaceHeight), Guid.NewGuid().ToString());
+
             _placement.SetBuffer(kernelPlacement, "TerrainPoints", node.TerrainPoints);
-            _placement.SetBuffer(kernelPlacement, "PixelToWorld", node.Matrix);
+            _placement.SetBuffer(kernelPlacement, "PixelToWorld", node.PlacementMatrix);
 
             int threadsX = Mathf.CeilToInt((node.FeatureMap.width) / (float)4);
             int threadsY = Mathf.CeilToInt((node.FeatureMap.height) / (float)4);
 
             node.TerrainPoints.SetCounterValue(0);
             _placement.Dispatch(kernelPlacement, threadsX < 1 ? 1 : threadsX, threadsY < 1 ? 1 : threadsY, 1);
+
+            //surfaceHeight.Release();
         }
         public ComputeBuffer Cull(Vector4[] frustum, Camera camera, float maxHeight)
         {
@@ -324,8 +406,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 _placement.SetMatrix("ObjToWorld", item.Object.transform.localToWorldMatrix);
                 _placement.Dispatch(kernelCull, Mathf.CeilToInt(item.TerrainPoints.count / 128f) < 1 ? 1 : Mathf.CeilToInt(item.TerrainPoints.count / 128f), 1, 1);
             }
-
-            //Debug.LogWarning($"culled {count} nodes with average {Math.Round(points / (float)count)} points");
 
             return _pointCloud;
         }

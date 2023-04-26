@@ -3,8 +3,8 @@ using UnityEngine;
 using UnityEngine.Rendering.PostProcessing;
 
 [Serializable]
-[PostProcess(typeof(RainRenderer), PostProcessEvent.AfterStack, "Weather/Rain")]
-public sealed class Rain : PostProcessEffectSettings
+[PostProcess(typeof(RainEffectRenderer), PostProcessEvent.AfterStack, "Weather/Rain")]
+public sealed class RainEffect : PostProcessEffectSettings
 {
     [Tooltip("ComputeShader for Generating rain texture")]
     public ParameterOverride<ComputeShader> RainShader = new ParameterOverride<ComputeShader> { value = null };
@@ -31,7 +31,7 @@ public sealed class Rain : PostProcessEffectSettings
     public Vector2Parameter Wind = new Vector2Parameter { value = Vector2.zero };
 }
 
-public sealed class RainRenderer : PostProcessEffectRenderer<Rain>
+public sealed class RainEffectRenderer : PostProcessEffectRenderer<RainEffect>
 {
     private int _kernel;
     private int _kernelParticle;
@@ -96,6 +96,8 @@ public sealed class RainRenderer : PostProcessEffectRenderer<Rain>
 
     public override void Render(PostProcessRenderContext context)
     {
+        if (context == null) return;
+
         var height = _resolution;
         var width = _resolution;
 
@@ -127,8 +129,6 @@ public sealed class RainRenderer : PostProcessEffectRenderer<Rain>
         settings.RainShader.value.SetMatrix("WorldToScreen", world2Screen);
 
         int threads = settings.Density.value > 10 ? settings.Density.value / 10 : 1;
-
-       
 
         _rainBuffer.SetCounterValue(0);
         settings.RainShader.value.SetBuffer(_kernelParticle, "RainBuffer", _rainBuffer);

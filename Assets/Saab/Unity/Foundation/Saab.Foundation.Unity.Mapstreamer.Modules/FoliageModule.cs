@@ -23,7 +23,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         [Header("Debug Settings")]
         public bool DebugPrintCount = false;
-        public bool Enabled = false;
+        public bool Disabled = false;
         public bool DebugNoDraw = false;
 
         [Header("Auto filled Settings")]
@@ -42,7 +42,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             SceneManager.OnPostTraverse += SceneManager_OnPostTraverse;
             SceneManager.OnEnterPool += SceneManager_OnEnterPool;
 
-            Enabled = !GfxCaps.CurrentCaps.HasFlag(Capability.UseFoliageCrossboards);
+            Disabled = !GfxCaps.CurrentCaps.HasFlag(Capability.UseFoliageCrossboards);
 
             var FoliageSetting = GfxCaps.GetFoliageSettings;
             DrawDistance = FoliageSetting.DrawDistance;
@@ -80,7 +80,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
 
 #if UNITY_ANDROID
-            var format = TextureFormat.ARGB32;
+            var format = TextureFormat.ETC2_RGBA8;
             Debug.Log("foliage Use ETC2");
 #else
             var format = TextureFormat.DXT5;
@@ -125,6 +125,10 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             return v + 1;
         }
 
+        public int GetMemoryfootprint()
+        {
+            return _foliage.GetVideoMemoryUsage();
+        }
         public Texture2DArray Create2DArray(List<Foliage> foliages, TextureFormat targetFormat)
         {
             var textureCount = foliages.Count;
@@ -146,6 +150,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             for (int i = 0; i < textureCount; i++)
             {
+                //Debug.LogWarning($"graphic format: {foliages[i].MainTexture.graphicsFormat} format: {foliages[i].MainTexture.format}");
                 Graphics.Blit(foliages[i].MainTexture, temporaryRenderTexture);
                 RenderTexture.active = temporaryRenderTexture;
 
@@ -164,7 +169,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             return textureArray;
         }
-
         private void GenerateFrustumPlane(Camera camera)
         {
             var planes = GeometryUtility.CalculateFrustumPlanes(camera);
@@ -183,11 +187,18 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         {
             var nodehandle = go.GetComponent<NodeHandle>();
 
-            if (nodehandle != null && !Enabled)
+            if (nodehandle != null && !Disabled)
             {
                 if (nodehandle.node.BoundaryRadius < 890 && nodehandle.node.BoundaryRadius > 0)
                 {
-                    _foliage.AddFoliage(go, nodehandle);
+                    var res = _foliage.AddFoliage(go, nodehandle);
+
+                    //if (Mathf.Abs(nodehandle.node.BoundaryRadius - 361.1371f) < 0.001f)
+                    //    _foliage.AddFoliage(go, nodehandle);
+                    //if (nodehandle.name == "15_38_85" || nodehandle.name == "15_38_84" || nodehandle.name == "15_39_85" || nodehandle.name == "15_39_84")
+                    //    _foliage.AddFoliage(go, nodehandle);
+                    //if (res != null)
+                    //  go.GetComponent<MeshRenderer>().material.mainTexture = res.surfaceHeight;
                 }
             }
         }
@@ -199,9 +210,10 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _inderectBuffer.Release();
             _foliageData.Dispose();
         }
+
         private void SceneManager_OnPostTraverse(bool locked)
         {
-            if (Enabled)
+            if (Disabled)
                 return;
 
             var cam = SceneManager.SceneManagerCamera.Camera;

@@ -25,6 +25,10 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
     {
         public TerrainTextures[] GrassTextures;
         public TerrainTextures[] TreeTextures;
+        public Texture2D[] TerrainDetailTextures;
+        public Texture2D[] TerrainDetailNormalMaps;
+        public Texture2D[] TerrainDetailHeightMaps;
+        public Texture2D[] TerrainDetailRoughnessMaps;
 
         public Texture2D PerlinNoise;
         public Texture2D DefaultSplatMap;
@@ -48,6 +52,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public ComputeShader ComputeTerrainShader;
         public Shader GrassShader;
         public Shader TreeShader;
+        public Shader DetailTextureShader;
     }
 
     public class TerrainModule : MonoBehaviour
@@ -62,6 +67,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public bool EnableTrees = false;
         public bool EnableCross = false;
         public bool EnableGrass = false;
+        public bool EnableDetailedTextures = false;
 
         [Header("Module Settings")]
         public TerrainSetting TerrainSettings;
@@ -98,6 +104,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             EnableTrees = GfxCaps.CurrentCaps.HasFlag(Capability.UseDynamicTreeCrossboards);
             EnableCross = GfxCaps.CurrentCaps.HasFlag(Capability.UseTreeCrossboards);
             EnableGrass = GfxCaps.CurrentCaps.HasFlag(Capability.UseDynamicGrassCrossboards);
+            EnableDetailedTextures = GfxCaps.CurrentCaps.HasFlag(Capability.UseTerrainDetailTextures);
 
             var grassSetting = GfxCaps.GetGrassSettings;
             var treeSetting = GfxCaps.GetTreeSettings;
@@ -231,7 +238,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         private void InitMapModules()
         {
-            if (EnableGrass)
+            //if (EnableGrass)
             {
                 // ******* setup GameObject *******
                 var go = new GameObject("GrassModule");
@@ -255,7 +262,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 _grassModule.UsePlacementMap = true;
             }
 
-            if (EnableTrees || EnableCross)
+            //if (EnableTrees || EnableCross)
             {
                 // ******* setup GameObject *******
                 var go = new GameObject("TreeModule");
@@ -330,24 +337,142 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             }
         }
 
+        Texture2DArray TextureArray;
+        Texture2DArray NormalMapArray;
+        Texture2DArray HeightMapArray;
+        Texture2DArray RoughnessMapArray;
+
         private void SceneManager_OnNewGeometry(GameObject go)
         {
-            var nodehandler = go.GetComponent<NodeHandle>();
-            if (nodehandler != null)
+            var nodehandle = go.GetComponent<NodeHandle>();
+            if (nodehandle != null)
             {
                 if (EnableGrass)
                 {
-                    if (nodehandler.node.BoundaryRadius < 190 && nodehandler.node.BoundaryRadius > 0)
+                    if (nodehandle.node.BoundaryRadius < 190 && nodehandle.node.BoundaryRadius > 0)
                     {
-                        _grassModule.AddGrass(go, nodehandler.feature);
+                        _grassModule.AddGrass(go, nodehandle.feature);
                     }
                 }
                 if (EnableTrees)
                 {
-                    if (nodehandler.node.BoundaryRadius < 890 && nodehandler.node.BoundaryRadius > 0)
+                    if (nodehandle.node.BoundaryRadius < 890 && nodehandle.node.BoundaryRadius > 0)
                     {
-                        _treeModule.AddTree(go, nodehandler.feature);
+                        _treeModule.AddTree(go, nodehandle.feature);
                     }
+                }
+
+                var meshRenderer = go.GetComponent<MeshRenderer>();
+                if (meshRenderer != null &&
+                    nodehandle.feature != null &&
+                    nodehandle.texture != null &&
+                    EnableDetailedTextures)
+                {
+                    meshRenderer.material.shader = TerrainSettings.DetailTextureShader;
+
+                    meshRenderer.material.SetTexture(Shader.PropertyToID("_SplatTex"), nodehandle.feature);
+                    meshRenderer.material.SetVector(Shader.PropertyToID("_SplatTex_ST"), new Vector4(2, 2, 0, 0));
+                    meshRenderer.material.SetTexture(Shader.PropertyToID("_CoarseTexture"), nodehandle.texture);
+                    var splatDimensions = new Vector2(nodehandle.texture.width, nodehandle.texture.height);
+                    meshRenderer.material.SetVector(Shader.PropertyToID("_SplatMapDimensions"), splatDimensions);
+                    meshRenderer.material.SetFloat(Shader.PropertyToID("_Smoothness"), 1);
+                    meshRenderer.material.SetFloat(Shader.PropertyToID("_SplatVisualization"), 1);
+                    meshRenderer.material.SetFloat(Shader.PropertyToID("_DetailTextureFadeStart"), 100);
+                    meshRenderer.material.SetFloat(Shader.PropertyToID("_DetailTextureFadeZoneLength"), 100);
+
+                    if (TextureArray is null)
+                    {
+                        int width = TerrainSettings.TerrainDetailTextures[0].width;
+                        int height = TerrainSettings.TerrainDetailTextures[0].height;
+                        int depth = TerrainSettings.TerrainDetailTextures.Length;
+                        TextureArray = new Texture2DArray(width, height, depth, TextureFormat.DXT1, true);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailTextures[0], 0, TextureArray, 0);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailTextures[1], 0, TextureArray, 1);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailTextures[2], 0, TextureArray, 2);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailTextures[3], 0, TextureArray, 3);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailTextures[4], 0, TextureArray, 4);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailTextures[5], 0, TextureArray, 5);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailTextures[6], 0, TextureArray, 6);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailTextures[7], 0, TextureArray, 7);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailTextures[8], 0, TextureArray, 8);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailTextures[9], 0, TextureArray, 9);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailTextures[10], 0, TextureArray, 10);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailTextures[11], 0, TextureArray, 11);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailTextures[12], 0, TextureArray, 12);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailTextures[13], 0, TextureArray, 13);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailTextures[14], 0, TextureArray, 14);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailTextures[15], 0, TextureArray, 15);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailTextures[16], 0, TextureArray, 16);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailTextures[17], 0, TextureArray, 17);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailTextures[18], 0, TextureArray, 18);
+
+                        NormalMapArray = new Texture2DArray(width, height, depth, TextureFormat.DXT5, true);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailNormalMaps[0], 0, NormalMapArray, 0);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailNormalMaps[1], 0, NormalMapArray, 1);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailNormalMaps[2], 0, NormalMapArray, 2);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailNormalMaps[3], 0, NormalMapArray, 3);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailNormalMaps[4], 0, NormalMapArray, 4);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailNormalMaps[5], 0, NormalMapArray, 5);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailNormalMaps[6], 0, NormalMapArray, 6);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailNormalMaps[7], 0, NormalMapArray, 7);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailNormalMaps[8], 0, NormalMapArray, 8);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailNormalMaps[9], 0, NormalMapArray, 9);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailNormalMaps[10], 0, NormalMapArray, 10);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailNormalMaps[11], 0, NormalMapArray, 11);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailNormalMaps[12], 0, NormalMapArray, 12);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailNormalMaps[13], 0, NormalMapArray, 13);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailNormalMaps[14], 0, NormalMapArray, 14);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailNormalMaps[15], 0, NormalMapArray, 15);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailNormalMaps[16], 0, NormalMapArray, 16);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailNormalMaps[17], 0, NormalMapArray, 17);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailNormalMaps[18], 0, NormalMapArray, 18);
+
+                        HeightMapArray = new Texture2DArray(width, height, depth, TextureFormat.DXT1, true);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailHeightMaps[0], 0, HeightMapArray, 0);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailHeightMaps[1], 0, HeightMapArray, 1);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailHeightMaps[2], 0, HeightMapArray, 2);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailHeightMaps[3], 0, HeightMapArray, 3);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailHeightMaps[4], 0, HeightMapArray, 4);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailHeightMaps[5], 0, HeightMapArray, 5);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailHeightMaps[6], 0, HeightMapArray, 6);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailHeightMaps[7], 0, HeightMapArray, 7);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailHeightMaps[8], 0, HeightMapArray, 8);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailHeightMaps[9], 0, HeightMapArray, 9);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailHeightMaps[10], 0, HeightMapArray, 10);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailHeightMaps[11], 0, HeightMapArray, 11);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailHeightMaps[12], 0, HeightMapArray, 12);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailHeightMaps[13], 0, HeightMapArray, 13);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailHeightMaps[14], 0, HeightMapArray, 14);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailHeightMaps[15], 0, HeightMapArray, 15);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailHeightMaps[16], 0, HeightMapArray, 16);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailHeightMaps[17], 0, HeightMapArray, 17);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailHeightMaps[18], 0, HeightMapArray, 18);
+
+                        RoughnessMapArray = new Texture2DArray(width, height, depth, TextureFormat.DXT1, true);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailRoughnessMaps[0], 0, RoughnessMapArray, 0);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailRoughnessMaps[1], 0, RoughnessMapArray, 1);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailRoughnessMaps[2], 0, RoughnessMapArray, 2);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailRoughnessMaps[3], 0, RoughnessMapArray, 3);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailRoughnessMaps[4], 0, RoughnessMapArray, 4);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailRoughnessMaps[5], 0, RoughnessMapArray, 5);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailRoughnessMaps[6], 0, RoughnessMapArray, 6);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailRoughnessMaps[7], 0, RoughnessMapArray, 7);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailRoughnessMaps[8], 0, RoughnessMapArray, 8);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailRoughnessMaps[9], 0, RoughnessMapArray, 9);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailRoughnessMaps[10], 0, RoughnessMapArray, 10);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailRoughnessMaps[11], 0, RoughnessMapArray, 11);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailRoughnessMaps[12], 0, RoughnessMapArray, 12);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailRoughnessMaps[13], 0, RoughnessMapArray, 13);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailRoughnessMaps[14], 0, RoughnessMapArray, 14);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailRoughnessMaps[15], 0, RoughnessMapArray, 15);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailRoughnessMaps[16], 0, RoughnessMapArray, 16);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailRoughnessMaps[17], 0, RoughnessMapArray, 17);
+                        Graphics.CopyTexture(TerrainSettings.TerrainDetailRoughnessMaps[18], 0, RoughnessMapArray, 18);
+                    }
+                    meshRenderer.material.SetTexture(Shader.PropertyToID("_Textures"), TextureArray);
+                    meshRenderer.material.SetTexture(Shader.PropertyToID("_NormalMaps"), NormalMapArray);
+                    meshRenderer.material.SetTexture(Shader.PropertyToID("_HeightMaps"), HeightMapArray);
+                    meshRenderer.material.SetTexture(Shader.PropertyToID("_RoughnessMaps"), RoughnessMapArray);
                 }
             }
         }

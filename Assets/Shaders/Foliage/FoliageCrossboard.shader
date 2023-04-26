@@ -5,6 +5,9 @@ Shader "Custom/Foliage/Billboard"
 		_MainTexArray("Tex2DArray (RGB)", 2DArray) = "white" {}
 		_NormalMapArray("Normal Map", 2DArray) = "bump" {}
 		_AdditiveSize("Additive foliage Size", Range(0, 30)) = 0
+		_CutoffMax("Alpha cutoff close", Range(0, 1)) = 0.6
+		_CutoffMin("Alpha cutoff far", Range(0, 1)) = 0.1
+		_Threshold("Alpha cutoff distance", float) = 100
 		[MaterialToggle] _isToggled("Up Normals", Float) = 0
 	}
 
@@ -49,6 +52,9 @@ Shader "Custom/Foliage/Billboard"
 
 			uint _foliageCount;
 			float _AdditiveSize;
+			float _CutoffMax;
+			float _CutoffMin;
+			float _Threshold;
 			float _isToggled;
 
 			UNITY_DECLARE_TEX2DARRAY(_MainTexArray);
@@ -85,6 +91,13 @@ Shader "Custom/Foliage/Billboard"
 				return normalize(ProjectedPoint - i.center);
 			}
 
+			float CutoffDistance(float distance)
+			{
+				float c = _CutoffMax - ((_CutoffMin - _CutoffMax) / _Threshold) * -distance;
+				c = clamp(c, _CutoffMin, _CutoffMax);
+				return c;
+			}
+
 			ENDCG
 
 			// ********* Opaque alpha cutoff - Deferred  *********
@@ -112,7 +125,9 @@ Shader "Custom/Foliage/Billboard"
 					fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_MainTexArray, i.tex0);
 					//half3 tnormal = UnpackNormal(tex2D(_NormalMap, i.tex0));
 
-					clip(col.a - 0.5);
+					float c = CutoffDistance(distance(i.wp, _WorldSpaceCameraPos));
+					clip(col.a - c);
+
 					col.rgb = col.rgb * 0.7f + i.color.rgb * 0.3f;
 
 					fixed3 worldViewDir = normalize(UnityWorldSpaceViewDir(i.wp));
@@ -248,8 +263,8 @@ Shader "Custom/Foliage/Billboard"
 				float4 frag(FS_INPUT i) : COLOR
 				{
 					fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_MainTexArray, i.tex0);
-					//fixed4 col = tex2D(_MainTex, i.tex0);
-					clip(col.a - 0.5);
+					float c = CutoffDistance(distance(i.wp, _WorldSpaceCameraPos));
+					clip(col.a - c);
 					return float4(0,0,0,0);
 				}
 				ENDCG

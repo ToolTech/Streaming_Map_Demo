@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Handle to native Gizmo3D nodes
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.66
+// Product		: Gizmo3D 2.12.75
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -116,7 +116,7 @@ namespace Saab.Foundation.Unity.MapStreamer
         // state-data-height (for now only single texture)
         internal Texture2D surfaceHeight;
 
-        // resolution in meters for feauture map
+        // resolution in meters for feature map
         internal Matrix3D featureInfo;
 
         private const string ID = "Saab.Foundation.Unity.MapStreamer.NodeHandle";

@@ -17,9 +17,8 @@ float Random(float input, float mutator = 0.546)
 
 float Random2D(float2 input, float mutator = 0.546)
 {
-	float i = (input.x * 13.1071) + (input.y * 65.537);
-	float random = frac(sin(i + mutator) * 142375.554353);
-	return random;
+	float i = (input.x * 131.071) + (input.y * 655.37);
+	return Random(i, mutator);
 }
 
 int WeightedRandom(float random, float height)
@@ -39,6 +38,9 @@ int WeightedRandom(float random, float height)
 		r -= (_foliageData[i].Weight * heightWeight);
 		if (r >= 0)
 			continue;
+
+		if (heightWeight == 0)
+			return -1;
 
 		return i;
 	}
@@ -74,10 +76,9 @@ void Billboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStr
 	float weight = _foliageData[type].Weight;
 
 	// ********************* ***************  ********************* //
-	float minh = min(minMaxHeight.y, maxHorizonHeight);
-	float maxh = max(minMaxHeight.x, minHorizonHeight);
-	float foliageHeight = minMaxHeight.x + ((minh - maxh) * random);
-	
+
+	float foliageHeight = minMaxHeight.x + ((minMaxHeight.y - minMaxHeight.x) * Random(random, 0.321f));
+	foliageHeight = clamp(foliageHeight, minMaxHeight.x, height);
 	height = foliageHeight + _AdditiveSize;
 	pos.y -= offset.y * height;		// offset to handle Roots
 
@@ -159,14 +160,13 @@ void Crossboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triSt
 
 	// ********************* ***************  ********************* //
 
-	float minh = min(minMaxHeight.y, maxHorizonHeight);
-	float maxh = max(minMaxHeight.x, minHorizonHeight);
-	float foliageHeight = minMaxHeight.x + ((minh - maxh) * random);
+	float foliageHeight = minMaxHeight.x + ((minMaxHeight.y - minMaxHeight.x) * Random(random, 0.321f));
+	foliageHeight = clamp(foliageHeight, minMaxHeight.x, height);
 	height = foliageHeight + _AdditiveSize;
 	pos.y -= offset.y * height;		// offset to handle Roots
 
 	float3 up = normalize(float3(0, 1, 0));
-	float angle = (Random(random) * 2 - 1) * 3.141592;
+	float angle = (Random(random, 0.131f) * 2 - 1) * 3.141592;
 	float3 randDir = float3(cos(angle), 0, sin(angle));
 
 	float3 right = randDir; 

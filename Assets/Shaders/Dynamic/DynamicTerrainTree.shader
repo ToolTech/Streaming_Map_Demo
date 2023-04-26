@@ -500,7 +500,6 @@ Shader "Terrain/DynamicTerrain/Tree"
 					o.Occlusion = 1.0f;
 					o.Smoothness = 0.0f;
 					o.Specular = 0.0f;
-					//o.Normal = n;
 					o.Normal = IN.worldNormal; // This is used only for ambient occlusion
 
 					// Setup lighting environment

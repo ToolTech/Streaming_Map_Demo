@@ -4,6 +4,7 @@
 [Bb]uild/
 [Bb]uilds/
 [Mm]aps/
+[Rr]esults/
 Assets/AssetStoreTools* 
  
  
@@ -54,3 +55,4 @@ Logs/
 [Tt]ools/*/*.txt
 *.recipe
 crossboard_res - FULL.gzd
+Assets/TextMesh Pro/

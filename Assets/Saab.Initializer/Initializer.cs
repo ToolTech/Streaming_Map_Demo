@@ -123,6 +123,9 @@ namespace Saab.Unity.Initializer
               
             Message.OnMessage += Message_OnMessage;
 
+            // Disable screen dimming
+            Screen.sleepTimeout = SleepTimeout.NeverSleep;
+
 #if SHOW_MEMORY
             // Set to tru to enable memory tracing. Heavy load
             MemoryControl.DebugMem(true);   // Enable trace of allocated memory
@@ -159,6 +162,10 @@ namespace Saab.Unity.Initializer
 
             SceneManager scenemanager = GetComponent<SceneManager>();
             CameraControl cameracontrol = GetComponent<CameraControl>();
+
+            scenemanager.MapUrl = KeyDatabase.GetDefaultUserKey("SceneManager/MapUrl", scenemanager.MapUrl);
+
+            //scenemanager.MapUrl()
 
             scenemanager.SceneManagerCamera = cameracontrol;
 

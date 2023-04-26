@@ -3,8 +3,8 @@ using UnityEngine;
 using UnityEngine.Rendering.PostProcessing;
 
 [Serializable]
-[PostProcess(typeof(FogRenderer), PostProcessEvent.AfterStack, "Weather/Fog")]
-public sealed class Fog : PostProcessEffectSettings
+[PostProcess(typeof(FogEffectRenderer), PostProcessEvent.AfterStack, "Weather/Fog")]
+public sealed class FogEffect : PostProcessEffectSettings
 {
     //public ParameterOverride<ComputeShader> NoiseCompute = new ParameterOverride<ComputeShader>();
     //public ParameterOverride<RenderTexture> Texture3D = new ParameterOverride<RenderTexture>();
@@ -31,15 +31,18 @@ public sealed class Fog : PostProcessEffectSettings
     public ColorParameter Color = new ColorParameter { value = UnityEngine.Color.white };
 }
 
-public sealed class FogRenderer : PostProcessEffectRenderer<Fog>
+[ExecuteAlways]
+public sealed class FogEffectRenderer : PostProcessEffectRenderer<FogEffect>
 {
     public override void Render(PostProcessRenderContext context)
     {
+        if (context == null)
+            return;
+
         var sheet = context.propertySheets.Get(Shader.Find("Weather/Fog"));
         if(sheet == null)
         {
             Debug.LogWarning("could not find shader");
-
             return;
         }
 
@@ -49,8 +52,6 @@ public sealed class FogRenderer : PostProcessEffectRenderer<Fog>
         p[3, 3] = 1.0f;
         var clipToWorld = Matrix4x4.Inverse(p * camera.worldToCameraMatrix) * Matrix4x4.TRS(new Vector3(0, 0, -p[2, 2]), Quaternion.identity, Vector3.one);
         sheet.properties.SetMatrix("clipToWorld", clipToWorld);
-
-
         sheet.properties.SetFloat("_Density", settings.Density);
 
         sheet.properties.SetFloat("_MinDensity", settings.MinDensity);
