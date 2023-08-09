@@ -1,0 +1,13 @@
+{
+  "name": "com.saab.map-streamer",
+  "version": "0.1.0",
+  "displayName": "map-streamer",
+  "description": "todo",
+  "unity": "2023.3",
+  "author": {
+    "name": "SAAB AB"
+  },
+  "dependencies": {
+    "com.unity.postprocessing": "3.2.2"
+  }
+}

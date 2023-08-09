@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generic Configuration for Unity -->
+<Unity>
+    <GfxCaps>
+        <CurrentCaps info="Which graphics capabilities to use">16</CurrentCaps>
+		<Foliage>
+         <!-- ****** disable by setting drawdistance or density to 0.0 ****** -->
+          <Trees>
+            <Density info="Density percentage modifier">1</Density>
+            <DrawDistance info="DrawDistance percentage modifier">1</DrawDistance>
+            <Shadows info="foliage cast shadows">true</Shadows>
+          </Trees>
+          <Grass>
+            <Density info="Density percentage modifier">1</Density>
+            <DrawDistance info="DrawDistance percentage modifier">1</DrawDistance>
+            <Shadows info="foliage cast shadows">false</Shadows>
+          </Grass>
+        </Foliage>
+    </GfxCaps>
+
+    <SceneManager>
+		<SceneCleanupTime>10</SceneCleanupTime> <!-- seconds -->
+		<DynamicLoaders>4</DynamicLoaders>
+		<MapUrl>C:\Maps\swe_stensholm\map.gzd</MapUrl>
+		<!--<MapUrl>http://gizmosdk.blob.core.windows.net/maps/stock/map.gzd</MapUrl>-->
+    </SceneManager>
+</Unity>

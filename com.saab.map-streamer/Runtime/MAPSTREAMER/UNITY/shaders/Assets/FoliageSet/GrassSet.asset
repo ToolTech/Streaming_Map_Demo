@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 82f397700e6a04f429c81d3628c3cfd4, type: 3}
+  m_Name: GrassSet
+  m_EditorClassIdentifier: 
+  Assets:
+  - Foliage: {fileID: 11400000, guid: 4c26fb3dabb51204f9efe867ba35cb73, type: 2}
+    Weight: 0
+  - Foliage: {fileID: 11400000, guid: f72875dd35c22cb40ad37390917ab123, type: 2}
+    Weight: 0
+  - Foliage: {fileID: 11400000, guid: ebf4cad31d484fa40bc279fb97ec4c77, type: 2}
+    Weight: 0
+  - Foliage: {fileID: 11400000, guid: 4c3604037580ad84b9abb147085e591a, type: 2}
+    Weight: 0
+  - Foliage: {fileID: 11400000, guid: d652826759d75c149908ecda4f58ad43, type: 2}
+    Weight: 0
+  - Foliage: {fileID: 11400000, guid: 82e167656bc22194f919f103ab490571, type: 2}
+    Weight: 0
+  - Foliage: {fileID: 11400000, guid: 9dfa51e0d156d064cb21bfbbcb6b89bd, type: 2}
+    Weight: 0
+  - Foliage: {fileID: 11400000, guid: 755fdb679a0d9904a9297ca19057b670, type: 2}
+    Weight: 0
+  - Foliage: {fileID: 11400000, guid: 7b7b68f70920e584aa95cbbe962792b2, type: 2}
+    Weight: 0
+  - Foliage: {fileID: 11400000, guid: 71ed269e601695b4caea6bbe0a97284d, type: 2}
+    Weight: 0

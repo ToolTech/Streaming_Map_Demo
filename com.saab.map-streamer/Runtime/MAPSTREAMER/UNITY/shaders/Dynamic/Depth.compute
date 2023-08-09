@@ -1,0 +1,77 @@
+﻿#pragma kernel Depth
+#pragma kernel CalcMaxDepth
+#include "UnityCG.cginc"
+
+Texture2D<float4> _DepthTexture;
+RWTexture2D<float4> _OutputTexture;
+RWTexture2D<float4> _OutputTexture02;
+
+[numthreads(32, 32, 1)]
+void Depth(uint3 uv : SV_DispatchThreadID)
+{
+	// Get Linear Depth (nearclip to farclip camera)
+	float4 depth = Linear01Depth(_DepthTexture[uv.xy]);
+	float maxval = depth.x;
+	float minval = depth.x;
+
+	//for (float y = -5; y < 5; y++)
+	//{
+	//	for (float x = -5; x < 5; x++)
+	//	{
+	//		float4 pix = Linear01Depth(_DepthTexture[float2(uv.x + x, uv.y + y)]);
+
+	//		// Get max depth
+	//		maxval = max(maxval, pix.x);
+	//		// Get min Depth
+	//		minval = min(minval, pix.x);
+	//	}
+	//}
+
+	depth = Linear01Depth(_DepthTexture[float2(uv.x + 1, uv.y)]);
+	maxval = max(maxval, depth.x);
+	minval = min(minval, depth.x);
+	depth = Linear01Depth(_DepthTexture[float2(uv.x - 1, uv.y)]);
+	maxval = max(maxval, depth.x);
+	minval = min(minval, depth.x);
+	depth = Linear01Depth(_DepthTexture[float2(uv.x, uv.y + 1)]);
+	maxval = max(maxval, depth.x);
+	minval = min(minval, depth.x);
+	depth = Linear01Depth(_DepthTexture[float2(uv.x, uv.y - 1)]);
+	maxval = max(maxval, depth.x);
+	minval = min(minval, depth.x);
+
+	depth.y = maxval;
+	depth.z = minval;
+
+	depth.w = 1;
+
+	_OutputTexture[uv.xy] = depth;
+}
+
+[numthreads(32, 32, 1)]
+void CalcMaxDepth(uint3 uv : SV_DispatchThreadID)
+{
+	float4 depth = Linear01Depth(_DepthTexture[uv.xy]);
+	float maxval = depth.x;
+	float minval = depth.x;
+
+	depth = Linear01Depth(_DepthTexture[float2(uv.x + 1, uv.y)]);
+	maxval = max(maxval, depth.x);
+	minval = min(minval, depth.x);
+	depth = Linear01Depth(_DepthTexture[float2(uv.x - 1, uv.y)]);
+	maxval = max(maxval, depth.x);
+	minval = min(minval, depth.x);
+	depth = Linear01Depth(_DepthTexture[float2(uv.x, uv.y + 1)]);
+	maxval = max(maxval, depth.x);
+	minval = min(minval, depth.x);
+	depth = Linear01Depth(_DepthTexture[float2(uv.x, uv.y -1)]);
+	maxval = max(maxval, depth.x);
+	minval = min(minval, depth.x);
+
+	depth.y = maxval;
+	depth.z = minval;
+
+	depth.w = 1;
+
+	_OutputTexture[uv.xy] = depth;
+}

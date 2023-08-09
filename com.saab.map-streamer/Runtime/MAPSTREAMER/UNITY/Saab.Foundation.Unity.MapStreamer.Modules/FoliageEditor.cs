@@ -1,0 +1,88 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor;
+
+namespace Saab.Foundation.Unity.MapStreamer.Modules
+{
+    [CustomEditor(typeof(Foliage))]
+    public class FoliageEditor : Editor
+    {
+        public override void OnInspectorGUI()
+        {
+            Foliage foliage = (Foliage)target;
+            if (foliage == null) return;
+
+            EditorGUILayout.BeginHorizontal();
+            foliage.MainTexture = TextureField("Main Texture", foliage.MainTexture);
+            TextureField("Autumn Texture", foliage.AutumnTexture);
+            TextureField("Winter Texture", foliage.WinterTexture);
+            foliage.Normal = TextureField("Normal", foliage.Normal);
+            EditorGUILayout.EndHorizontal();
+
+            foliage.Feature = (MapFeature)EditorGUILayout.EnumFlagsField("Feature", foliage.Feature);
+            foliage.Biome = (FoliageBiome)EditorGUILayout.EnumFlagsField("Biome", foliage.Biome);
+            foliage.Mesh = (Mesh)EditorGUILayout.ObjectField("Mesh", foliage.Mesh, typeof(Mesh), allowSceneObjects: false);
+            foliage.MeshMaterial = (Material)EditorGUILayout.ObjectField("Mesh Material", foliage.MeshMaterial, typeof(Material), allowSceneObjects: false);
+
+            EditorGUILayout.BeginHorizontal();
+            foliage.MaxMin.x = EditorGUILayout.FloatField("Min height", foliage.MaxMin.x);
+            foliage.MaxMin.y = EditorGUILayout.FloatField("Max height", foliage.MaxMin.y);
+            foliage.MaxMin.y = Mathf.Max(foliage.MaxMin.x, foliage.MaxMin.y);
+            foliage.MaxMin.x = Mathf.Min(foliage.MaxMin.x, foliage.MaxMin.y);
+            EditorGUILayout.EndHorizontal();
+
+            //foliage.Offset = EditorGUILayout.Vector2Field("Origin", foliage.Offset);
+            foliage.Offset.y = EditorGUILayout.FloatField("GroundOffset", foliage.Offset.y);
+            foliage.Offset.y = Mathf.Abs(foliage.Offset.y > 1 ? 1 : foliage.Offset.y);
+
+            foliage.Offset.x = 0;
+            foliage.Offset.x = foliage.Offset.x > 0.5f ? 0.5f : foliage.Offset.x < -0.5f ? -0.5f : foliage.Offset.x;
+
+            foliage.TextureMode = (TextureMode)EditorGUILayout.EnumPopup("Mode", foliage.TextureMode);
+            EditorGUILayout.BeginHorizontal();
+            var style = new GUIStyle(GUI.skin.label);
+            style.alignment = TextAnchor.UpperLeft;
+            style.fixedWidth = 100;
+            GUILayout.Label("Weight", style);
+            foliage.Weight = EditorGUILayout.Slider(foliage.Weight, 0.1f, 1f);
+            EditorGUILayout.EndHorizontal();
+
+            if (foliage.MainTexture != null)
+            {
+                EditorGUILayout.BeginVertical();
+                int PreviewSize = 400;
+                int HeightPos = 300;
+                EditorGUILayout.Space(450, true);
+                EditorGUI.DrawRect(new Rect(3, HeightPos, PreviewSize, PreviewSize), Color.white);
+
+                if (foliage.TextureMode == TextureMode.Atlas)
+                    GUI.DrawTextureWithTexCoords(new Rect(3, HeightPos, PreviewSize, PreviewSize), foliage.MainTexture, new Rect(0, 0, 0.5f, 0.5f));
+                else if (foliage.TextureMode == TextureMode.Single)
+                    GUI.DrawTextureWithTexCoords(new Rect(3, HeightPos, PreviewSize, PreviewSize), foliage.MainTexture, new Rect(0, 0, 1, 1));
+
+                EditorGUI.DrawRect(new Rect(3, HeightPos - 5 + PreviewSize * (1 - foliage.Offset.y) + 4, PreviewSize, 2), new Color(1, 0, 0, 0.5f));
+                EditorGUILayout.EndVertical();
+            }
+            EditorUtility.SetDirty(foliage);
+
+            //DrawDefaultInspector();
+        }
+
+        private static Texture2D TextureField(string name, Texture2D texture)
+        {
+            GUILayout.BeginVertical();
+            var style = new GUIStyle(GUI.skin.label);
+            style.alignment = TextAnchor.UpperCenter;
+            style.fixedWidth = 100;
+            GUILayout.Label(name, style);
+            var result = (Texture2D)EditorGUILayout.ObjectField(texture, typeof(Texture2D), false, GUILayout.Width(100), GUILayout.Height(100));
+            GUILayout.EndVertical();
+            return result;
+        }
+    }
+
+}
+
+#endif
