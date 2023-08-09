@@ -1,11 +1,20 @@
 {
   "dependencies": {
-    "com.saab.map-streamer": {
-      "version": "file:C:/Source/map-streamer/com.saab.map-streamer",
+    "com.saab.gz-unity": {
+      "version": "file:C:../../../../gz-unity/com.saab.gz-unity",
       "depth": 0,
       "source": "local",
       "dependencies": {
         "com.unity.postprocessing": "3.2.2"
+      }
+    },
+    "com.saab.map-streamer": {
+      "version": "file:../../../com.saab.map-streamer",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.unity.postprocessing": "3.2.2",
+        "com.saab.gz-unity": "0.1.0"
       }
     },
     "com.unity.collab-proxy": {
