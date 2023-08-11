@@ -1,6 +1,6 @@
-# Create new Unity project with component_8866000201_MapStreamer
+# Create new Unity project with MapStreamer
 
-## Create a new project with component_8866000201_MapStreamer
+## Create a new project with MapStreamer
 
 ```
 C:\src>git init NewProject
