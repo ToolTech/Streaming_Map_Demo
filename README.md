@@ -11,7 +11,7 @@ _Note: "NewProject" is an example name in this guide_
 ## Add component_8866000201_MapStreamer as submodule
 
 ```
-git submodule add https://devops.saab.se/TS/BTA/_git/component_8866000201_MapStreamer submodules/map-streamer
+git submodule add https://devops.saab.se/TS/BTA/_git/component_8866027201_MapStreamer submodules/map-streamer
 ```
 
 ## Add gz-unity as submodule
