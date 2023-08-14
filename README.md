@@ -3,7 +3,7 @@
 ## Create a new project with MapStreamer
 
 ```
-C:\src>git init NewProject
+git init NewProject
 ```
 
 _Note: "NewProject" is an example name in this guide_
@@ -11,13 +11,13 @@ _Note: "NewProject" is an example name in this guide_
 ## Add component_8866000201_MapStreamer as submodule
 
 ```
-C:\src\NewProject>git submodule add https://devops.saab.se/TS/BTA/_git/component_8866000201_MapStreamer submodules/map-streamer
+git submodule add https://devops.saab.se/TS/BTA/_git/component_8866000201_MapStreamer submodules/map-streamer
 ```
 
 ## Add gz-unity as submodule
 
 ```
-C:\src\NewProject>git submodule add https://devops.saab.se/TS/BTA/_git/gz-unity submodules/gz-unity
+git submodule add https://devops.saab.se/TS/BTA/_git/component_8866026201_gzUnity submodules/gz-unity
 ```
 
 _Tip: If fetching of submodule hangs, make sure you have set up authentication for Git LFS. See [Wiki in DevOps Common](https://devops.saab.se/TS/Common/_wiki/wikis/Common.wiki/631/Git?anchor=git-lfs) for more information._
@@ -25,7 +25,7 @@ _Tip: If fetching of submodule hangs, make sure you have set up authentication f
 ## Build gz-unity solution
 
 ```
-C:\src\NewProject>submodules\gz-unity\build.bat
+submodules\gz-unity\build.bat
 ```
 
 ## Add packages in Unity Editor
