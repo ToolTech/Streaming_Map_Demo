@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "com.saab.gz-unity": {
-      "version": "file:C:../../../../gz-unity/com.saab.gz-unity",
+      "version": "file:C:../../../../component_8866026201_gzUnity/com.saab.gz-unity",
       "depth": 0,
       "source": "local",
       "dependencies": {
@@ -15,6 +15,15 @@
       "dependencies": {
         "com.unity.postprocessing": "3.2.2",
         "com.saab.gz-unity": "0.1.0"
+      }
+    },
+    "com.saab.performance-analyser": {
+      "version": "file:../../../com.saab.performance-analyser",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.saab.map-streamer": "0.1.0",
+        "com.unity.textmeshpro": "3.0.6"
       }
     },
     "com.unity.collab-proxy": {

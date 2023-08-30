@@ -1,8 +1,10 @@
 {
-    "name": "App_Assembly",
+    "name": "Saab.Application.Mapstreamer",
     "rootNamespace": "",
     "references": [
-        "MAPSTREAMER"
+        "MAPSTREAMER",
+        "Saab.Application.Performance",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

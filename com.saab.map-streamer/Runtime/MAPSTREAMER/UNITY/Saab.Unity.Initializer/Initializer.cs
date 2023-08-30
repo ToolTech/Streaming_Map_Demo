@@ -119,6 +119,8 @@ namespace Saab.Unity.Initializer
 
         private void Awake()
         {
+
+
             GizmoSDK.GizmoBase.Platform.Initialize();
               
             Message.OnMessage += Message_OnMessage;

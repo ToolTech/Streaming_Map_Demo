@@ -1,0 +1,14 @@
+{
+  "name": "com.saab.performance-analyser",
+  "version": "0.1.0",
+  "displayName": "performance-analyser",
+  "description": "todo",
+  "unity": "2023.3",
+  "author": {
+    "name": "SAAB AB"
+  },
+   "dependencies": {
+   "com.saab.map-streamer": "0.1.0",
+   "com.unity.textmeshpro": "3.0.6"
+  }
+}

@@ -475,7 +475,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             {
 
                 var settings = GfxCaps.GetFoliageSettings(set.SettingsType);
-                if (!settings.Enabled)
+                if (!settings.Enabled || !set.Enabled)
                     continue;
 
                 set.FoliageMaterial.SetVector("_Wind", Wind);
