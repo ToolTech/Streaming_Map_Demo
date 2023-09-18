@@ -9,7 +9,7 @@ variables:
   ArticleFull: '8866027201'
   ProjectID: 'MapStreamer'
   Major: '1'
-  Minor: '0'
+  Minor: '1'
 
 workspace:
   clean: all
@@ -25,12 +25,13 @@ steps:
   persistCredentials: true
 
 - task: GitBuildInformation@0
-  displayName: 'Create build information for repository'
+  displayName: 'Create build information for repository - branch master or PR to master'
+  condition: or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/master'))
   inputs:
     outputFile: 'BuildInfo'
     branchFilterRegex: '^(origin\/master|origin\/release\/+)'
-    branchApprovedRegex: '^(origin\/release\/+)'
-  continueOnError: true
+    branchApprovedRegex: '^(origin\/master|origin\/release\/+)'
+  continueOnError: false
 
 - task: set-version-variables@1
   displayName: 'Set version variables according to BuildNumber'
