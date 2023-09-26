@@ -94,6 +94,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private RenderTexture _depthMap;
         private bool _hasDepthTexture = false;
 
+        private Dictionary<SettingsFeatureType, SettingsFeature> _settingsCache = new Dictionary<SettingsFeatureType, SettingsFeature>();
+
         // Start is called before the first frame update
         void Start()
         {
@@ -109,7 +111,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             for (int i = 0; i < Features.Count; i++)
             {
                 var featureSet = Features[i];
-                var settings = GfxCaps.GetFoliageSettings(featureSet.SettingsType);
+                var settings = GetSettings(featureSet.SettingsType);
                 featureSet.Enabled = settings.Enabled;
 
                 if (!settings.Enabled)
@@ -145,10 +147,18 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             public float Weight;
         };
 
+        private SettingsFeature GetSettings(SettingsFeatureType settingsType)
+        {
+            if (!_settingsCache.TryGetValue(settingsType, out var settings))
+            {
+                settings = GfxCaps.GetFoliageSettings(settingsType);
+                _settingsCache[settingsType] = settings;
+            }
+            return settings;
+        }
+
         private void SetupFoliage(FeatureSet featureSet)
         {
-
-
 #if UNITY_ANDROID
             var format = TextureFormat.ETC2_RGBA8;
             Debug.Log("foliage Use ETC2");
@@ -284,8 +294,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                     if (!set.Enabled)
                         continue;
 
-                    var settings = GfxCaps.GetFoliageSettings(set.SettingsType);
-                    ComputeShader.SetFloat("Density", set.Density * settings.Density);
+                    var setting = GetSettings(set.SettingsType);
+                    ComputeShader.SetFloat("Density", set.Density * setting.Density);
 
                     if (nodehandle.node.BoundaryRadius < set.BoundaryRadius)
                     {
@@ -474,7 +484,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             foreach (var set in Features)
             {
 
-                var settings = GfxCaps.GetFoliageSettings(set.SettingsType);
+                var settings = GetSettings(set.SettingsType);
                 if (!settings.Enabled || !set.Enabled)
                     continue;
 
