@@ -881,7 +881,8 @@ namespace Saab.Foundation.Map
                             _mapType = MapType.PLAIN;
                             _origin = (Vec3D)_currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_ORIGIN).GetVec3();
 
-                            _metaData.value = 0;
+                            _metaData.value1 = 0;
+                            _metaData.value2 = 0;
 
                             _coordSystem = new CoordinateSystem();
                         }
@@ -891,7 +892,8 @@ namespace Saab.Foundation.Map
                             CartPos cartOrigin = _currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_ORIGIN);
                             _origin = new Vec3D(cartOrigin.X, cartOrigin.Y, cartOrigin.Z);
 
-                            _metaData.value = 0;
+                            _metaData.value1 = 0;
+                            _metaData.value2 = 0;
 
                             _coordSystem = new CoordinateSystem(Datum.WGS84_ELLIPSOID, FlatGaussProjection.NOT_DEFINED, CoordinateType.GEOCENTRIC);
                         }
@@ -900,7 +902,8 @@ namespace Saab.Foundation.Map
                             _mapType = MapType.UNKNOWN;
                             _origin = new Vec3D(0, 0, 0);
 
-                            _metaData.value = 0;
+                            _metaData.value1 = 0;
+                            _metaData.value2 = 0;
 
                             _coordSystem = new CoordinateSystem();
                         }

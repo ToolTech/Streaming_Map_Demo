@@ -25,6 +25,8 @@ namespace Saab.Application.Performance.Example
 
         public List<ITestScenario> Tests => _tests;
 
+        public bool Running => _running;
+
         public float TestDuration = 10;
         private Report _report;
 
@@ -128,8 +130,8 @@ namespace Saab.Application.Performance.Example
             {
                 TestInfo.text = $"{_tests[_currentIndex].Title}: {_currentTestTime:f1}\nTest: {_currentIndex+1} / {_tests.Count}";
 
-                _memoryProfiler.ToString(out var mem);
-                _internalProfiler.ToString(out var fps);
+                var mem = _memoryProfiler.ToString();
+                var fps = _internalProfiler.ToString();
                 _currentTestTime -= Time.unscaledDeltaTime;
 
                 _tests[_currentIndex].UpdateTest(Time.deltaTime);

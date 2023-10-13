@@ -4,9 +4,17 @@ using System.Collections.Generic;
 using TMPro;
 using Unity.Profiling;
 using UnityEngine;
+using static TMPro.SpriteAssetUtilities.TexturePacker_JsonArray;
 
 namespace Saab.Application.Performance
 {
+    public struct FrameStats
+    {
+        public double fps;
+        public double max;
+        public double min;
+    }
+
     public class InternalProfiler : IProfiler
     {
         private ProfilerRecorder _mainThreadTimeRecorder;
@@ -15,9 +23,37 @@ namespace Saab.Application.Performance
         private ProfilerRecorder _gcCollectRecorder;
 
         private bool _running = false;
+        private FrameStats _stats = new FrameStats();
 
         public bool IsRunning { get => _running; set => _running = value; }
         private string _update, _max, _min, _render, _behaviour, _gc;
+
+        public InternalProfiler(int sampleFrames = 50)
+        {
+            SampleFrames = sampleFrames;
+        }
+
+        public int SampleFrames
+        {
+            get; private set;
+        }
+
+        public FrameStats Frame
+        {
+            get; private set;
+        }
+        public FrameStats Render
+        {
+            get; private set;
+        }
+        public FrameStats Behaviour
+        {
+            get; private set;
+        }
+        public FrameStats Garbage
+        {
+            get; private set;
+        }
 
         double GetRecorderFrameAverage(ProfilerRecorder recorder, out double max, out double min)
         {
@@ -38,6 +74,10 @@ namespace Saab.Application.Performance
                     var sample = samples[i].Value;
                     max = Math.Max(max, sample);
                     min = Math.Min(min, sample);
+
+                    if (r > double.MaxValue - sample)
+                        Debug.LogError($"the sample is larger then a double... (at sample count {i})");
+
                     r += sample;
                 }
                 r /= samplesCount;
@@ -45,31 +85,41 @@ namespace Saab.Application.Performance
 
             return r;
         }
-        public bool ToString(out string data)
-        {
-            var fps = GetRecorderFrameAverage(_mainThreadTimeRecorder, out var max, out var min);
-            var render = GetRecorderFrameAverage(_gpuTimeRecorder, out var renderMax, out var renderMin);
-            var behaviour = GetRecorderFrameAverage(_behaviourUpdateRecorder, out var behaviourMax, out var behaviourMin);
-            var gc = GetRecorderFrameAverage(_gcCollectRecorder, out var gcMax, out var gcMin);
 
-            var fpsText = $"Update: {fps * 1e-6f:F2} ms\nWorst: {max * 1e-6f:F2} ms\nBest: {min * 1e-6f:F2} ms\n";
+        private string PrintFps(double value, bool showInMs = true, bool showUnit = true)
+        {
+            string result = string.Empty;
+            if (showInMs)
+            {
+                result = $"{value * 1e-6f:F2}";
+                if (showUnit)
+                    result += " ms";
+            }
+            else
+            {
+                result = $"{1000 / (value * 1e-6f):F0}";
+                if (showUnit)
+                    result += " fps";
+            }
+
+            return result;
+        }
+
+        public string ToString(bool showInMs = true, bool update = true)
+        {
+            if (update)
+                UpdateProfiler();
+
+            var fpsText = $"Update: {PrintFps(Frame.fps, showInMs)}\nWorst: {PrintFps(Frame.max, showInMs)}\nBest: {PrintFps(Frame.min, showInMs)}\n";
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-            var renderText = $"render: {render * 1e-6f:F2} ms\n";
-            var behaviourText = $"Behaviour: {behaviour * 1e-6f:F2} ms\n";
+            var renderText = $"render: {PrintFps(Render.fps)}\n";
+            var behaviourText = $"Behaviour: {PrintFps(Behaviour.fps)}\n";
 #else
         var renderText = "";
         var behaviourText = "";
 #endif
 
-            _update += $"{fps * 1e-6f:F2}\t";
-            _max += $"{max * 1e-6f:F2}\t";
-            _min += $"{min * 1e-6f:F2}\t";
-            _render += $"{renderMax * 1e-6f:F2}\t";
-            _behaviour += $"{behaviourMax * 1e-6f:F2}\t";
-            _gc += $"{gcMax * 1e-6f:F2}\t";
-
-            data = $"<b>Update:</b>\n{fpsText}{renderText}{behaviourText}";
-            return true;
+            return $"<b>Update:</b>\n{fpsText}{renderText}{behaviourText}";
         }
         public void StartBenchmark()
         {
@@ -82,10 +132,10 @@ namespace Saab.Application.Performance
 
             _update = _max = _min = _render = _behaviour = _gc = "";
 
-            _mainThreadTimeRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Internal, "Main Thread", 50);
-            _gpuTimeRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Internal, "Gfx.WaitForPresentOnGfxThread", 50);
-            _behaviourUpdateRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Internal, "BehaviourUpdate", 50);
-            _gcCollectRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Internal, "GC.Collect", 50);
+            _mainThreadTimeRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Internal, "Main Thread", SampleFrames);
+            _gpuTimeRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Internal, "Gfx.WaitForPresentOnGfxThread", SampleFrames);
+            _behaviourUpdateRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Internal, "BehaviourUpdate", SampleFrames);
+            _gcCollectRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Internal, "GC.Collect", SampleFrames);
         }
         public void StopBenchmark()
         {
@@ -105,6 +155,37 @@ namespace Saab.Application.Performance
         {
             string excel = $"Update avg:\t{_update}\nUpdate Worst:\t{_max}\nGFX_wait Worst:\t{_render}\nBehaviour Worst:\t{_behaviour}\nGC Collect Worst:\t{_gc}\n";
             return excel;
+        }
+
+        public void UpdateProfiler()
+        {
+            var fps = GetRecorderFrameAverage(_mainThreadTimeRecorder, out var max, out var min);
+            _stats.fps = fps;
+            _stats.max = max;
+            _stats.min = min;
+            Frame = _stats;
+            var render = GetRecorderFrameAverage(_gpuTimeRecorder, out var renderMax, out var renderMin);
+            _stats.fps = render;
+            _stats.max = renderMax;
+            _stats.min = renderMin;
+            Render = _stats;
+            var behaviour = GetRecorderFrameAverage(_behaviourUpdateRecorder, out var behaviourMax, out var behaviourMin);
+            _stats.fps = behaviour;
+            _stats.max = behaviourMax;
+            _stats.min = behaviourMin;
+            Behaviour = _stats;
+            var gc = GetRecorderFrameAverage(_gcCollectRecorder, out var gcMax, out var gcMin);
+            _stats.fps = gc;
+            _stats.max = gcMax;
+            _stats.min = gcMin;
+            Garbage = _stats;
+
+            _update += $"{PrintFps(Frame.fps, showUnit: false)}\t";
+            _max += $"{PrintFps(Frame.max, showUnit: false)}\t";
+            _min += $"{PrintFps(Frame.min, showUnit: false)}\t";
+            _render += $"{PrintFps(Render.max, showUnit: false)}\t";
+            _behaviour += $"{PrintFps(Behaviour.max, showUnit: false)}\t";
+            _gc += $"{PrintFps(Garbage.max, showUnit: false)}\t";
         }
     }
 }

@@ -279,17 +279,19 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
                 var heightmap = GenerateHeight(texSize, pixelSize, mesh);
 
-                foreach (var set in Features)
+                foreach (var featureSet in Features)
                 {
-                    if (!set.Enabled)
+                    var settings = GfxCaps.GetFoliageSettings(featureSet.SettingsType);
+                    featureSet.Enabled = settings.Enabled;
+
+                    if (!featureSet.Enabled)
                         continue;
 
-                    var settings = GfxCaps.GetFoliageSettings(set.SettingsType);
-                    ComputeShader.SetFloat("Density", set.Density * settings.Density);
+                    ComputeShader.SetFloat("Density", featureSet.Density * settings.Density);
 
-                    if (nodehandle.node.BoundaryRadius < set.BoundaryRadius)
+                    if (nodehandle.node.BoundaryRadius < featureSet.BoundaryRadius)
                     {
-                        set.FoliageFeature.AddFoliage(go, nodehandle, heightmap);
+                        featureSet.FoliageFeature.AddFoliage(go, nodehandle, heightmap);
                     }
                 }
             }

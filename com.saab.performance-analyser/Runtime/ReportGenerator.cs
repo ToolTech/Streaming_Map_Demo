@@ -8,10 +8,32 @@ namespace Saab.Application.Performance
     public class Report
     {
         public IBenchmark Benchmark { get; }
-        public string Suffix { get; } 
+        public string Suffix { get; }
         private List<IProfiler> _profilers;
 
         public string Result { get; private set; }
+
+        private string VsyncInfo()
+        {
+            string result = string.Empty;
+
+            switch (QualitySettings.vSyncCount)
+            {
+                case 0:
+                    result = $"Vsync: Off";
+                    // Default no vsync
+                    break;
+                default:
+                    result = $"Vsync: On ";
+                    if (UnityEngine.Application.targetFrameRate == -1)
+                        result += $"(Target: {(Screen.currentResolution.refreshRate / QualitySettings.vSyncCount)})";
+                    else
+                        result += $"(Target: {UnityEngine.Application.targetFrameRate})";
+                    break;
+            }
+
+            return result;
+        }
 
         public Report(IBenchmark benchmark, List<IProfiler> profilers, string suffix = null)
         {
@@ -28,19 +50,24 @@ namespace Saab.Application.Performance
             var res = Screen.currentResolution;
 
             Result = $"******************** {benchmark.Title} ********************\n";
-            Result += $"Device: {name}\nCPU: {cpu}\nFrequency: {hz:F2} hz\nRAM: {ram / 1024f:F2} GB\nGPU: {gpu}\nVRAM: {vram / 1024f:F2} GB\nResolution {Screen.width}x{Screen.height} {res.refreshRate} hz\n\n";
+            Result += $"Device: {name}\nCPU: {cpu}\nFrequency: {hz:F2} hz\nRAM: {ram / 1024f:F2} GB\nGPU: {gpu}\nVRAM: {vram / 1024f:F2} GB\nResolution {Screen.width}x{Screen.height} {res.refreshRate} hz\n{VsyncInfo()}\n\n";
         }
 
-        public void AppendToReport(ITestScenario testScenario)
+        public void AppendToReport(string header)
         {
-            var report = $"\n******************** {testScenario.Title} ********************\n";
-
+            var report = header;
             foreach (var profiler in _profilers)
             {
                 report += profiler.GetExcel() + "\n";
             }
 
             Result += report;
+        }
+
+        public void AppendToReport(ITestScenario testScenario)
+        {
+            var header = $"\n******************** {testScenario.Title} ********************\n";
+            AppendToReport(header);
         }
     }
 
@@ -53,6 +80,10 @@ namespace Saab.Application.Performance
 
         public static void SaveReport(Report report, string path = null)
         {
+            if(report == null) 
+            {
+                return;
+            }
 
 #if UNITY_ANDROID
         Debug.Log(result);

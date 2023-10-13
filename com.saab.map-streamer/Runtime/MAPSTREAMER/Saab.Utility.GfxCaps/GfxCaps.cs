@@ -136,7 +136,7 @@ namespace Saab.Utility.GfxCaps
                     renderSettings.Density =        KeyDatabase.GetDefaultUserKey("GfxCaps/Foliage/Trees/Density", renderSettings.Density);
                     renderSettings.Shadows =        KeyDatabase.GetDefaultUserKey("GfxCaps/Foliage/Trees/Shadows", true);
 
-                    if (renderSettings.Density <= 0.0f || renderSettings.DrawDistance <= 0.0f)
+                    if (renderSettings.Density <= 0.0f || renderSettings.DrawDistance <= 0.0f || !GfxCaps.CurrentCaps.HasFlag(Capability.UseFoliageCrossboards))
                         renderSettings.Enabled = false;
                     break;
                 case SettingsFeatureType.Grass:
@@ -144,7 +144,7 @@ namespace Saab.Utility.GfxCaps
                     renderSettings.Density =        KeyDatabase.GetDefaultUserKey("GfxCaps/Foliage/Grass/Density", renderSettings.Density);
                     renderSettings.Shadows =        KeyDatabase.GetDefaultUserKey("GfxCaps/Foliage/Grass/Shadows", false);
 
-                    if (renderSettings.Density <= 0.0f || renderSettings.DrawDistance <= 0.0f)
+                    if (renderSettings.Density <= 0.0f || renderSettings.DrawDistance <= 0.0f || !GfxCaps.CurrentCaps.HasFlag(Capability.UseFoliageCrossboards))
                         renderSettings.Enabled = false;
                     break;
                 default:

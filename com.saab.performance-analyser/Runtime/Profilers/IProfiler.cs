@@ -5,7 +5,8 @@ namespace Saab.Application.Performance
         public bool IsRunning { get; set; }
         public void StartBenchmark();
         public void StopBenchmark();
-        public bool ToString(out string data);
+        public void UpdateProfiler();
+        public string ToString(bool showInMs = true, bool update = false);
         public string GetExcel();
     }
 }

@@ -21,6 +21,16 @@ namespace Saab.Application.Performance
 
         public bool IsRunning { get => _running; set => _running = value; }
 
+        public MemoryProfiler(int sampleFrames = 50)
+        {
+            SampleFrames = sampleFrames;
+        }
+
+        public int SampleFrames
+        {
+            get; private set;
+        }
+
         public void StartBenchmark()
         {
             if (IsRunning)
@@ -69,11 +79,10 @@ namespace Saab.Application.Performance
         {
             return bytes / (1024.0 * 1024.0);
         }
-        public bool ToString(out string data)
+        public string ToString(bool showInMs = true, bool update = false)
         {
-            data = "";
-            if (!IsRunning)
-                return false;
+            if (update)
+                UpdateProfiler();
 
             var system = $"System: {ByteToMB(_systemMemoryRecorder.LastValue):F0} MB\n";
             var totalmem = $"Ram: {ByteToMB(_totalMemoryRecorder.LastValue):F0} / {ByteToMB(_totalMemoryRecorderReserved.LastValue):F0} MB\n";
@@ -84,7 +93,7 @@ namespace Saab.Application.Performance
 #endif
             var gc = $"GC: {ByteToMB(_gcMemoryRecorder.LastValue):F1} / {ByteToMB(_gcMemoryRecorderReserved.LastValue):F1} MB\n";
 
-            data = $"<b>Memory:</b>\n{system}{totalmem}{vram}{gc}";
+            var data = $"<b>Memory:</b>\n{system}{totalmem}{vram}{gc}";
 
 
             _system += $"{ByteToMB(_systemMemoryRecorder.LastValue):F0}\t";
@@ -98,13 +107,18 @@ namespace Saab.Application.Performance
             _gc += $"{ByteToMB(_gcMemoryRecorder.LastValue):F0}\t";
             _gcReserved += $"{ByteToMB(_gcMemoryRecorderReserved.LastValue):F0}\t";
 
-            return true;
+            return data;
         }
 
         public string GetExcel()
         {
             string excel = $"System Memory:\t{_system}\nMemory:\t{_mem}\nMemory Reserved:\t{_memReserved}\nMemory GPU:\t{_memgpu}\nMemory GPU Reserved:\t{_memgpuReserved}\nGC:\t{_gc}\nGC Reserved:\t{_gcReserved}";
             return excel;
+        }
+
+        public void UpdateProfiler()
+        {
+            //throw new System.NotImplementedException();
         }
     }
 }

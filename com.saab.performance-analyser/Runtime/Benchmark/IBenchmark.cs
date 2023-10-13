@@ -4,6 +4,7 @@ namespace Saab.Application.Performance
 {
     public interface IBenchmark
     {
+        public bool Running { get; }
         /// <summary>
         /// the title of the Test Scenario (should be unique)
         /// </summary>
