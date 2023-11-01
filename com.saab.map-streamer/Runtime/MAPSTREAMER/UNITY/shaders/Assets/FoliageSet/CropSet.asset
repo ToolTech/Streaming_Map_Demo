@@ -15,3 +15,9 @@ MonoBehaviour:
   Assets:
   - Foliage: {fileID: 11400000, guid: 43722dc57c5537642893e90c43365275, type: 2}
     Weight: 0
+  - Foliage: {fileID: 11400000, guid: 870656470783f5541b4b79a7873f90bd, type: 2}
+    Weight: 0
+  - Foliage: {fileID: 11400000, guid: 0bb53d60097caf742be97c66cde40948, type: 2}
+    Weight: 0
+  - Foliage: {fileID: 11400000, guid: d1772cb2ff2729b43a5d07d4e4a70e35, type: 2}
+    Weight: 0

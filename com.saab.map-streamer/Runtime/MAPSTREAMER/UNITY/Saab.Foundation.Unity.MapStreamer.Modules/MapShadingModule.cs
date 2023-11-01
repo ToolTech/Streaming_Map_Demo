@@ -96,7 +96,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 DetailTextureSet &&
                 EnableDetailedTextures)
             {
-                var mapping = TerrainMapping.MapMaxarData();
+                var mapping = TerrainMapping.MapFeatureData();
 
                 if (!_textureArray)
                 {

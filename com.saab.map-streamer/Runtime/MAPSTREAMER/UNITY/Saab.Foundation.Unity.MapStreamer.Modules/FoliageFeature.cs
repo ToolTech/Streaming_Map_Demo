@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System;
 using GizmoSDK.GizmoBase;
-using System.Linq;
-//using System.IO;
 
 namespace Saab.Foundation.Unity.MapStreamer.Modules
 {
@@ -24,7 +22,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public ComputeBuffer TerrainPoints;
         public Texture2D FeatureMap;
         public Texture2D Texture;
-        public Texture2D surfaceHeight;
+        public Texture surfaceHeight;
         public RenderTexture HeightMap;
 
         public FeatureData(GameObject gameObject, Matrix3D matrix, float density, uint maxSide, float scale = 1000)
@@ -78,11 +76,11 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _mappingBuffer.SetData(map);
         }
 
-        public FeatureData AddFoliage(GameObject go, NodeHandle node, RenderTexture heightMap = null)
+        public FeatureData AddFoliage(GameObject go, NodeHandle node, RenderTexture heightMap = null, Texture surfaceHeight = null)
         {
             Texture2D featureMap = node.feature;
             Texture2D texture = node.texture;
-            Texture2D height = node.surfaceHeight;
+            Texture height = node.surfaceHeight;
 
             if (featureMap == null)
             {
@@ -91,8 +89,10 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             }
             if (height == null)
             {
-                //Debug.LogWarning($"node:{go.name}, no surface height exist");
-                return null;
+                if (surfaceHeight)
+                    height = surfaceHeight;
+                else
+                    return null;
             }
             if(heightMap == null)
             {

@@ -1,17 +1,12 @@
-﻿using GizmoSDK.Gizmo3D;
-using GizmoSDK.GizmoBase;
-using Saab.Utility.GfxCaps;
+﻿using Saab.Utility.GfxCaps;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 //using System.Drawing.Drawing2D;
-using System.IO;
 using System.Linq;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
-using UnityEngine.UIElements;
-using static UnityEngine.Rendering.PostProcessing.PostProcessResources;
 
 namespace Saab.Foundation.Unity.MapStreamer.Modules
 {
@@ -90,6 +85,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private int _maxVertexCount;
         private int _maxIndexCount;
         private RenderTexture _heightMap;
+        private RenderTexture _surfaceheightMap;
         private ComputeBuffer _minXY;
         private RenderTexture _depthMap;
         private bool _hasDepthTexture = false;
@@ -97,13 +93,13 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         // Start is called before the first frame update
         void Start()
         {
-            StartCoroutine(WaitForDepth());
+            _mappingTable = TerrainMapping.MapFeatureData();
 
+            StartCoroutine(WaitForDepth());
             SceneManager.OnNewGeometry += SceneManager_OnNewGeometry;
             SceneManager.OnPostTraverse += SceneManager_OnPostTraverse;
             SceneManager.OnEnterPool += SceneManager_OnEnterPool;
 
-            _mappingTable = TerrainMapping.MapMaxarData();
             _minXY = new ComputeBuffer(2, sizeof(uint), ComputeBufferType.Default);
 
             for (int i = 0; i < Features.Count; i++)
@@ -251,6 +247,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                     set.FoliageFeature.RemoveFoliage(go);
             }
         }
+
         private void SceneManager_OnNewGeometry(GameObject go)
         {
             var nodehandle = go.GetComponent<NodeHandle>();
@@ -279,6 +276,10 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
                 var heightmap = GenerateHeight(texSize, pixelSize, mesh);
 
+                RenderTexture surface = null;
+                if (nodehandle.surfaceHeight == null)
+                    surface = GenerateSurfaceHeight(nodehandle.texture);
+
                 foreach (var featureSet in Features)
                 {
                     var settings = GfxCaps.GetFoliageSettings(featureSet.SettingsType);
@@ -291,7 +292,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
                     if (nodehandle.node.BoundaryRadius < featureSet.BoundaryRadius)
                     {
-                        featureSet.FoliageFeature.AddFoliage(go, nodehandle, heightmap);
+                        featureSet.FoliageFeature.AddFoliage(go, nodehandle, heightmap, surface);
                     }
                 }
             }
@@ -310,6 +311,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             }
 
             _heightMap?.Release();
+            _surfaceheightMap?.Release();
         }
 
         private void SetupBuffers(Mesh mesh, int[] indices)
@@ -347,6 +349,26 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _vertices.SetData(vertices);
             _indices.SetData(indices);
             _texcoords.SetData(mesh.uv);
+        }
+
+        private RenderTexture GenerateSurfaceHeight(UnityEngine.Texture texture)
+        {
+            // ************* Generate surface Height Map  ************* //
+
+            _surfaceheightMap = new RenderTexture(texture.width, texture.height, 24, RenderTextureFormat.RFloat);
+            _surfaceheightMap.enableRandomWrite = true;
+            _surfaceheightMap.Create();
+
+            var kernel = ComputeShader.FindKernel("CSSurfaceHeightMap");
+            ComputeShader.SetTexture(kernel, "Texture", texture);
+            ComputeShader.SetTexture(kernel, "SurfaceHeightMap", _surfaceheightMap);
+
+            var threadx = Mathf.CeilToInt(texture.width / 8f) < 1 ? 1 : Mathf.CeilToInt(texture.width / 8f);
+            var thready = Mathf.CeilToInt(texture.height / 8f) < 1 ? 1 : Mathf.CeilToInt(texture.height / 8f);
+
+            ComputeShader.Dispatch(kernel, threadx, thready, 1);
+
+            return _surfaceheightMap;
         }
 
         private RenderTexture GenerateHeight(Vector2 texSize, Vector2 pixelSize, Mesh mesh)
@@ -479,6 +501,13 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 var settings = GfxCaps.GetFoliageSettings(set.SettingsType);
                 if (!settings.Enabled || !set.Enabled)
                     continue;
+
+                if (set.FoliageMaterial == null)
+                {
+                    Debug.LogError($"FoliageMaterial for {set.mapFeature} can't be NULL!");
+                    continue;
+                }
+                   
 
                 set.FoliageMaterial.SetVector("_Wind", Wind);
 

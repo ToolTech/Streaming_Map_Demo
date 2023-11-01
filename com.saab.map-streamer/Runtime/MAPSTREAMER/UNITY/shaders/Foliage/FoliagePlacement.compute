@@ -1,4 +1,5 @@
 #pragma kernel CSPlacement
+#pragma kernel CSSurfaceHeightMap
 #pragma kernel CSHeightMap
 #pragma kernel CSCull
 #pragma kernel CSFindBufferSize
@@ -35,6 +36,7 @@ AppendStructuredBuffer<FoliagePoint> OutputBuffer;		// buffer with all (frustum)
 Texture2D<unorm float> SplatMap;
 Texture2D<float4> Texture;
 Texture2D<unorm float> HeightSurface;
+RWTexture2D<float> SurfaceHeightMap;
 RWTexture2D<float> HeightMap;
 Texture2D<float> DepthTexture;
 RWTexture2D<float> DownscaledDepthTexture;
@@ -178,6 +180,14 @@ void CSFindBufferSize(int3 id : SV_DispatchThreadID)
 	{
 		InterlockedAdd(BufferSize[0], 1);
 	}
+}
+
+// ************* surfaceHeight Map Gen ************* //
+[numthreads(8, 8, 1)]
+void CSSurfaceHeightMap(int3 id : SV_DispatchThreadID)
+{
+    float3 color = Texture[id.xy];
+    SurfaceHeightMap[id.xy] = 3 + length(color) / 3 * 18;
 }
 
 // ************* Height Map Gen ************* //
