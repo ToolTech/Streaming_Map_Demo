@@ -64,6 +64,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public Shader FoliageShader;
         public Vector3 Wind;
 
+        //_PerlinNoise
+        public Texture2D PerlinNoise;
+
         [Header("Debug Settings")]
         public bool DebugPrintCount = false;
         public bool Disabled = false;
@@ -117,6 +120,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 inderectBuffer.SetData(new uint[] { 0, 1, 0, 0 });
                 featureSet.InderectBuffer = inderectBuffer;
                 featureSet.FoliageMaterial = new Material(FoliageShader);
+
+                //TODO: use to create a random noise
+                featureSet.FoliageMaterial.SetTexture("_PerlinNoise", PerlinNoise);
 
                 if (featureSet.Crossboard)
                 {

@@ -2,19 +2,34 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-[ExecuteInEditMode]
 public class SkyTest : MonoBehaviour
 {
     public Material Sky;
-    public float Speed = 2f;
+    public float Speed = 1f;
     [Range(0, 1)]
-    public float ShadowStrength = 0.8f;
+    public float ShadowStrength = 0.7f;
 
     public Light SunLight;
     public Light MoonLight;
-    public Gradient SkyColor;
-    public Gradient HorizonColor;
+    public Gradient SkyColor = new Gradient()
+    {
+        // The number of keys must be specified in this array initialiser
+        colorKeys = new GradientColorKey[3]
+        {
+            // Add your colour and specify the stop point
+            new GradientColorKey(new Color(0.05f, 0.05f, 0.05f), 0.0f),
+            new GradientColorKey(new Color(0.16f, 0.26f, 0.4f), 0.5f),
+            new GradientColorKey(new Color(0.38f, 0.69f, 0.85f), 0.6f)
+        },
+        // This sets the alpha to 1 at both ends of the gradient
+        alphaKeys = new GradientAlphaKey[2]
+        {
+            new GradientAlphaKey(1f, 0f),
+            new GradientAlphaKey(1f, 1f)
+        }
+    };
 
+    public Gradient HorizonColor;
     public Gradient MoonLightColor;
 
     void RotateSun(float speed)

@@ -60,6 +60,8 @@ Shader "Custom/Foliage/Billboard"
 			float _isToggled;
 			float3 _Wind;
 
+			sampler2D _PerlinNoise;
+
 			UNITY_DECLARE_TEX2DARRAY(_MainTexArray);
 
 			// ****** foliage point cloud ******
@@ -106,6 +108,13 @@ Shader "Custom/Foliage/Billboard"
 				return c;
 			}
 
+			float2 VectorToSphereUV(float3 normal)
+			{
+				float u = 0.5 + atan2(normal.z, normal.x) / (2 * 3.14159265359);
+				float v = 0.5 - asin(normal.y) / 3.14159265359;
+				return float2(u, v);
+			}
+
 			ENDCG
 
 			// ********* Opaque alpha cutoff - Deferred  *********
@@ -146,6 +155,8 @@ Shader "Custom/Foliage/Billboard"
 
 					// *********** sphere normals ************* 
 					float3 sphereNormal = SphereProjectedNormal(i);
+					float2 SphereUV = VectorToSphereUV(sphereNormal);	// sphere normal uv coord 
+					
 					float3 finalNormal = sphereNormal;
 
 					if (_isToggled)

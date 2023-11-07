@@ -1,4 +1,4 @@
-Shader "KelvinvanHoorn/Skybox"
+Shader "Custom/Dynamic/Skybox"
 {
     Properties
     {
@@ -6,7 +6,7 @@ Shader "KelvinvanHoorn/Skybox"
 
         _MainLightColor("Sun color", Color) = (1, 1, 1, 1)
         [NoScaleOffset] _HorizonTex("Horizon texture", 2D ) = "gray" {}
-        _GroundColor("Ground color", Color) = (1, 1, 1, 1)
+        _AmbientColor("Ambient color", Color) = (1, 1, 1, 1)
         _SunRadius("Sun radius", Range(0,45)) = 0.5
         _FlareSize("Flare Size", Range(0,45)) = 45
         _MoonRadius("Moon radius", Range(0,45)) = 0.5
@@ -73,7 +73,7 @@ Shader "KelvinvanHoorn/Skybox"
             float _StarLatitude, _StarSpeed;
             float4x4 _MoonSpaceMatrix;
 
-            float4 _MainLightColor, _GroundColor;
+            float4 _MainLightColor, _AmbientColor;
 
             samplerCUBE _MoonCubeMap, _StarCubeMap;
             sampler2D _SunFlare;
@@ -283,12 +283,12 @@ Shader "KelvinvanHoorn/Skybox"
                 float2 scroll = _Time.z * normalize(float2(1,3)) * 0.005;
                 float3 water = tex2D(_HorizonTex, scroll + uv * pow(-viewDir.y, _Warp)).rgb;
                 float3 water2 = tex2D(_HorizonTex, scroll * 0.75 + uv * pow(-viewDir.y, _Warp)).rgb;
-
+                
                 // sky color result
                 float3 col = skyColor + sunColor + moonColor + starsColor;
 
-                return float4(col.xyz * groundMask + (water + water2 * 0.5) * 0.75 * (1 - groundMask) * clamp(sunZenithDot01, 0.2, 1), 1);
-            }
+    return float4(col.xyz * groundMask + ((water + water2 * 0.5) * _AmbientColor) * 0.75 * (1 - groundMask) * clamp(sunZenithDot01, 0.2, 1), 1);
+}
             ENDHLSL
         }
     }

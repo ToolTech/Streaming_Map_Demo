@@ -2,7 +2,7 @@
 <!-- Generic Configuration for Unity -->
 <Unity>
     <GfxCaps>
-        <CurrentCaps info="Which graphics capabilities to use">16</CurrentCaps>
+        <CurrentCaps info="Which graphics capabilities to use">48</CurrentCaps>
 		<Foliage>
          <!-- ****** disable by setting drawdistance or density to 0.0 ****** -->
           <Trees>

@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: KelvinvanHoorn_Skybox
+  m_Name: Dynamic_Skybox
   m_Shader: {fileID: 4800000, guid: 69a32460af4c4554eb0344ef27544e7b, type: 3}
   m_ValidKeywords: []
   m_InvalidKeywords: []
@@ -55,16 +55,17 @@ Material:
     - _LightPollution: 1.15
     - _MoonExposure: 1
     - _MoonRadius: 0.5
-    - _StarExposure: 6
-    - _StarLatitude: 52
-    - _StarPower: 50
+    - _StarExposure: 16
+    - _StarLatitude: 25.3
+    - _StarPower: 30
     - _StarSpeed: 0
     - _StarsColorValue: 0
     - _SunRadius: 0.53
     - _Warp: 0.65
     m_Colors:
+    - _AmbientColor: {r: 0.88038766, g: 1.1901916, b: 1.3509759, a: 1.4999955}
     - _GroundColor: {r: 0.19723403, g: 1, b: 0, a: 1}
     - _MainLightColor: {r: 1, g: 0.95686275, b: 0.8392157, a: 1}
-    - _MoonDir: {r: -0.43471286, g: 0.22835082, b: -0.87113756, a: 0}
-    - _SunDir: {r: -0.070334285, g: 0.30549294, b: -0.9495931, a: 0}
+    - _MoonDir: {r: 0.3213938, g: -0.76604444, b: -0.5566705, a: 0}
+    - _SunDir: {r: 0.3213938, g: 0.76604444, b: -0.5566705, a: 0}
   m_BuildTextureStacks: []
