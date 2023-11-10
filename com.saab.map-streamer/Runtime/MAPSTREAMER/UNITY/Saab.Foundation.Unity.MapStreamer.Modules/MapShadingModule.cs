@@ -64,7 +64,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 return;
 
             EnableDetailedTextures = GfxCaps.CurrentCaps.HasFlag(Capability.UseTerrainDetailTextures);
-
             InitializeModule();
         }
 
@@ -87,7 +86,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         {
             SceneManager.OnNewGeometry += SceneManager_OnNewGeometry;
             SceneManager.OnEnterPool += SceneManager_OnEnterPool;
-            SceneManager.OnPostTraverse += SceneManager_OnPostTraverse;
         }
 
         private void InitDetailTexturing()
@@ -179,10 +177,15 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 meshRenderer.material.SetTexture(Shader.PropertyToID("_FeatureMap"), nodehandle.feature);
                 meshRenderer.material.SetVector(Shader.PropertyToID("_FeatureMap_ST"), new Vector4(2, 2, 0, 0));
                 meshRenderer.material.SetVector(Shader.PropertyToID("_SplatMapDimensions"), splatDimensions);
-                meshRenderer.material.SetFloat(Shader.PropertyToID("_Smoothness"), 1);
-                meshRenderer.material.SetFloat(Shader.PropertyToID("_SplatVisualization"), 1);
                 meshRenderer.material.SetFloat(Shader.PropertyToID("_DetailTextureFadeStart"), 50);
                 meshRenderer.material.SetFloat(Shader.PropertyToID("_DetailTextureFadeZoneLength"), 100);
+
+                meshRenderer.material.SetFloat("_Smoothness", SmoothnessModifier);
+                meshRenderer.material.SetFloat("_RoughnessFallback", RoughnessFallback);
+                meshRenderer.material.SetFloat("_HueShiftInclusion", HueShiftInclusion);
+                meshRenderer.material.SetFloat("_SecondaryNormalIntensity", SecondaryNormalIntensity);
+                meshRenderer.material.SetFloat("_TertiaryNormalIntensity", TertiaryNormalIntensity);
+                meshRenderer.material.SetKeyword(new UnityEngine.Rendering.LocalKeyword(meshRenderer.material.shader, "DETAIL_TEXTURES_ON"), EnableDetailedTextures);
 
                 meshRenderer.material.SetTexture(Shader.PropertyToID("_Textures"), _textureArray);
                 meshRenderer.material.SetTexture(Shader.PropertyToID("_NormalMaps"), _normalMapArray);
@@ -216,7 +219,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             }
         }
 
-        private void SceneManager_OnPostTraverse(bool locked)
+        private void OnValidate()
+        {
+            RefreshSettings();
+        }
+
+        public void RefreshSettings()
         {
             _nodeMaterials.ForEach(m =>
             {

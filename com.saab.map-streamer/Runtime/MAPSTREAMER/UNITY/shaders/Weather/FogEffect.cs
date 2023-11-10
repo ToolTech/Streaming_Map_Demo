@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.Rendering.PostProcessing;
 
 [Serializable]
-[PostProcess(typeof(FogEffectRenderer), PostProcessEvent.AfterStack, "Weather/Fog")]
+[PostProcess(typeof(FogEffectRenderer), PostProcessEvent.BeforeTransparent, "Weather/Fog")]
 public sealed class FogEffect : PostProcessEffectSettings
 {
     //public ParameterOverride<ComputeShader> NoiseCompute = new ParameterOverride<ComputeShader>();

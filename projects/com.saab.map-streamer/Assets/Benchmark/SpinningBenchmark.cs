@@ -21,6 +21,9 @@ namespace Saab.Application.Mapstreamer
         public float BenchmarkTotalTime => TestDuration * _tests.Count;
 
         public List<ITestScenario> Tests => _tests;
+
+        public bool Running => throw new System.NotImplementedException();
+
         private List<ITestScenario> _tests = new List<ITestScenario>();
         private List<IProfiler> _profilers = new List<IProfiler>();
 
@@ -156,8 +159,8 @@ namespace Saab.Application.Mapstreamer
 
                 CameraControl.UpdateMoveCamera(150, 0, 0, 10, 0);
 
-                _memoryProfiler.ToString(out var mem);
-                _internalProfiler.ToString(out var fps);
+                var mem = _memoryProfiler.ToString();
+                var fps = _internalProfiler.ToString();
 
                 _countDown -= Time.unscaledDeltaTime;
                 _currentTestTime -= Time.unscaledDeltaTime;

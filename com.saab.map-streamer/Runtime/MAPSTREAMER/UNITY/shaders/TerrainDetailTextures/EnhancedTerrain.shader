@@ -14,7 +14,6 @@ Shader "Custom/EnhancedTerrain"
 		_HueShiftInclusion("HueShiftInclusion", Range(0.0, 1.0)) = 1
 		_SecondaryNormalIntensity("SecondaryNormalIntensity", Range(0.0, 1.0)) = 1
 		_TertiaryNormalIntensity("TertiaryNormalIntensity", Range(0.0, 1.0)) = 1
-		_SplatVisualization("Splat visualization", Range(0.0, 1.0)) = 1
 
 		_DetailTextureFadeStart("Detail texture fade start distance", Range(0.0, 10000.0)) = 1
 		_DetailTextureFadeZoneLength("Detail texture fade zone length", Range(0.0, 100.0)) = 1
@@ -49,7 +48,6 @@ Shader "Custom/EnhancedTerrain"
 #ifdef DETAIL_TEXTURES_ON
 			sampler2D _FeatureMap;
 			float4 _FeatureMap_ST;
-			float _SplatVisualization;
 			float _DetailTextureFadeStart;
 			float _DetailTextureFadeZoneLength;
 
