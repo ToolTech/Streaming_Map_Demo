@@ -1,5 +1,6 @@
 !*.meta
 !Debug
 !Release
+[pP]lugins/
 *.dll
 *.xml

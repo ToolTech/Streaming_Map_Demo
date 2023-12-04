@@ -6,9 +6,5 @@
   "unity": "2023.3",
   "author": {
     "name": "SAAB AB"
-  },
-  "dependencies": {
-    "com.unity.postprocessing": "3.2.2",
-	"com.saab.gz-unity": "0.1.0"
   }
 }

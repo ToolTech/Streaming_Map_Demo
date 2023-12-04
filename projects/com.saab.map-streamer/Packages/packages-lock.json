@@ -1,30 +1,10 @@
 {
   "dependencies": {
-    "com.saab.gz-unity": {
-      "version": "file:C:../../../../component_8866026201_gzUnity/com.saab.gz-unity",
-      "depth": 0,
-      "source": "local",
-      "dependencies": {
-        "com.unity.postprocessing": "3.2.2"
-      }
-    },
     "com.saab.map-streamer": {
       "version": "file:../../../com.saab.map-streamer",
       "depth": 0,
       "source": "local",
-      "dependencies": {
-        "com.unity.postprocessing": "3.2.2",
-        "com.saab.gz-unity": "0.1.0"
-      }
-    },
-    "com.saab.performance-analyser": {
-      "version": "file:../../../com.saab.performance-analyser",
-      "depth": 0,
-      "source": "local",
-      "dependencies": {
-        "com.saab.map-streamer": "0.1.0",
-        "com.unity.textmeshpro": "3.0.6"
-      }
+      "dependencies": {}
     },
     "com.unity.collab-proxy": {
       "version": "1.17.7",
@@ -102,15 +82,6 @@
       "dependencies": {},
       "url": "https://packages.unity.com"
     },
-    "com.unity.postprocessing": {
-      "version": "3.2.2",
-      "depth": 1,
-      "source": "registry",
-      "dependencies": {
-        "com.unity.modules.physics": "1.0.0"
-      },
-      "url": "https://packages.unity.com"
-    },
     "com.unity.services.core": {
       "version": "1.7.0",
       "depth": 1,
@@ -127,22 +98,6 @@
       "depth": 2,
       "source": "registry",
       "dependencies": {},
-      "url": "https://packages.unity.com"
-    },
-    "com.unity.sysroot": {
-      "version": "2.0.7",
-      "depth": 1,
-      "source": "registry",
-      "dependencies": {},
-      "url": "https://packages.unity.com"
-    },
-    "com.unity.sysroot.linux-x86_64": {
-      "version": "2.0.6",
-      "depth": 1,
-      "source": "registry",
-      "dependencies": {
-        "com.unity.sysroot": "2.0.7"
-      },
       "url": "https://packages.unity.com"
     },
     "com.unity.test-framework": {
@@ -184,16 +139,6 @@
         "com.unity.modules.animation": "1.0.0",
         "com.unity.modules.audio": "1.0.0",
         "com.unity.modules.particlesystem": "1.0.0"
-      },
-      "url": "https://packages.unity.com"
-    },
-    "com.unity.toolchain.win-x86_64-linux-x86_64": {
-      "version": "2.0.6",
-      "depth": 0,
-      "source": "registry",
-      "dependencies": {
-        "com.unity.sysroot": "2.0.7",
-        "com.unity.sysroot.linux-x86_64": "2.0.6"
       },
       "url": "https://packages.unity.com"
     },

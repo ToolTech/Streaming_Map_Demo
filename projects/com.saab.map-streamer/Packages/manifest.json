@@ -1,8 +1,6 @@
 {
   "dependencies": {
-    "com.saab.gz-unity": "file:C:../../../../component_8866026201_gzUnity/com.saab.gz-unity",
     "com.saab.map-streamer": "file:../../../com.saab.map-streamer",
-	"com.saab.performance-analyser": "file:../../../com.saab.performance-analyser",
     "com.unity.collab-proxy": "1.17.7",
     "com.unity.feature.development": "1.0.1",
     "com.unity.ide.rider": "3.0.18",
@@ -11,7 +9,6 @@
     "com.unity.test-framework": "1.1.31",
     "com.unity.textmeshpro": "3.0.6",
     "com.unity.timeline": "1.6.4",
-    "com.unity.toolchain.win-x86_64-linux-x86_64": "2.0.6",
     "com.unity.ugui": "1.0.0",
     "com.unity.visualscripting": "1.8.0",
     "com.unity.modules.ai": "1.0.0",

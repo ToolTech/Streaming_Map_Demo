@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6abce6760cf4f044a9f484b68011a0f3, type: 3}
+  m_Name: TestSet
+  m_EditorClassIdentifier: 
+  Textures:
+  - Asset: {fileID: 11400000, guid: 8edc1370de3f8384780d2d029e3ea8d9, type: 2}
+    Mapping: 19
+  - Asset: {fileID: 11400000, guid: 32b3b8382e9d7bc4a80bf2dcb81c9038, type: 2}
+    Mapping: 1048428
+  - Asset: {fileID: 11400000, guid: 5c7de1e372a51df45bb51fe18cbea052, type: 2}
+    Mapping: 128

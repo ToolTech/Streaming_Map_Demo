@@ -1,44 +1,55 @@
-# Create new Unity project with MapStreamer
+Streaming Map Demo
+==================
 
-## Create a new project with MapStreamer
+<B>A Saab Dynamics demo of the Streaming Binary Data Architecture</B>
 
-```
-git init NewProject
-```
+This is a generic streaming API for 3D engines (Unity,Unreal...) that allows fast streaming updates of huge 3D datasets located in cloud, from disc or procedural.
 
-_Note: "NewProject" is an example name in this guide_
+This GIT repository will allow you to take a look at a Unity demo, written by the Open Saab Development community using the GizmoSDK code base from Saab Dynamics, Training & Simulation. Take a look at https://youtu.be/m2NsE8NBrB0
 
-## Add component_8866000201_MapStreamer as submodule
+The open source and open documentation in here are to be considered as LGPL code and can be used in your own projects.
 
-```
-git submodule add https://devops.saab.se/TS/BTA/_git/component_8866027201_MapStreamer submodules/map-streamer
-```
+The binaries are licensed by Saab Dynamics. If you are interested in using this for commercial purposes, please contact 
 
-## Add gz-unity as submodule
+anders.moden@saabgroup.com
 
-```
-git submodule add https://devops.saab.se/TS/BTA/_git/component_8866026201_gzUnity submodules/gz-unity
-```
 
-_Tip: If fetching of submodule hangs, make sure you have set up authentication for Git LFS. See [Wiki in DevOps Common](https://devops.saab.se/TS/Common/_wiki/wikis/Common.wiki/631/Git?anchor=git-lfs) for more information._
 
-## Build gz-unity solution
 
-```
-submodules\gz-unity\build.bat
-```
+Setup
+=====
 
-## Add packages in Unity Editor
+To run, open the Install_Gizmo.sln under directory 'vs17\Install_Gizmo' and select 'debug/release for each x64/ARM64 etc' solution and build. Select only one configration at a time and build this for all platforms. This will fetch nuget packages for all components and update the Assets/Plugin folder with correct binaries. The solution can deploy both Debug and Release versions to be used in development. Only one "deploy" version at a time should be used. Dont mix both Debug and Release versions. To clear the plugin folder, run the script 'cleanup_plugins.bat' that will clean the Assets/Plugin folder. Use VS2019 to build the InstallPackages or use VS2017 and install support for .NET Core 3.1 
+Dont use ARM and ARM64 builds in parallell or rename and configure dlls properly so Unity can select the right ones.
 
-Add packages in Unity Editor's Package Manager (under "Window" menu). Add following package from disk:  
-* **com.saab.gz-unity**  
-`C:\src\NewProject\submodules\gz-unity\com.saab.gz-unity\package.json`
-* **com.saab.map-streamer**  
-`C:\src\NewProject\submodules\gz-unity\com.saab.map-streamer\package.json`
+You could also simply just run the corresponding .bat script (build_x64, build_x64_d, etc..) and every thing will be setup correctly.
 
-Unity Editor will add absolute path's in the `manifest.json` file. Change them to relative path's
 
-```
-    "com.saab.gz-unity": "file:../../submodules/gz-unity/com.saab.gz-unity",
-    "com.saab.map-streamer": "file:../../submodules/map-streamer/com.saab.map-streamer",
-```
+Running the demo
+================
+Open the unity project found under the under directory 'projects\com.saab.map-streamer' and Press the "play" button in the Unity editor. 
+
+<b>keybinds:</b>
+* WASD to move around
+* space, ctrl move up and down
+* Arrow keys to rotate the view
+* shift increase speed of movement
+
+<b><u>Note Win64 only right now</u></b>
+Good Luck !
+
+
+Technology Info
+===============
+
+The demo is based on a 3D scenegraph written in native C++ that manages the logistics for loading/unloading data, LOD levels and transitions between LOD depending on what data is currently loaded. It uses up to 16 parallel threads to load data from multiple URL based datasources dynamically.
+The demo uses a large double precision coordinate system and a ROI (Region Of Interest) subsystem that translates HUGE coordinates into local islands of single precision data. 
+
+The system handles geocentric coordinate systems as well as flat UTM and other conic projections and provides a uniform WGS84 API to control all objects and queries.
+
+The SceneGraph API also allows a fast intersector query to be performed to find ground features and clamp object to the ground.
+
+The demo shows an example of SBD maps (Streaming Binary Data) that are quad or octree based spatial data in 3D. The format allows very large databases (entire globe) to be divided on multiple servers and that can have details down to (mm) in resolution.
+
+![Screenshot](https://gizmosdk.blob.core.windows.net/maps/stock/thumb.png)
+_[A screenshot showing how feature/height data can be used to present trees with accurate position and height]_  
