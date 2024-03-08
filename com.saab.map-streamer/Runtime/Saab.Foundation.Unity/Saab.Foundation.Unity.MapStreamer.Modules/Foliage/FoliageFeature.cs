@@ -247,6 +247,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _placement.SetFloat("maxHeight", maxHeight);
             _placement.SetBuffer(kernelCull, "OutputBuffer", _pointCloud);
             _placement.SetVector("CameraPosition", camera.transform.position);
+            _placement.SetVector("CameraRightVector", camera.transform.right);
             _placement.SetVectorArray("frustumPlanes", frustum);
 
             var count = 0;
