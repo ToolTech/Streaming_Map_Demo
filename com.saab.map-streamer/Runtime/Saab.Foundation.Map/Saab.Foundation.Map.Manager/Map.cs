@@ -32,6 +32,7 @@
 //									
 // AMO	180301	Created file 	
 // AMO  191023  Fixed issue in double position in screenvectors
+// AMO  240412  Added META info about LOD, Size and Extent            (2.12.143)
 //
 //******************************************************************************
 
@@ -75,13 +76,35 @@ namespace Saab.Foundation.Map
     public class MapControl
     {
         const string USER_DATA_DB_INFO              = "UserDataDbInfo";
-        const string DBI_PROJECTION                 = "DbI-Projection";
-        const string DBI_PROJECTION_UTM             = "UTM";
-        const string DBI_PROJECTION_FLAT_EARTH      = "Flat Earth";
-        const string DBI_PROJECTION_SPHERE          = "Sphere";
-        const string DBI_ORIGIN                     = "DbI-Database Origin";
-        const string DBI_MAX_LOD_RANGE			    = "DbI-LR";
-        const string DBI_COORD_SYS                  = "DbI-CoordSystem";
+
+        // Constants for GZ_DB_INFO_PROJECTION ---------------------------------------------------------------------------------------------
+
+        const string GZ_DB_INFO_PROJECTION_FLAT           = "Flat Earth";
+        const string GZ_DB_INFO_PROJECTION_SPHERE         = "Sphere";
+        const string GZ_DB_INFO_PROJECTION_TRAPEZODIAL    = "Trapezoidal";
+        const string GZ_DB_INFO_PROJECTION_LAMBERT        = "Lambert";
+        const string GZ_DB_INFO_PROJECTION_UTM            = "UTM";
+        const string GZ_DB_INFO_PROJECTION_RT90           = "RT90";
+        const string GZ_DB_INFO_PROJECTION_SWEREF99       = "SWEREF99";
+        const string GZ_DB_INFO_PROJECTION_PROJECTED      = "Projected";
+
+        // Attribute names -----------------------------------------------------------------------------------------------------------------
+
+        const string GZ_DB_INFO_METER_SCALE     = "DbI-MeterScale";             // Number to scale model to meters approx
+        const string GZ_DB_INFO_PROJECTION      = "DbI-Projection";             // GZ_DB_INFO_PROJECTION_xx
+        const string GZ_DB_INFO_ELLIPSOID       = "DbI-Ellipsoid";
+        const string GZ_DB_INFO_COORD_SYS       = "DbI-CoordSystem";			// CoordSystem String
+              
+        const string GZ_DB_INFO_DB_ORIGIN_POS   = "DbI-Database Origin";        // Depends on GZ_DB_INFO_COORD_SYS
+        const string GZ_DB_INFO_DB_SW_POS       = "DbI-Database SWpos";         // gzAttribute_LatPos in radians
+        const string GZ_DB_INFO_DB_NE_POS       = "DbI-Database NEpos";         // gzAttribute_LatPos in radians
+
+        const string GZ_DB_INFO_DB_SIZE         = "DbI-SZ";				        // gzAttribute_DBSize
+
+        // Max Lod distance from loaded db
+
+        const string GZ_DB_INFO_DB_MAX_LOD_RANGE = "DbI-LR";				// Meters
+
 
         const double MAX_TRIANGLE_CACHE_AGE = 3.0;
 
@@ -864,32 +887,32 @@ namespace Saab.Foundation.Map
 
                     if (value != null && value.IsValid())
                     {
-                        var projection = _currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_PROJECTION);
+                        var projection = _currentMap.GetAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_PROJECTION);
 
-                        if (projection == DBI_PROJECTION_UTM)
+                        if (projection == GZ_DB_INFO_PROJECTION_UTM)
                         {
                             _mapType = MapType.UTM;
-                            UTMPos utmOrigin = _currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_ORIGIN);
+                            UTMPos utmOrigin = _currentMap.GetAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_ORIGIN_POS);
                             _origin = new Vec3D(utmOrigin.Easting, utmOrigin.H, -utmOrigin.Northing);
 
                             _metaData = new CoordinateSystemMetaData(utmOrigin.Zone, utmOrigin.North);
 
                             _coordSystem = new CoordinateSystem(Datum.WGS84_ELLIPSOID, FlatGaussProjection.UTM, CoordinateType.UTM);
                         }
-                        else if (projection == DBI_PROJECTION_FLAT_EARTH)   // To run a 3D world without world coordinates
+                        else if (projection == GZ_DB_INFO_PROJECTION_FLAT)   // To run a 3D world without world coordinates
                         {
                             _mapType = MapType.PLAIN;
-                            _origin = (Vec3D)_currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_ORIGIN).GetVec3();
+                            _origin = (Vec3D)_currentMap.GetAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_ORIGIN_POS).GetVec3();
 
                             _metaData.value1 = 0;
                             _metaData.value2 = 0;
 
                             _coordSystem = new CoordinateSystem();
                         }
-                        else if (projection == DBI_PROJECTION_SPHERE)
+                        else if (projection == GZ_DB_INFO_PROJECTION_SPHERE)
                         {
                             _mapType = MapType.GEOCENTRIC;
-                            CartPos cartOrigin = _currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_ORIGIN);
+                            CartPos cartOrigin = _currentMap.GetAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_ORIGIN_POS);
                             _origin = new Vec3D(cartOrigin.X, cartOrigin.Y, cartOrigin.Z);
 
                             _metaData.value1 = 0;
@@ -908,10 +931,25 @@ namespace Saab.Foundation.Map
                             _coordSystem = new CoordinateSystem();
                         }
 
-                        if(_currentMap.HasAttribute(USER_DATA_DB_INFO, DBI_COORD_SYS))
-                            _coordSystem = new CoordinateSystem(_currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_COORD_SYS));
+                        if(_currentMap.HasAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_COORD_SYS))
+                            _coordSystem = new CoordinateSystem(_currentMap.GetAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_COORD_SYS));
 
-                        var maxLodDistance = _currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_MAX_LOD_RANGE).GetNumber();
+                        if (_currentMap.HasAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_MAX_LOD_RANGE))
+                            _maxLODDistance = _currentMap.GetAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_MAX_LOD_RANGE).GetNumber();
+                        else
+                            _maxLODDistance = 0;
+
+                        if (_currentMap.HasAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_NE_POS))
+                            _ne_extent = _currentMap.GetAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_NE_POS);
+                        else
+                            _ne_extent = new LatPos(0,0,0);
+
+                        if (_currentMap.HasAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_SW_POS))
+                            _sw_extent = _currentMap.GetAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_SW_POS);
+                        else
+                            _sw_extent = new LatPos(0, 0, 0);
+
+                        _db_size= _currentMap.GetAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_SIZE).AsString();
 
                         _topRoi = FindTopRoi(value);
 
@@ -921,8 +959,8 @@ namespace Saab.Foundation.Map
 
                             RoiNode roiNode = new RoiNode
                             {
-                                LoadDistance = 2 * maxLodDistance,
-                                PurgeDistance = 2 * maxLodDistance
+                                LoadDistance = 2 * _maxLODDistance,
+                                PurgeDistance = 2 * _maxLODDistance
                             };
 
                             if (_nodeURL != null)  // We have an URL
@@ -1037,6 +1075,70 @@ namespace Saab.Foundation.Map
 
         public static MapControl SystemMap=new MapControl();
 
+        public LatPos SWExtent
+        {
+            get
+            {
+                try
+                {
+                    NodeLock.WaitLockEdit();
+                    return _sw_extent;
+                }
+                finally
+                {
+                    NodeLock.UnLock();
+                }
+            }
+        }
+
+        public LatPos NEExtent
+        {
+            get
+            {
+                try
+                {
+                    NodeLock.WaitLockEdit();
+                    return _ne_extent;
+                }
+                finally
+                {
+                    NodeLock.UnLock();
+                }
+            }
+        }
+
+        public double MaxLODDistance
+        {
+            get
+            {
+                try
+                {
+                    NodeLock.WaitLockEdit();
+                    return _maxLODDistance;
+                }
+                finally
+                {
+                    NodeLock.UnLock();
+                }
+            }
+        }
+
+        public string DBSize
+        {
+            get
+            {
+                try
+                {
+                    NodeLock.WaitLockEdit();
+                    return _db_size;
+                }
+                finally
+                {
+                    NodeLock.UnLock();
+                }
+            }
+        }
+
         #region ----- Private methods ------------------
 
         private Roi FindTopRoi(Node map)
@@ -1071,14 +1173,20 @@ namespace Saab.Foundation.Map
 
         #region ----- Private variables ----------------
 
-        private MapType                  _mapType;
-        private Node                     _currentMap;
-        private CoordinateSystem         _coordSystem;
+        private MapType                     _mapType;
+        private Node                        _currentMap;
+        private CoordinateSystem            _coordSystem;
 
-        private CoordinateSystemMetaData _metaData;
+        private CoordinateSystemMetaData    _metaData;
 
-        private Vec3D                    _origin;
-        private Roi                      _topRoi;
+        private Vec3D                       _origin;
+        private Roi                         _topRoi;
+
+        private double                      _maxLODDistance;
+        private LatPos                      _ne_extent;
+        private LatPos                      _sw_extent;
+
+        private string                      _db_size;
 
         private Camera  _camera;
         private string  _nodeURL;
