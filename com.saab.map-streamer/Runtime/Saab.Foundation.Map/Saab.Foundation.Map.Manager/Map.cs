@@ -743,7 +743,7 @@ namespace Saab.Foundation.Map
             {
                 if (maxRange && _currentMap != null)
                 {
-                    radius = _currentMap.GetAttribute(USER_DATA_DB_INFO, DBI_MAX_LOD_RANGE).GetNumber();
+                    radius = _currentMap.GetAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_MAX_LOD_RANGE).GetNumber();
                     if (radius > 0) return true;
                 }
 
