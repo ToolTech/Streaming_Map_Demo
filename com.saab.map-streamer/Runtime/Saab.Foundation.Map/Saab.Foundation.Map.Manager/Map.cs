@@ -736,36 +736,6 @@ namespace Saab.Foundation.Map
             }
         }
 
-        public bool GetBoundaryRadius(out double radius, bool maxRange = false)
-        {
-            NodeLock.WaitLockEdit();
-            try
-            {
-                if (maxRange && _currentMap != null)
-                {
-                    radius = _currentMap.GetAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_MAX_LOD_RANGE).GetNumber();
-                    if (radius > 0) return true;
-                }
-
-                if (_topRoi == null)
-                {
-                    radius = 0f;
-                    return false;
-                }
-
-                var roiNode = _topRoi.GetClosestRoiNode(_origin);
-                radius = roiNode?.BoundaryRadius ?? 0f;
-                return radius > 0;
-            }
-            finally
-            {
-                NodeLock.UnLock();
-            }
-        }
-
-
-
-
         /// <summary>
         /// Converts a global mappos to a local under a roi
         /// </summary>
