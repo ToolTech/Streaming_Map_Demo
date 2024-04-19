@@ -1,0 +1,39 @@
+//*****************************************************************************
+//
+// Copyright (C) SAAB AB
+//
+// All rights, including the copyright, to the computer program(s)
+// herein belong to SAAB AB. The program(s) may be used and/or
+// copied only with the written permission of SAAB AB, or in
+// accordance with the terms and conditions stipulated in the
+// agreement/contract under which the program(s) have been
+// supplied.
+//
+// Use, copying, merging and distribution of this component, with or
+// without modification, is permitted within Saab group without cost.
+//
+// Distribution and use of this component within sold Saab products
+// is permitted.
+// 
+// The component may depend on third party components for which the
+// third party's terms and conditions and/or open source software
+// licenses will apply. License terms, notices, and acknowledgements,
+// if any, for the third party components is found in 3PPLicenses.txt.
+// 
+// The above copyright and notices as well as the disclaimer below
+// must be retained in sources.
+// 
+// THE COMPONENT IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+// OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+// HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+// WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE COMPONENT OR THE USE OR OTHER
+// DEALINGS IN THE COMPONENT.
+//
+// Information Class:	COMPANY UNCLASSIFIED
+// Defence Secrecy:		NOT CLASSIFIED
+// Export Control:		NOT EXPORT CONTROLLED
+//
+//*****************************************************************************
