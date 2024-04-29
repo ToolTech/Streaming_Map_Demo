@@ -456,26 +456,25 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private void DownscaleDepth(int downscale)
         {
             var kernel = ComputeShader.FindKernel("CSDownscaleDepth");
-            var screenSize = new Vector2Int(Mathf.CeilToInt(Screen.width / (float)downscale), Mathf.CeilToInt(Screen.height / (float)downscale));
 
-            if (_depthMap == null || (_depthMap.width != screenSize.x && _depthMap.height != screenSize.y))
+
+            if (_depthMap == null)
             {
                 _depthMap?.Release();
-                _depthMap = new RenderTexture(screenSize.x, screenSize.y, 24, RenderTextureFormat.RFloat);
+                _depthMap = new RenderTexture(downscale, downscale, 24, RenderTextureFormat.RFloat);
                 _depthMap.enableRandomWrite = true;
                 _depthMap.Create();
             }
 
-            var threadx = Mathf.CeilToInt(screenSize.x / 8f) < 1 ? 1 : Mathf.CeilToInt(screenSize.x / 8f);
-            var thready = Mathf.CeilToInt(screenSize.y / 8f) < 1 ? 1 : Mathf.CeilToInt(screenSize.y / 8f);
+            var thread = Mathf.CeilToInt(downscale / 10f) < 1 ? 1 : Mathf.CeilToInt(downscale / 10f);
 
             ComputeShader.SetInt("Scale", downscale);
             ComputeShader.SetBool("Occlusion", Occlusion);
-            ComputeShader.SetVector("DownscaleSize", new Vector2(screenSize.x, screenSize.y));
+            ComputeShader.SetVector("DownscaleSize", new Vector2(downscale, downscale));
             ComputeShader.SetTextureFromGlobal(kernel, "DepthTexture", "_CameraDepthTexture");
             ComputeShader.SetTexture(kernel, "DownscaledDepthTexture", _depthMap);
 
-            ComputeShader.Dispatch(kernel, threadx, thready, 1);
+            ComputeShader.Dispatch(kernel, thread, thread, 1);
         }
 
         float CalculateDesiredDistance(UnityEngine.Camera camera, float objectHeight, float coverage)
@@ -506,8 +505,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             if (cam.depthTextureMode != DepthTextureMode.Depth)
                 cam.depthTextureMode = cam.depthTextureMode | DepthTextureMode.Depth;
 
-
-            DownscaleDepth(Mathf.CeilToInt(Screen.width / 20f));
+            DownscaleDepth(20);
 
             foreach (var set in Features)
             {
