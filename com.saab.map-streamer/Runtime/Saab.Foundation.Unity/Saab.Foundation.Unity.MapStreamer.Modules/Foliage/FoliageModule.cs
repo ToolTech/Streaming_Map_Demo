@@ -2,7 +2,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-//using System.Drawing.Drawing2D;
 using System.Linq;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -33,7 +32,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public ComputeBuffer InderectBuffer;
         public ComputeBuffer FoliageData;
         private float _maxHeight;
-
 
         public float MaxHeight
         {
@@ -82,18 +80,27 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private int[] _mappingTable;
 
         // **************** Generate HeightMap ****************
-        private ComputeBuffer _vertices;
-        private ComputeBuffer _texcoords;
-        private ComputeBuffer _indices;
-        private int _maxVertexCount;
-        private int _maxIndexCount;
         private RenderTexture _heightMap;
         private RenderTexture _surfaceheightMap;
         private ComputeBuffer _minXY;
         private RenderTexture _depthMap;
         private bool _hasDepthTexture = false;
 
+        private Queue<FoliageJob> _futurePool = new Queue<FoliageJob>();
         private Dictionary<SettingsFeatureType, SettingsFeature> _settingsCache = new Dictionary<SettingsFeatureType, SettingsFeature>();
+
+        public int GetFoliageCount
+        {
+            get
+            {
+                var count = 0;
+                foreach (var feature in Features)
+                {
+                    count += feature.FoliageFeature.FoliageCount;
+                }
+                return count;
+            }
+        }
 
         // Start is called before the first frame update
         void Start()
@@ -103,7 +110,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             StartCoroutine(WaitForDepth());
             SceneManager.OnNewGeometry += SceneManager_OnNewGeometry;
             SceneManager.OnPostTraverse += SceneManager_OnPostTraverse;
-            SceneManager.OnEnterPool += SceneManager_OnEnterPool;
+            SceneManager.OnRemoveGeometry += SceneManager_OnEnterPool;
 
             _minXY = new ComputeBuffer(2, sizeof(uint), ComputeBufferType.Default);
 
@@ -259,16 +266,34 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         {
             foreach (var set in Features)
             {
-                if (set.Enabled)
-                    set.FoliageFeature.RemoveFoliage(go);
+                set.FoliageFeature.RemoveFoliage(go);
             }
+        }
+
+        struct FoliageJob
+        {
+            public GameObject gameObject { get; set; }
+            public int FrameCount { get; set; }
         }
 
         private void SceneManager_OnNewGeometry(GameObject go)
         {
-            var nodehandle = go.GetComponent<NodeHandle>();
+            _futurePool.Enqueue(new FoliageJob() { gameObject = go, FrameCount = Time.frameCount });
+        }
 
-            if (nodehandle != null && !Disabled && go.activeInHierarchy && nodehandle.node.BoundaryRadius > 0)
+        private void Update()
+        {
+            while (_futurePool.Count != 0 && Time.frameCount - _futurePool.Peek().FrameCount >= 2)
+            {
+                var set = _futurePool.Dequeue();
+                AddJob(set.gameObject);
+            }
+        }
+
+        private void AddJob(GameObject go)
+        {
+            var nodehandle = go.GetComponent<NodeHandle>();
+            if (nodehandle != null && !Disabled && go.activeInHierarchy && nodehandle.node.BoundaryRadius > 5)
             {
                 if (nodehandle.texture == null || nodehandle.feature == null)
                 {
@@ -296,7 +321,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 if (nodehandle.surfaceHeight == null)
                     surface = GenerateSurfaceHeight(nodehandle.texture);
 
-                 foreach (var set in Features)
+                foreach (var set in Features)
                 {
                     if (!set.Enabled)
                         continue;
@@ -314,9 +339,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         private void OnDestroy()
         {
-            _vertices?.Release();
-            _indices?.Release();
-            _texcoords?.Release();
             _minXY?.Release();
 
             foreach (var set in Features)
@@ -326,43 +348,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             _heightMap?.Release();
             _surfaceheightMap?.Release();
-        }
-
-        private void SetupBuffers(Mesh mesh, int[] indices)
-        {
-
-            var vertices = mesh.vertices;
-            var vertexCount = vertices.Length;
-
-            if (vertexCount > _maxVertexCount)
-            {
-                if (_vertices != null)
-                {
-                    _vertices.Release();
-                    _texcoords.Release();
-                }
-
-                _vertices = new ComputeBuffer(vertexCount, sizeof(float) * 3, ComputeBufferType.Default);
-                _texcoords = new ComputeBuffer(vertexCount, sizeof(float) * 2, ComputeBufferType.Default);
-                _maxVertexCount = _vertices.count;
-            }
-
-            var indexCount = indices.Length;
-
-            if (indexCount > _maxIndexCount)
-            {
-                if (_indices != null)
-                {
-                    _indices.Release();
-                }
-                _indices = new ComputeBuffer((int)indexCount, sizeof(int), ComputeBufferType.Default);
-                _maxIndexCount = (int)indexCount;
-            }
-
-
-            _vertices.SetData(vertices);
-            _indices.SetData(indices);
-            _texcoords.SetData(mesh.uv);
         }
 
         private RenderTexture GenerateSurfaceHeight(UnityEngine.Texture texture)
@@ -390,25 +375,44 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             ComputeShader.SetVector("Resolution", pixelSize);
 
-            // *************find node corners ************* //
+            // according to documentation vertexBufferTarget should not be able to be a structured but it works
+            // if any future problems occur test doing the same as indexBuffer -> indexbufferGpuCopy
+            mesh.vertexBufferTarget |= GraphicsBuffer.Target.Structured;
+            mesh.indexBufferTarget |= GraphicsBuffer.Target.CopySource;
+
+            var vertexBuffer = mesh.GetVertexBuffer(0);
+            var indexBuffer = mesh.GetIndexBuffer();
+
+            var indexbufferGpuCopy = new GraphicsBuffer(GraphicsBuffer.Target.CopyDestination | GraphicsBuffer.Target.Raw, Mathf.CeilToInt(indexBuffer.count / 2f), sizeof(uint));
+            Graphics.CopyBuffer(indexBuffer, indexbufferGpuCopy);
+
+            var stride = mesh.GetVertexBufferStride(0);
+            var texOffset = mesh.GetVertexAttributeOffset(UnityEngine.Rendering.VertexAttribute.TexCoord0);
+            var posOffset = mesh.GetVertexAttributeOffset(UnityEngine.Rendering.VertexAttribute.Position);
+
+            ComputeShader.SetInt("PositionOffset", posOffset / 4);
+            ComputeShader.SetInt("TexcoordOffset", texOffset / 4);
+            ComputeShader.SetInt("VertexBufferStride", stride / 4);
+
+            // ************* find node corners ************* //
+
             uint maxside = (uint)Mathf.Max(texSize.x, texSize.y);
 
             uint[] max = { maxside * 2, maxside * 2 };
             _minXY.SetData(max);
 
-            //var vertices = mesh.vertices;
-            var indices = mesh.GetIndices(0);
-            SetupBuffers(mesh, indices);
+            var indicesCount = mesh.GetIndexCount(0);
 
             var kernelFindUV = ComputeShader.FindKernel("CSFindMinUv");
-            //ComputeShader.SetTextureFromGlobal(kernelFindUV, "DepthTexture", "_LastCameraDepthTexture");
-            ComputeShader.SetInt("uvCount", mesh.vertexCount);
+            ComputeShader.SetInt("uvCount", vertexBuffer.count);
             ComputeShader.SetBuffer(kernelFindUV, "MinXY", _minXY);
-            ComputeShader.SetBuffer(kernelFindUV, "surfaceUVs", _texcoords);
-            var threads = Mathf.CeilToInt(mesh.vertexCount / 32f) < 1 ? 1 : Mathf.CeilToInt(mesh.vertexCount / 32f);
-            ComputeShader.Dispatch(kernelFindUV, threads, 1, 1);
+            ComputeShader.SetBuffer(kernelFindUV, "VertexBuffer", vertexBuffer);
+
+            ComputeShader.Dispatch(kernelFindUV, Mathf.CeilToInt(vertexBuffer.count / 32) < 1 ? 1 : Mathf.CeilToInt(vertexBuffer.count / 32), 1, 1);
 
             var data = new uint[2];
+            // TODO: this will cost some performance but will stop flying trees
+            // find a better solution in future, avoid copying from gpu to cpu and back again
             _minXY.GetData(data);
 
             // ************* Find center of Node ************* //
@@ -433,16 +437,20 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _heightMap.enableRandomWrite = true;
             _heightMap.Create();
 
-            var triangleCount = Mathf.CeilToInt(indices.Length / 3f);
+            var triangleCount = Mathf.CeilToInt(indicesCount / 3f);
 
             ComputeShader.SetInt("indexCount", triangleCount);
-            ComputeShader.SetBuffer(kernelHeight, "surfaceVertices", _vertices);
-            ComputeShader.SetBuffer(kernelHeight, "surfaceIndices", _indices);
-            ComputeShader.SetBuffer(kernelHeight, "surfaceUVs", _texcoords);
+
+            ComputeShader.SetBuffer(kernelHeight, "VertexBuffer", vertexBuffer);
+            ComputeShader.SetBuffer(kernelHeight, "IndexBuffer", indexbufferGpuCopy);
             ComputeShader.SetTexture(kernelHeight, "HeightMap", _heightMap);
 
-            threads = Mathf.CeilToInt(triangleCount / 4f) < 1 ? 1 : Mathf.CeilToInt(triangleCount / 4f);
+            var threads = Mathf.CeilToInt(triangleCount / 4f) < 1 ? 1 : Mathf.CeilToInt(triangleCount / 4f);
             ComputeShader.Dispatch(kernelHeight, threads, 1, 1);
+
+            indexBuffer.Dispose();
+            vertexBuffer.Dispose();
+            indexbufferGpuCopy.Dispose();
 
             return _heightMap;
         }
@@ -519,7 +527,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                     Debug.LogError($"FoliageMaterial for {set.mapFeature} can't be NULL!");
                     continue;
                 }
-                   
+
 
                 set.FoliageMaterial.SetVector("_Wind", Wind);
 

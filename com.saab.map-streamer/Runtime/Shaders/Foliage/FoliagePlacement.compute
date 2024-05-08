@@ -6,6 +6,7 @@
 #pragma kernel CSFindMinUv
 #pragma kernel CSFindMinMax
 #pragma kernel CSDownscaleDepth
+#pragma kernel CSClear
 
 #include "UnityCG.cginc"
 
@@ -17,10 +18,14 @@ struct FoliagePoint
 	float Random;
 };
 
-// Buffers
-StructuredBuffer<float3> surfaceVertices;				// Mesh Vertices
-StructuredBuffer<int> surfaceIndices;					// Mesh Indices 
-StructuredBuffer<float2> surfaceUVs;					// Mesh UVs 
+// mesh buffers
+
+StructuredBuffer<float> VertexBuffer; // Adjust data types based on your mesh format
+ByteAddressBuffer IndexBuffer;
+int PositionOffset;
+int TexcoordOffset;
+int VertexBufferStride;
+
 
 RWStructuredBuffer<uint> BufferSize;
 RWStructuredBuffer<uint> MinXY;
@@ -29,7 +34,7 @@ StructuredBuffer<bool> FeatureMap;						// feature map => int[255]
 
 AppendStructuredBuffer<FoliagePoint> TerrainPoints;		// Calculated points for one mesh
 StructuredBuffer<FoliagePoint> InputBuffer;				// buffer with all points
-StructuredBuffer<float> PixelToWorld;					// matrix pixel to world (worldpixel coord)
+StructuredBuffer<float> PixelToWorld;					// matrix pixel to world (worldpixel coord)VertexBuffer
 AppendStructuredBuffer<FoliagePoint> OutputBuffer;		// buffer with all (frustum) culled points 
 
 // textures input
@@ -111,8 +116,9 @@ float3 GetPixelCoord(float2 uv, float height = 0)
 
 float Random(float input, float mutator = 0.546)
 {
-	float random = frac(sin(input + mutator) * 14237.5554353);
-	return random;
+    float nonInteger = 43758.5453; // A different constant to avoid common factors with typical inputs
+    float seed = input + mutator * nonInteger;
+    return frac(sin(seed) * 12345.6789);
 }
 
 float Random2D(float2 input, float mutator = 0.546)
@@ -167,6 +173,25 @@ float2 MapUv(float2 uv, float2 size = float2(1,1))
     return coord;
 }
 
+float3 GetPosition(int index)
+{
+    int actualIndex = index * VertexBufferStride + PositionOffset;
+    float x = VertexBuffer[actualIndex];
+    float y = VertexBuffer[actualIndex + 1];
+    float z = VertexBuffer[actualIndex + 2];
+	
+    return float3(x, y, z);
+}
+
+float2 GetTexCoord(int index)
+{
+    int actualIndex = index * VertexBufferStride + TexcoordOffset;
+    float x = VertexBuffer[actualIndex];
+    float y = VertexBuffer[actualIndex + 1];
+	
+    return float2(x, y);
+}
+
 // ************* Find min uv value ************* //
 [numthreads(32, 1, 1)]
 void CSFindMinUv(int3 id : SV_DispatchThreadID)
@@ -174,8 +199,8 @@ void CSFindMinUv(int3 id : SV_DispatchThreadID)
 	if (id.x > uvCount)
 		return;
 
-	InterlockedMin(MinXY[0], (uint)(surfaceUVs[id.x].x * terrainResolution));
-	InterlockedMin(MinXY[1], (uint)(surfaceUVs[id.x].y * terrainResolution));
+    InterlockedMin(MinXY[0], (uint) (GetTexCoord((int)id.x).x * terrainResolution));
+    InterlockedMin(MinXY[1], (uint) (GetTexCoord((int)id.x).y * terrainResolution));
 }
 
 [numthreads(8, 8, 1)]
@@ -206,25 +231,47 @@ void CSSurfaceHeightMap(int3 id : SV_DispatchThreadID)
     SurfaceHeightMap[id.xy] = 3 + length(color) / 3 * 18;
 }
 
+uint3 loadTriangleIndices(uint nTriangle)
+{
+    uint offsetBytes = nTriangle * 6;
+    uint dwordAlignedOffset = offsetBytes & ~3;
+    uint2 four16BitIndices = IndexBuffer.Load2(dwordAlignedOffset);
+    uint3 indices;
+    if (dwordAlignedOffset == offsetBytes)
+    {
+        indices.x = four16BitIndices.x & 0xffff;
+        indices.y = (four16BitIndices.x >> 16) & 0xffff;
+        indices.z = four16BitIndices.y & 0xffff;
+    }
+    else
+    {
+        indices.x = (four16BitIndices.x >> 16) & 0xffff;
+        indices.y = four16BitIndices.y & 0xffff;
+        indices.z = (four16BitIndices.y >> 16) & 0xffff;
+    }
+    return indices;
+}
+
 // ************* Height Map Gen ************* //
 [numthreads(4, 4, 4)]
 void CSHeightMap(int3 id : SV_DispatchThreadID)
 {
-	uint index = (id.x * 3);
 	if (id.x > indexCount) { return; }
 
+    uint3 indexIndices = loadTriangleIndices(id.x);
+
 	// Vertices for one triangle
-	float3 v1 = surfaceVertices[surfaceIndices[index]];
-	float3 v2 = surfaceVertices[surfaceIndices[index + 1]];
-	float3 v3 = surfaceVertices[surfaceIndices[index + 2]];
+    float3 v1 = GetPosition(indexIndices.x);
+    float3 v2 = GetPosition(indexIndices.y);
+    float3 v3 = GetPosition(indexIndices.z);
 
 	float maxVert = max(max(v1.y, v2.y), v3.y);
 
 	// pixelcoords for one triangle
-	float2 uv1 = surfaceUVs[surfaceIndices[index]] * terrainResolution;
-	float2 uv2 = surfaceUVs[surfaceIndices[index + 1]] * terrainResolution;
-	float2 uv3 = surfaceUVs[surfaceIndices[index + 2]] * terrainResolution;
-
+    float2 uv1 = GetTexCoord(indexIndices.x) * terrainResolution;
+    float2 uv2 = GetTexCoord(indexIndices.y) * terrainResolution;
+    float2 uv3 = GetTexCoord(indexIndices.z) * terrainResolution;
+	
 	// triangle normal
 	float3 planeNormal = normalize(cross(v2 - v1, v3 - v1));
 
@@ -317,11 +364,12 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
 				float2 foliagePoint = float2(GetPixelCoord(uv + pixelOffset + pixelOverLap).x + offsetX, GetPixelCoord(uv + pixelOffset + pixelOverLap).z - (Resolution.y - offsetY));
 
 				float2 randoffset = fmod(GetWorldCoord(uv, ToWorldTexCoord, NodeOffset), 1000);
-				float2 rand = randoffset * 0.001;
-
-				float angle = (Random2D(rand, 0.731) * 2 - 1) * 3.141592;
+                float colorRandom = (Texture[uv].r + Texture[uv].g + Texture[uv].b) * 0.1;
+                float2 rand = randoffset * 0.001 + colorRandom;
+	
+				float angle = (Random2D(rand, 3.731) * 2 - 1) * 3.141592;
 				float2 randDir = float2(cos(angle), sin(angle));
-				float distance = Random2D(rand, 0.243) * (stepsize * 0.5) * 1.5;
+				float distance = Random2D(rand, 12.243) * (stepsize * 0.5) * 1.5;
 				float2 randomPoint = randDir * distance;
 				float2 uvfrac = frac(randomPoint / Resolution);
 				float2 uvOffset = floor(randomPoint / Resolution);
@@ -473,4 +521,16 @@ void CSDownscaleDepth(uint3 uv : SV_DispatchThreadID)
 	}
 
 	DownscaledDepthTexture[downscaledPos] = maxDepth;
+}
+
+[numthreads(128, 1, 1)]
+void CSClear(uint3 id : SV_DispatchThreadID)
+{
+    FoliagePoint res;	
+    res.Position = float3(0,0,0);
+    res.Color = float3(0, 0, 0);
+    res.Random = 0;
+    res.Height = 0;
+	
+    TerrainPoints.Append(res);
 }

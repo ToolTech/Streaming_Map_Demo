@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System;
 using GizmoSDK.GizmoBase;
+using System.Linq;
 
 namespace Saab.Foundation.Unity.MapStreamer.Modules
 {
@@ -43,11 +44,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         public void Dispose()
         {
-            //Debug.LogWarning($"Dispose FeatureData: {Object.name}");
-
-            var data = new FoliagePoint[TerrainPoints.count];
-            TerrainPoints.SetData(data);
-
             TerrainPoints?.Release();
             PlacementMatrix?.Release();
             HeightMap?.Release();
@@ -66,6 +62,11 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         // *********** buffers ***********
         private ComputeBuffer _mappingBuffer;
         private readonly ComputeBuffer _pointCloud;
+
+        public int FoliageCount
+        {
+            get { return _items.Count(); }
+        }
 
         public FoliageFeature(int BufferSize, float density, int[] map, ComputeShader computeShader)
         {
@@ -130,8 +131,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 if (_items[i].Object != gameobj)
                     continue;
 
-                _items[i].Dispose();
-                //Debug.LogWarning($"Removed Foliage");
+                ClearFeature(_items[i]);
 
                 if ((i + 1) < _items.Count)
                     _items[i] = _items[_items.Count - 1];
@@ -149,16 +149,32 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             for (var i = 0; i < _items.Count; ++i)
             {
-                _items[i].Dispose();
+                ClearFeature(_items[i]);
             }
             _items.Clear();
         }
+
+        // needed to clear old valid tree data from gpu memory, if skipped when frustum culling old trees might get valid/visable
+        private void ClearFeature(FeatureData data)
+        {
+            var kernal = _placement.FindKernel("CSClear");
+            _placement.SetBuffer(kernal, "TerrainPoints", data.TerrainPoints);
+            if(data.TerrainPoints.count > 0)
+                _placement.Dispatch(kernal, Mathf.CeilToInt(data.TerrainPoints.count / 128f), 1, 1);
+            data.Dispose();
+        }
+
         private int FindBufferSize(FeatureData node)
         {
             var maxSize =
                 Mathf.CeilToInt((node.FeatureMap.width) * _resolution.x * _density) *
                 Mathf.CeilToInt((node.FeatureMap.height) * _resolution.y * _density);
 
+            return Mathf.CeilToInt(maxSize) < 1 ? 1 : Mathf.CeilToInt(maxSize);
+
+            // ################## find minimum memory needed for buffer ##################
+
+            /*
             var bufferKernel = _placement.FindKernel("CSFindBufferSize");
             var result = new uint[1];
 
@@ -183,7 +199,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             sizeBuffer.Release();
             return Mathf.CeilToInt(maxSize * percentage) < 1 ? 1 : Mathf.CeilToInt(maxSize * percentage);
+            */
         }
+        // used for debuging the min and max height of the node
         private void GetMinMax(string node, Texture2D heightmap)
         {
             var buff = new ComputeBuffer(2, sizeof(uint), ComputeBufferType.Default);
@@ -205,6 +223,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             Debug.LogError($"MinMax: {tmp[0]}, {tmp[1]}");
             buff.Release();
         }
+
         private void FeaturePlacement(FeatureData node)
         {
             var kernelPlacement = _placement.FindKernel("CSPlacement");

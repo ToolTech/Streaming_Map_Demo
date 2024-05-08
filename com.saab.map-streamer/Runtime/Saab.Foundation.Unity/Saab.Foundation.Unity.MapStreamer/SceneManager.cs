@@ -132,6 +132,7 @@ namespace Saab.Foundation.Unity.MapStreamer
         public event EventHandler_OnGameObject  OnNewTransform;     // GameObject that has a specific parent transform
         public event EventHandler_OnGameObject  OnNewLoader;        // GameObject that works like a dynamic loader
         public event EventHandler_OnGameObject  OnEnterPool;
+        public event EventHandler_OnGameObject  OnRemoveGeometry;
 
         public delegate void EventHandler_Traverse(bool locked);    // Pre and Post traversal in locked or unlocked mode (edit)
 
@@ -1396,6 +1397,10 @@ namespace Saab.Foundation.Unity.MapStreamer
             {
                 nodeHandle.builder.BuiltObjectReturnedToPool(go);
                 nodeHandle.builder = null;
+            }
+            if (node is Geometry geom)
+            {
+                OnRemoveGeometry?.Invoke(go);
             }
 
             nodeHandle.stateLoadInfo = StateLoadInfo.None;
