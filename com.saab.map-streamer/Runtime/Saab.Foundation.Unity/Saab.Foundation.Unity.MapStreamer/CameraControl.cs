@@ -58,7 +58,7 @@ namespace Saab.Foundation.Unity.MapStreamer
         public float tilt;
     }
 
-    public class CameraControl : MonoBehaviour , ISceneManagerCamera
+    public class CameraControl : MonoBehaviour, ISceneManagerCamera
     {
 
         public float Speed = 20f;
@@ -104,6 +104,26 @@ namespace Saab.Foundation.Unity.MapStreamer
                 Y = value.y;
                 Z = value.z;
             }
+        }
+
+        private float _countDownJump = 4;
+        private float _jumpTime = 4;
+        public float JumpInterval
+        {
+            get
+            {
+                return _jumpTime;
+            }
+            set
+            {
+                _jumpTime = value;
+                _countDownJump = _jumpTime;
+            }
+        }
+
+        public void SetSeed(int seed)
+        {
+            Random.InitState(seed);
         }
 
         public Vector3 Up
@@ -176,7 +196,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             transform.rotation = rot;
         }
 
-            // Update is called once per frame
+        // Update is called once per frame
         void Update()
         {
             try
@@ -184,7 +204,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                 Performance.Enter("CameraControl.Update");
                 // Check mouse click
 
-                if (Input.GetButtonDown("Fire1") &&  Input.GetKey(KeyCode.LeftShift) && !_inputLocked)
+                if (Input.GetButtonDown("Fire1") && Input.GetKey(KeyCode.LeftShift) && !_inputLocked)
                 {
                     Map.MapPos mapPos;
 
@@ -239,8 +259,8 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                 //transform.position;
 
-                
-                if(Input.GetKey("b"))
+
+                if (Input.GetKey("b"))
                 {
                     GizmoSDK.Gizmo3D.DynamicLoaderManager.StopManager();
                 }
@@ -253,7 +273,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                 //transform.position = pos;
 
-                
+
             }
             finally
             {
@@ -271,6 +291,27 @@ namespace Saab.Foundation.Unity.MapStreamer
             // Called after all nodes have updated their transforms
         }
 
+        public void RandomJump(float distance, float maxDistance = 3000)
+        {
+            _countDownJump -= UnityEngine.Time.deltaTime;
+
+            if (_countDownJump <= 0)
+            {
+                _countDownJump = JumpInterval;
+                Quaternion rot = transform.rotation;
+                rot *= Quaternion.Euler(0, Random.Range(160, 200), 0);
+                transform.rotation = rot;
+
+                X = X + (Random.value * 0.5) + 0.5f * distance;
+                Z = Z + (Random.value * 0.5) + 0.5f * distance;
+
+                if (X > maxDistance)
+                    X = 0;
+                if (Z > maxDistance)
+                    Z = 0;
+            }
+        }
+
         public double UpdateCamera(double renderTime)
         {
             _lastRenderTime = _currentRenderTime;
@@ -284,7 +325,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             var speed = Speed;
 
             if (Input.GetKey(KeyCode.LeftShift))
-                speed *= ShiftMultiplier; 
+                speed *= ShiftMultiplier;
 
             if (Input.GetKey("w"))
             {

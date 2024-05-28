@@ -6,6 +6,7 @@
 #pragma kernel CSFindMinUv
 #pragma kernel CSFindMinMax
 #pragma kernel CSDownscaleDepth
+#pragma kernel CSClear
 
 #include "UnityCG.cginc"
 
@@ -17,10 +18,14 @@ struct FoliagePoint
 	float Random;
 };
 
-// Buffers
-StructuredBuffer<float3> surfaceVertices;				// Mesh Vertices
-StructuredBuffer<int> surfaceIndices;					// Mesh Indices 
-StructuredBuffer<float2> surfaceUVs;					// Mesh UVs 
+// mesh buffers
+
+StructuredBuffer<float> VertexBuffer; // Adjust data types based on your mesh format
+ByteAddressBuffer IndexBuffer;
+int PositionOffset;
+int TexcoordOffset;
+int VertexBufferStride;
+
 
 RWStructuredBuffer<uint> BufferSize;
 RWStructuredBuffer<uint> MinXY;
@@ -29,7 +34,7 @@ StructuredBuffer<bool> FeatureMap;						// feature map => int[255]
 
 AppendStructuredBuffer<FoliagePoint> TerrainPoints;		// Calculated points for one mesh
 StructuredBuffer<FoliagePoint> InputBuffer;				// buffer with all points
-StructuredBuffer<float> PixelToWorld;					// matrix pixel to world (worldpixel coord)
+StructuredBuffer<float> PixelToWorld;					// matrix pixel to world (worldpixel coord)VertexBuffer
 AppendStructuredBuffer<FoliagePoint> OutputBuffer;		// buffer with all (frustum) culled points 
 
 // textures input
@@ -45,6 +50,7 @@ RWTexture2D<float> DownscaledDepthTexture;
 float3 CameraPosition;						// camera position in worldPos
 float4 frustumPlanes[6];					// Frustum planes (6 planes * 4 floats: [ normal.x, normal.y, normal.z, distance ])
 uniform float4x4 WorldToScreen;				// World to clipPos
+float3 CameraRightVector;					// The right vector of the camera
 
 // Global Variables
 bool Occlusion;
@@ -110,8 +116,9 @@ float3 GetPixelCoord(float2 uv, float height = 0)
 
 float Random(float input, float mutator = 0.546)
 {
-	float random = frac(sin(input + mutator) * 14237.5554353);
-	return random;
+    float nonInteger = 43758.5453; // A different constant to avoid common factors with typical inputs
+    float seed = input + mutator * nonInteger;
+    return frac(sin(seed) * 12345.6789);
 }
 
 float Random2D(float2 input, float mutator = 0.546)
@@ -151,6 +158,40 @@ float2 GetWorldCoord(uint2 texCoord, float3x3 worldToTexCoord, float2 nodeCoord)
 	return WorldPixelCoord + foliageOffset;
 }
 
+float2 MapUv(float2 uv, float2 size = float2(1,1))
+{
+    float2 coord = uv;
+	
+	#ifdef UNITY_HALF_TEXEL_OFFSET
+		coord -= float2(0.5 / size.x, 0.5 / size.y);
+	#endif
+			
+	#if UNITY_UV_STARTS_AT_TOP
+		coord.y = 1.0 - (coord.y / size.y); // Flip the y-coordinate if UVs start at the top
+	#endif
+	
+    return coord;
+}
+
+float3 GetPosition(int index)
+{
+    int actualIndex = index * VertexBufferStride + PositionOffset;
+    float x = VertexBuffer[actualIndex];
+    float y = VertexBuffer[actualIndex + 1];
+    float z = VertexBuffer[actualIndex + 2];
+	
+    return float3(x, y, z);
+}
+
+float2 GetTexCoord(int index)
+{
+    int actualIndex = index * VertexBufferStride + TexcoordOffset;
+    float x = VertexBuffer[actualIndex];
+    float y = VertexBuffer[actualIndex + 1];
+	
+    return float2(x, y);
+}
+
 // ************* Find min uv value ************* //
 [numthreads(32, 1, 1)]
 void CSFindMinUv(int3 id : SV_DispatchThreadID)
@@ -158,8 +199,8 @@ void CSFindMinUv(int3 id : SV_DispatchThreadID)
 	if (id.x > uvCount)
 		return;
 
-	InterlockedMin(MinXY[0], (uint)(surfaceUVs[id.x].x * terrainResolution));
-	InterlockedMin(MinXY[1], (uint)(surfaceUVs[id.x].y * terrainResolution));
+    InterlockedMin(MinXY[0], (uint) (GetTexCoord((int)id.x).x * terrainResolution));
+    InterlockedMin(MinXY[1], (uint) (GetTexCoord((int)id.x).y * terrainResolution));
 }
 
 [numthreads(8, 8, 1)]
@@ -190,25 +231,47 @@ void CSSurfaceHeightMap(int3 id : SV_DispatchThreadID)
     SurfaceHeightMap[id.xy] = 3 + length(color) / 3 * 18;
 }
 
+uint3 loadTriangleIndices(uint nTriangle)
+{
+    uint offsetBytes = nTriangle * 6;
+    uint dwordAlignedOffset = offsetBytes & ~3;
+    uint2 four16BitIndices = IndexBuffer.Load2(dwordAlignedOffset);
+    uint3 indices;
+    if (dwordAlignedOffset == offsetBytes)
+    {
+        indices.x = four16BitIndices.x & 0xffff;
+        indices.y = (four16BitIndices.x >> 16) & 0xffff;
+        indices.z = four16BitIndices.y & 0xffff;
+    }
+    else
+    {
+        indices.x = (four16BitIndices.x >> 16) & 0xffff;
+        indices.y = four16BitIndices.y & 0xffff;
+        indices.z = (four16BitIndices.y >> 16) & 0xffff;
+    }
+    return indices;
+}
+
 // ************* Height Map Gen ************* //
 [numthreads(4, 4, 4)]
 void CSHeightMap(int3 id : SV_DispatchThreadID)
 {
-	uint index = (id.x * 3);
 	if (id.x > indexCount) { return; }
 
+    uint3 indexIndices = loadTriangleIndices(id.x);
+
 	// Vertices for one triangle
-	float3 v1 = surfaceVertices[surfaceIndices[index]];
-	float3 v2 = surfaceVertices[surfaceIndices[index + 1]];
-	float3 v3 = surfaceVertices[surfaceIndices[index + 2]];
+    float3 v1 = GetPosition(indexIndices.x);
+    float3 v2 = GetPosition(indexIndices.y);
+    float3 v3 = GetPosition(indexIndices.z);
 
 	float maxVert = max(max(v1.y, v2.y), v3.y);
 
 	// pixelcoords for one triangle
-	float2 uv1 = surfaceUVs[surfaceIndices[index]] * terrainResolution;
-	float2 uv2 = surfaceUVs[surfaceIndices[index + 1]] * terrainResolution;
-	float2 uv3 = surfaceUVs[surfaceIndices[index + 2]] * terrainResolution;
-
+    float2 uv1 = GetTexCoord(indexIndices.x) * terrainResolution;
+    float2 uv2 = GetTexCoord(indexIndices.y) * terrainResolution;
+    float2 uv3 = GetTexCoord(indexIndices.z) * terrainResolution;
+	
 	// triangle normal
 	float3 planeNormal = normalize(cross(v2 - v1, v3 - v1));
 
@@ -236,7 +299,7 @@ void CSHeightMap(int3 id : SV_DispatchThreadID)
 	{
 		for (uint y = startY; y <= min(Ymax, endY); y++)
 		{
-			float2 uv = float2(x, y);
+            float2 uv = float2(x, y);
 			// HeightMap[uv] = height;
 			// check if inside triangle
 
@@ -301,11 +364,12 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
 				float2 foliagePoint = float2(GetPixelCoord(uv + pixelOffset + pixelOverLap).x + offsetX, GetPixelCoord(uv + pixelOffset + pixelOverLap).z - (Resolution.y - offsetY));
 
 				float2 randoffset = fmod(GetWorldCoord(uv, ToWorldTexCoord, NodeOffset), 1000);
-				float2 rand = randoffset * 0.001;
-
-				float angle = (Random2D(rand, 0.731) * 2 - 1) * 3.141592;
+                float colorRandom = (Texture[uv].r + Texture[uv].g + Texture[uv].b) * 0.1;
+                float2 rand = randoffset * 0.001 + colorRandom;
+	
+				float angle = (Random2D(rand, 3.731) * 2 - 1) * 3.141592;
 				float2 randDir = float2(cos(angle), sin(angle));
-				float distance = Random2D(rand, 0.243) * (stepsize * 0.5) * 1.5;
+				float distance = Random2D(rand, 12.243) * (stepsize * 0.5) * 1.5;
 				float2 randomPoint = randDir * distance;
 				float2 uvfrac = frac(randomPoint / Resolution);
 				float2 uvOffset = floor(randomPoint / Resolution);
@@ -352,22 +416,46 @@ inline bool IsInFrustum(float3 positionAfterProjection, float threshold)
 }
 
 
-bool IsHidden(float3 pos, float distance, float bias = 10)
+float3 GetScreenPos(float3 pos)
 {
-	float4 clipCoord = mul(WorldToScreen, float4(pos.xyz, 1));
-	float DepthPos = clipCoord.z;
-	float2 screenPos = clipCoord.xy / clipCoord.w;			// converts to a range (-1) - 1
-	screenPos = screenPos * 0.5 + 0.5;						// convert to a range 0- 1
-	screenPos *= DownscaleSize;								// convert to pixel coordiantes
+    float4 clipCoord = mul(WorldToScreen, float4(pos.xyz, 1));
+    float DepthPos = clipCoord.z;
+    float2 screenPos = clipCoord.xy / clipCoord.w;		// converts to a range (-1) - 1
+    screenPos = screenPos * 0.5 + 0.5;					// convert to a range 0- 1
+    screenPos *= DownscaleSize - float2(1, 1);			// convert to pixel coordiantes
+	
+	// clamp screenPos to always be in screen
+    screenPos.xy = clamp(screenPos.xy, float2(0, 0), DownscaleSize - float2(1, 1));
+	
+    return float3(screenPos.xy, DepthPos);
+}
 
-	float depth = DepthTexture[floor(clamp(screenPos.xy, float2(0,0), DownscaleSize - float2(1,1)))];
-	float farClip = _ProjectionParams.z;
-	depth *= farClip;
+bool IsHidden(float3 pos, float height, float distance, float bias = 10)
+{
+    float3 topRight = GetScreenPos(pos.xyz + CameraRightVector * 0.5f * height + float3(0, height, 0));
+    float3 bottomLeft = GetScreenPos(pos.xyz - CameraRightVector * 0.5f * height);
+	
+    float DepthPos = min(topRight.z, bottomLeft.z);	
+    float depth = 0;
+	
+    topRight.xy = ceil(topRight.xy);
+    bottomLeft.xy = floor(bottomLeft.xy);
+	
+    for (float y = bottomLeft.y; y <= topRight.y; y++)
+    {
+        for (float x = bottomLeft.x; x <= topRight.x; x++)
+        {
+            depth = max(DepthTexture[float2(x, y)], depth);
+        }
+    }
+	
+    float farClip = _ProjectionParams.z;
+    depth *= farClip;
 
-	if (depth + bias < DepthPos)
-		return true;
-
-	return false;
+    if (depth + bias < DepthPos)
+        return true;
+	
+    return false;
 }
 
 
@@ -398,41 +486,51 @@ void CSCull(uint3 id : SV_DispatchThreadID)
 
 	if (IsInFrustum((pos.xyz - CameraPosition), -maxHeight * 0.8))
 	{
-		data.Position = pos.xyz;
-		float3 top = pos + float3(0, 1, 0) * data.Height;
-		float3 center = pos + float3(0, 1, 0) * data.Height * 0.5;
-
+        data.Position = pos.xyz;
+		
 		// ******** occlussion culling ******** 
-		if (Occlusion && IsHidden(pos, distance, 2) 
-			&& IsHidden(top, distance, 2)
-			&& IsHidden(center, distance, 2))
-			return;
+        if (Occlusion && IsHidden(pos.xyz, data.Height, distance, 0))
+            return;
 
 		OutputBuffer.Append(data);
 	}
 }
 
-[numthreads(8, 8, 1)]
+[numthreads(10, 10, 1)]
 void CSDownscaleDepth(uint3 uv : SV_DispatchThreadID)
 {
-	int scale = Scale;
+    if (uv.x >= Scale || uv.y >= Scale)
+        return;
+	
+    float2 scale = float2((_ScreenParams.x / Scale), (_ScreenParams.y / Scale));	
 	uint2 sourcePos = uv.xy * scale;
 	uint2 downscaledPos = uv.xy;
-	float farClip = _ProjectionParams.z;
-
 	float maxDepth = 0.0;
 
 	// Perform downsampling and track maximum depth
-	for (uint i = 0; i < scale; i++)
+    for (uint y = 0; y < ceil(scale.y); y++)
 	{
-		for (uint j = 0; j < scale; j++)
+        for (uint x = 0; x < ceil(scale.x); x++)
 		{
-			uint2 samplePos = sourcePos + uint2(i, j);
+			uint2 samplePos = sourcePos + uint2(x, y);
 			float depth = Linear01Depth(DepthTexture[samplePos]);
-			if (samplePos.x < _ScreenParams.x && samplePos.y < _ScreenParams.y)
+			
+            if (samplePos.x < _ScreenParams.x && samplePos.y < _ScreenParams.y)
 				maxDepth = max(maxDepth, depth);
 		}
 	}
 
 	DownscaledDepthTexture[downscaledPos] = maxDepth;
+}
+
+[numthreads(128, 1, 1)]
+void CSClear(uint3 id : SV_DispatchThreadID)
+{
+    FoliagePoint res;	
+    res.Position = float3(0,0,0);
+    res.Color = float3(0, 0, 0);
+    res.Random = 0;
+    res.Height = 0;
+	
+    TerrainPoints.Append(res);
 }

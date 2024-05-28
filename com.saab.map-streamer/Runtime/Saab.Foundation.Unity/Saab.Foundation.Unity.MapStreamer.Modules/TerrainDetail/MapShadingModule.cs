@@ -195,6 +195,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 meshRenderer.material.SetBuffer("_MappingBuffer", _mappingBuffer);
 
                 _nodeMaterials.Add(meshRenderer.material);
+                RefreshSettings();
             }
         }
 

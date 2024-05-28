@@ -8,8 +8,8 @@ pool:
 variables:
   ArticleFull: '8866027201'
   ProjectID: 'MapStreamer'
-  Major: '1'
-  Minor: '2'
+  Major: '4'
+  Minor: '0'
 
 workspace:
   clean: all

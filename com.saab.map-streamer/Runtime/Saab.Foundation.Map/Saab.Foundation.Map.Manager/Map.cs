@@ -112,6 +112,8 @@ namespace Saab.Foundation.Map
         public delegate void EventHandler_MapInfo(string url,MapType type,Node root);
         public event EventHandler_MapInfo OnMapInfo;
 
+        private readonly Coordinate _converter = new Coordinate();
+
         public MapControl()
         {
             Reset();
@@ -228,31 +230,27 @@ namespace Saab.Foundation.Map
         {
             // TODO:Coordinate.GetGlobalCoordinate(global_position+_origin, _coordSystem, _metaData, out LatPos lp);
 
-            Coordinate converter = new Coordinate();
-
-            if (!GlobalToWorld(converter, global_position))
+            if (!GlobalToWorld(global_position))
             {
                 result = default;
                 return false;
             }
 
-            return converter.GetLatPos(out result);
+            return _converter.GetLatPos(out result);
         }
 
         public bool GlobalToWorld(Vec3D global_position, out CartPos result)
         {
-            Coordinate converter = new Coordinate();
-
-            if (!GlobalToWorld(converter, global_position))
+            if (!GlobalToWorld(global_position))
             {
                 result = default;
                 return false;
             }
 
-            return converter.GetCartPos(out result);
+            return _converter.GetCartPos(out result);
         }
 
-        private bool WorldToGlobal(Coordinate converter, ref Vec3D pos, ref Matrix3 orientationMatrix)
+        private bool WorldToGlobal(ref Vec3D pos, ref Matrix3 orientationMatrix)
         {
 
             // Convert to global 3D coordinate in appropriate target system
@@ -263,7 +261,7 @@ namespace Saab.Foundation.Map
                     {
                         UTMPos utmpos;
 
-                        if (!converter.GetUTMPos(out utmpos))
+                        if (!_converter.GetUTMPos(out utmpos))
                         {
                             Message.Send("Controller", MessageLevel.WARNING, "Failed to convert to UTM");
                             return false;
@@ -278,7 +276,7 @@ namespace Saab.Foundation.Map
                     {
                         CartPos cartpos;
 
-                        if (!converter.GetCartPos(out cartpos))
+                        if (!_converter.GetCartPos(out cartpos))
                         {
                             Message.Send("Controller", MessageLevel.WARNING, "Failed to convert to Geocentric");
                             return false;
@@ -299,7 +297,7 @@ namespace Saab.Foundation.Map
             return true;
         }
 
-        public bool GlobalToWorld(Coordinate converter, Vec3D position)
+        public bool GlobalToWorld(Vec3D position)
         {
             switch (_mapType)
             {
@@ -312,7 +310,7 @@ namespace Saab.Foundation.Map
 
                     UTMPos utmpos = new UTMPos(_metaData.Zone(),_metaData.North(), -(position.z + _origin.z), position.x + _origin.x, position.y + _origin.y);
 
-                    converter.SetUTMPos(utmpos);
+                    _converter.SetUTMPos(utmpos);
 
                     break;
 
@@ -320,7 +318,7 @@ namespace Saab.Foundation.Map
 
                     CartPos cartpos = new CartPos(position.x + _origin.x, position.y + _origin.y, position.z + _origin.z);
 
-                    converter.SetCartPos(cartpos);
+                    _converter.SetCartPos(cartpos);
 
                     break;
             }
@@ -542,6 +540,7 @@ namespace Saab.Foundation.Map
 
             if (groundClamp != GroundClampType.NONE)
             {
+                
 
                 // Add ROINode position as offset   - Go to global 3D coordinate system as we need to clamp in global 3D
 
@@ -680,8 +679,6 @@ namespace Saab.Foundation.Map
         /// <returns></returns>
         public Matrix3 GetLocalOrientation(Vec3D global_position)
         {
-            Coordinate converter = new Coordinate();
-
             switch (_mapType)
             {
                 default:
@@ -707,8 +704,7 @@ namespace Saab.Foundation.Map
         /// <returns></returns>
         public Matrix3 GetLocalOrientation(LatPos pos)
         {
-            Coordinate converter = new Coordinate();
-            converter.SetLatPos(pos);
+            _converter.SetLatPos(pos);
 
             switch (_mapType)
             {
@@ -726,7 +722,7 @@ namespace Saab.Foundation.Map
 
                     CartPos cartpos;
 
-                    if (!converter.GetCartPos(out cartpos))
+                    if (!_converter.GetCartPos(out cartpos))
                     {
                         Message.Send("Controller", MessageLevel.WARNING, "Failed to convert to Geocentric");
                         return new Matrix3();
@@ -736,10 +732,6 @@ namespace Saab.Foundation.Map
             }
         }
 
-        
-
-       
-
         /// <summary>
         /// Converts a global mappos to a local under a roi
         /// </summary>
@@ -747,6 +739,7 @@ namespace Saab.Foundation.Map
         /// <returns></returns>
         public bool ToLocal(MapPos result)
         {
+
             if (result.node != null)        // Already local
                 return true;
 
@@ -796,10 +789,9 @@ namespace Saab.Foundation.Map
 
         public bool SetPosition(MapPos result, LatPos pos, GroundClampType groundClamp = GroundClampType.NONE, ClampFlags flags = ClampFlags.DEFAULT)
         {
-            Coordinate converter = new Coordinate();
-            converter.SetLatPos(pos);
+            _converter.SetLatPos(pos);
 
-            if (!WorldToGlobal(converter, ref result.position, ref result.local_orientation))
+            if (!WorldToGlobal(ref result.position, ref result.local_orientation))
                 return false;
 
             ToLocal(result);
@@ -809,10 +801,9 @@ namespace Saab.Foundation.Map
 
         public bool SetPosition(MapPos result, CartPos pos, GroundClampType groundClamp = GroundClampType.NONE, ClampFlags flags = ClampFlags.DEFAULT)
         {
-            Coordinate converter = new Coordinate();
-            converter.SetCartPos(pos);
+            _converter.SetCartPos(pos);
 
-            if (!WorldToGlobal(converter, ref result.position, ref result.local_orientation))
+            if (!WorldToGlobal(ref result.position, ref result.local_orientation))
                 return false;
 
             // Check possibly local 3D under a roiNode
@@ -1022,6 +1013,7 @@ namespace Saab.Foundation.Map
             set { _camera = value; }
         }
 
+        
         public string NodeURL
         {
             get
