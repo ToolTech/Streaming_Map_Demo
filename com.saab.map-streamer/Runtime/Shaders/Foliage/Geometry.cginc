@@ -204,7 +204,7 @@ void Crossboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triSt
 	{
 		float2 windDir = normalize(_Wind.xy);
 		float rand = Random(random, 0.181);
-		float curve = ((cos(_Time * _Wind.z * (1 + rand * 0.1))) + 1) * 0.5;
+		float curve = ((cos(_Time * _Wind.z * (1 + rand * 0.1))) * 0.5 + 0.5) * 0.5;
 		wind = float3(windDir.x, 0, windDir.y) * curve * foliageHeight * 0.02;
 	}
 	// disable wind
