@@ -1,3 +1,18 @@
+/* 
+ * Copyright (C) SAAB AB
+ *
+ * All rights, including the copyright, to the computer program(s) 
+ * herein belong to Saab AB. The program(s) may be used and/or
+ * copied only with the written permission of Saab AB, or in
+ * accordance with the terms and conditions stipulated in the
+ * agreement/contract under which the program(s) have been
+ * supplied. 
+ * 
+ * Information Class:          COMPANY RESTRICTED
+ * Defence Secrecy:            UNCLASSIFIED
+ * Export Control:             NOT EXPORT CONTROLLED
+ */
+
 void AppendVertex(inout FS_INPUT pin, float3 wp, float3 center, float radius, float3 uv, float3 normal, float3 color)
 {
 	pin.pos = UnityObjectToClipPos(wp);
@@ -200,12 +215,14 @@ void Crossboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triSt
 
 	float3 wind = float3(0, 0, 0);
 
+    float3 WorldPos = _WorldOffset * 2 + pos;
+    float curve = tex2Dlod(_WindTexture, float4(WorldPos.xz * 0.0005 - _Time.x * _Wind.xy * _Wind.z * 0.1, 1, 1)).r;
+    curve = saturate(curve + (_Wind.z / 100)) * 0.01;
+	
 	if (length(_Wind.xy) > 0)
 	{
 		float2 windDir = normalize(_Wind.xy);
-		float rand = Random(random, 0.181);
-		float curve = ((cos(_Time * _Wind.z * (1 + rand * 0.1))) * 0.5 + 0.5) * 0.5;
-		wind = float3(windDir.x, 0, windDir.y) * curve * foliageHeight * 0.02;
+        wind = float3(windDir.x, 0, windDir.y) * curve * _Wind.z * foliageHeight ;
 	}
 	// disable wind
 	//wind *= 0;
@@ -341,12 +358,16 @@ void Grass(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStream)
 
 		float3 wind = float3(0, 0, 0);
 
+        float3 WorldPos = _WorldOffset * 2 + pos;
+        float curve = tex2Dlod(_WindTexture, float4(WorldPos.xz * 0.0005 - _Time.x * _Wind.xy * _Wind.z * 0.1, 1, 1)).r;
+		
+        curve = saturate(curve + (_Wind.z / 100)) * 0.1;
+		
 		if (length(_Wind.xy) > 0)
 		{
 			float2 windDir = normalize(_Wind.xy);
-			float curve = ((cos(_Time * _Wind.z * (1 + rand * 0.03))) + 1) * 0.3;
-			wind = float3(windDir.x, 0, windDir.y) * curve * h;
-		}
+            wind = float3(windDir.x, 0, windDir.y) * curve * _Wind.z * h;
+        }
 
 		float4 f[4];
 		// right bottom
