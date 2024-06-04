@@ -224,8 +224,6 @@ void Crossboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triSt
 		float2 windDir = normalize(_Wind.xy);
         wind = float3(windDir.x, 0, windDir.y) * curve * _Wind.z * foliageHeight ;
 	}
-	// disable wind
-	//wind *= 0;
 
 	// *********** front points ***********
 

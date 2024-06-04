@@ -174,7 +174,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         {
             var kernal = _placement.FindKernel("CSClear");
             _placement.SetBuffer(kernal, "TerrainPoints", data.TerrainPoints);
-            if(data.TerrainPoints.count > 0)
+            _placement.SetInt("BufferCount", data.TerrainPoints.count);
+            if (data.TerrainPoints.count > 0)
                 _placement.Dispatch(kernal, Mathf.CeilToInt(data.TerrainPoints.count / 128f), 1, 1);
             data.Dispose();
         }

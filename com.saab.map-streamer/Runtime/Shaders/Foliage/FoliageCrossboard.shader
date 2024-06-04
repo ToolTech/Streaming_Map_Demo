@@ -135,6 +135,17 @@ Shader "Custom/Foliage/Billboard"
 				return float2(u, v);
 			}
 
+			float invLerp(float from, float to, float value) 
+            {
+                return (value - from) / (to - from);
+            }
+
+            float remap(float origFrom, float origTo, float targetFrom, float targetTo, float value) 
+            {
+                float rel = invLerp(origFrom, origTo, value);
+                return lerp(targetFrom, targetTo, rel);
+            }
+
 			ENDCG
 
 			// ********* Opaque alpha cutoff - Deferred  *********
@@ -170,7 +181,7 @@ Shader "Custom/Foliage/Billboard"
 					float depth = i.pos.z / i.pos.w;
 					
 					float3 LookDir = normalize(_WorldSpaceCameraPos - i.wp);
-					float blend = dot(i.normal, LookDir);
+					//float blend = dot(i.normal, LookDir);
 
 					// *********** sphere normals ************* 
 					float3 sphereNormal = SphereProjectedNormal(i);
@@ -185,39 +196,28 @@ Shader "Custom/Foliage/Billboard"
 						finalNormal = i.normal;
 						col.rgb = col.rgb * i.tex0.y + i.color.rgb * 0.4 * (1 - i.tex0.y);
 					}
-						
 
 					const half4x4 thresholdMatrix =
 					{
-						1, 9, 3, 11,
-						13, 5, 15, 7,
-						4, 12, 2, 10,
-						16, 8, 14, 6
-					};
-					const half4x4 invThresholdMatrix =
-					{
-						16, 8, 14, 6,
-						4, 12, 2, 10,
-						13, 5, 15, 7,
-						1, 9, 3, 11
+						0, 8, 2, 10,
+						12, 4, 14, 6,
+						3, 11, 1, 9,
+						15, 7, 13, 5
 					};
 
-					fixed threshold;
-
-					if (depth % 2 == 0)
-					{
-						threshold = invThresholdMatrix[i.pos.x % 4][i.pos.y % 4] / 17;
-					}
-					else
-					{
-						threshold = thresholdMatrix[i.pos.x % 4][i.pos.y % 4] / 17;
-					}
-
+					fixed threshold = thresholdMatrix[i.pos.x % 4][i.pos.y % 4] / 17;
 					float power = 3;
-					if (threshold >= (-pow(1 - abs(blend), power) + 1) * (1 - i.normal.y) + (i.normal.y) * pow(abs(blend), power))
+
+					if(1 - abs(i.normal.y) < 0.01)
 					{
-						//discard;
+						float upGradient = abs(dot(LookDir, i.normal));
+						float angle = 2 * acos(upGradient) / 3.141592653589793238462643;
+						float linearAngle = remap(0.3, 0.7, 1, 0, angle);
+
+						if(linearAngle <= threshold)
+							discard;
 					}
+
 
 					#ifdef UNITY_COMPILER_HLSL
 						SurfaceOutputStandardSpecular o = (SurfaceOutputStandardSpecular)0;
@@ -310,6 +310,7 @@ Shader "Custom/Foliage/Billboard"
 					fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_MainTexArray, i.tex0);
 					float c = CutoffDistance(distance(i.wp, _WorldSpaceCameraPos));
 					clip(col.a - c);
+
 					return float4(0,0,0,0);
 				}
 				ENDCG

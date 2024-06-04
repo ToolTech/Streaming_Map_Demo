@@ -68,6 +68,7 @@ uniform float4x4 WorldToScreen;				// World to clipPos
 float3 CameraRightVector;					// The right vector of the camera
 
 // Global Variables
+float BufferCount;
 bool Occlusion;
 uint Scale;
 float2 DownscaleSize;						// size of screen in pixels (for depthtexture)
@@ -211,7 +212,7 @@ float2 GetTexCoord(int index)
 [numthreads(32, 1, 1)]
 void CSFindMinUv(int3 id : SV_DispatchThreadID)
 {
-	if (id.x > uvCount)
+	if (id.x >= uvCount)
 		return;
 
     InterlockedMin(MinXY[0], (uint) (GetTexCoord((int)id.x).x * terrainResolution));
@@ -271,7 +272,7 @@ uint3 loadTriangleIndices(uint nTriangle)
 [numthreads(4, 4, 4)]
 void CSHeightMap(int3 id : SV_DispatchThreadID)
 {
-	if (id.x > indexCount) { return; }
+	if (id.x >= indexCount) { return; }
 
     uint3 indexIndices = loadTriangleIndices(id.x);
 
@@ -541,6 +542,9 @@ void CSDownscaleDepth(uint3 uv : SV_DispatchThreadID)
 [numthreads(128, 1, 1)]
 void CSClear(uint3 id : SV_DispatchThreadID)
 {
+    if (id.x >= BufferCount)
+        return;
+	
     FoliagePoint res;	
     res.Position = float3(0,0,0);
     res.Color = float3(0, 0, 0);
