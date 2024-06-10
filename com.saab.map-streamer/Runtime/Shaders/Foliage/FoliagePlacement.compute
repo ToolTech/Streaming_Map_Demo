@@ -37,9 +37,9 @@ struct FoliagePoint
 
 StructuredBuffer<float> VertexBuffer; // Adjust data types based on your mesh format
 ByteAddressBuffer IndexBuffer;
-int PositionOffset;
-int TexcoordOffset;
-int VertexBufferStride;
+uint PositionOffset;
+uint TexcoordOffset;
+uint VertexBufferStride;
 
 
 RWStructuredBuffer<uint> BufferSize;
@@ -68,7 +68,7 @@ uniform float4x4 WorldToScreen;				// World to clipPos
 float3 CameraRightVector;					// The right vector of the camera
 
 // Global Variables
-float BufferCount;
+uint BufferCount;
 bool Occlusion;
 uint Scale;
 float2 DownscaleSize;						// size of screen in pixels (for depthtexture)
@@ -85,7 +85,7 @@ float3 MeshBoundsMax;						// Mesh offset
 float4x4 ObjToWorld;						// Local To World
 
 // ************* Inside triangle check ************* //
-bool TriangleCheck(float2 p, float2 A, float2 B, float2 C)
+bool InsideTriangle(float2 p, float2 A, float2 B, float2 C)
 {
 	float area = 0.5 * (-B.y * C.x + A.y * (-B.x + C.x) + A.x * (B.y - C.y) + B.x * C.y);
 	float sign = area < 0 ? -1 : 1;
@@ -120,6 +120,26 @@ float PlaneIntersect(float3 origin, float3 ray, float3 planeNormal, float3 plane
 	float3 contact = origin + newRay;
 
 	return contact.y;
+}
+
+float GetHeightOfPlaneAtXZ(float3 planeNormal, float3 pointInPlane, float2 xz, out bool success)
+{
+    success = true;
+	
+	//Probably not necessary since terrain triangles should never be perfectly vertical.
+    if (planeNormal.y == 0)
+    {
+        success = false;
+        return 0;
+    }
+	
+    float yByX = -planeNormal.x / planeNormal.y;
+    float yByZ = -planeNormal.z / planeNormal.y;
+	
+    float diffX = xz.x - pointInPlane.x;
+    float diffZ = xz.y - pointInPlane.z;
+	
+    return pointInPlane.y + diffX * yByX + diffZ * yByZ;
 }
 
 float3 GetPixelCoord(float2 uv, float height = 0)
@@ -189,9 +209,9 @@ float2 MapUv(float2 uv, float2 size = float2(1,1))
     return coord;
 }
 
-float3 GetPosition(int index)
+float3 GetPosition(uint index)
 {
-    int actualIndex = index * VertexBufferStride + PositionOffset;
+    uint actualIndex = index * VertexBufferStride + PositionOffset;
     float x = VertexBuffer[actualIndex];
     float y = VertexBuffer[actualIndex + 1];
     float z = VertexBuffer[actualIndex + 2];
@@ -199,9 +219,9 @@ float3 GetPosition(int index)
     return float3(x, y, z);
 }
 
-float2 GetTexCoord(int index)
+float2 GetTexCoord(uint index)
 {
-    int actualIndex = index * VertexBufferStride + TexcoordOffset;
+    uint actualIndex = index * VertexBufferStride + TexcoordOffset;
     float x = VertexBuffer[actualIndex];
     float y = VertexBuffer[actualIndex + 1];
 	
@@ -210,17 +230,17 @@ float2 GetTexCoord(int index)
 
 // ************* Find min uv value ************* //
 [numthreads(32, 1, 1)]
-void CSFindMinUv(int3 id : SV_DispatchThreadID)
+void CSFindMinUv(uint3 id : SV_DispatchThreadID)
 {
 	if (id.x >= uvCount)
 		return;
 
-    InterlockedMin(MinXY[0], (uint) (GetTexCoord((int)id.x).x * terrainResolution));
-    InterlockedMin(MinXY[1], (uint) (GetTexCoord((int)id.x).y * terrainResolution));
+    InterlockedMin(MinXY[0], (uint) (GetTexCoord(id.x).x * terrainResolution));
+    InterlockedMin(MinXY[1], (uint) (GetTexCoord(id.x).y * terrainResolution));
 }
 
 [numthreads(8, 8, 1)]
-void CSFindMinMax(int3 id : SV_DispatchThreadID)
+void CSFindMinMax(uint3 id : SV_DispatchThreadID)
 {
 	float height = HeightSurface[id.xy] * 255;
 
@@ -230,7 +250,7 @@ void CSFindMinMax(int3 id : SV_DispatchThreadID)
 
 // ************* Generate Placement ************* //
 [numthreads(8, 8, 1)]
-void CSFindBufferSize(int3 id : SV_DispatchThreadID)
+void CSFindBufferSize(uint3 id : SV_DispatchThreadID)
 {
 	uint feature = uint(SplatMap[id.xy] * 255.0);
 	if (FeatureMap[feature])
@@ -241,7 +261,7 @@ void CSFindBufferSize(int3 id : SV_DispatchThreadID)
 
 // ************* surfaceHeight Map Gen ************* //
 [numthreads(8, 8, 1)]
-void CSSurfaceHeightMap(int3 id : SV_DispatchThreadID)
+void CSSurfaceHeightMap(uint3 id : SV_DispatchThreadID)
 {
     float3 color = Texture[id.xy];
     SurfaceHeightMap[id.xy] = 3 + length(color) / 3 * 18;
@@ -270,7 +290,7 @@ uint3 loadTriangleIndices(uint nTriangle)
 
 // ************* Height Map Gen ************* //
 [numthreads(4, 4, 4)]
-void CSHeightMap(int3 id : SV_DispatchThreadID)
+void CSHeightMap(uint3 id : SV_DispatchThreadID)
 {
 	if (id.x >= indexCount) { return; }
 
@@ -301,28 +321,30 @@ void CSHeightMap(int3 id : SV_DispatchThreadID)
 
 	// divide the for loop in 4x4 threads
 	// TODO: WHY + 2?!?!
-	int offsetX = ceil((Xmax - Xmin + 2) / 4);
-	int startX = Xmin + (id.y * offsetX);
-	int endX = Xmin + ((id.y + 1) * offsetX);
+	uint offsetX = ceil((Xmax - Xmin + 2) / 4);
+	uint startX = Xmin + (id.y * offsetX);
+	uint endX = Xmin + ((id.y + 1) * offsetX);
+    endX = min(Xmax, endX);
 
-	int offsetY = ceil((Ymax - Ymin + 2) / 4);
-	int startY = Ymin + (id.z * offsetY);
-	int endY = Ymin + ((id.z + 1) * offsetY);
+	uint offsetY = ceil((Ymax - Ymin + 2) / 4);
+	uint startY = Ymin + (id.z * offsetY);
+	uint endY = Ymin + ((id.z + 1) * offsetY);
+    endY = min(Ymax, endY);
 
 	bool success = true;
 
-	for (uint x = startX; x <= min(Xmax, endX); x++)
+    for (uint x = startX; x <= endX; x++)
 	{
-		for (uint y = startY; y <= min(Ymax, endY); y++)
+        for (uint y = startY; y <= endY; y++)
 		{
             float2 uv = float2(x, y);
 			// HeightMap[uv] = height;
 			// check if inside triangle
 
-			if (TriangleCheck(uv, round(uv1), round(uv2), round(uv3)))
+            if (InsideTriangle(uv, round(uv1), round(uv2), round(uv3)))
 			{
 				float3 pixelCoord = GetPixelCoord(uv, 1024);
-				height = PlaneIntersect(pixelCoord, float3(0, -1, 0), planeNormal, v1, success);
+				height = GetHeightOfPlaneAtXZ(planeNormal, v1, pixelCoord.xz, success);
 
 				if (!success)
 					height = maxVert;
@@ -344,11 +366,11 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
 	};
 
 	float stepsize = (1 / Density);
-	float xCount = ceil(max(Resolution.x * Density, Resolution.x));
-	float yCount = ceil(max(Resolution.y * Density, Resolution.y));
+	uint xCount = ceil(max(Resolution.x * Density, Resolution.x));
+	uint yCount = ceil(max(Resolution.y * Density, Resolution.y));
 
-	float subPixelX = (1 / xCount);
-	float subPixelY = (1 / yCount);
+	float subPixelX = (1.0 / xCount);
+	float subPixelY = (1.0 / yCount);
 	float2 subPixel = float2(subPixelX, subPixelY);
 
 	uint2 uv = id.xy;
@@ -358,12 +380,13 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
 	if (FeatureMap[feature])
 	{
 		// divide the for loop in 4 threads
-		uint threadx = ceil(xCount / 4);
+		uint threadx = ceil(xCount / 4.0);
 		uint start = id.z * threadx;
-		uint end = (id.z + 1) * threadx;
+		uint end = start + threadx;
+        end = min(end, xCount);
 
 		// loop throgh all potential points in pixel
-		for (uint x = start; x < min(end, xCount); x++)
+		for (uint x = start; x < end; x++)
 		{
 			for (uint y = 0; y < yCount; y++)
 			{
@@ -522,16 +545,18 @@ void CSDownscaleDepth(uint3 uv : SV_DispatchThreadID)
 	uint2 sourcePos = uv.xy * scale;
 	uint2 downscaledPos = uv.xy;
 	float maxDepth = 0.0;
+    uint scaleX = ceil(scale.x);
+    uint scaleY = ceil(scale.y);
 
 	// Perform downsampling and track maximum depth
-    for (uint y = 0; y < ceil(scale.y); y++)
+    for (uint y = 0; y < scaleY; y++)
 	{
-        for (uint x = 0; x < ceil(scale.x); x++)
+        for (uint x = 0; x < scaleX; x++)
 		{
 			uint2 samplePos = sourcePos + uint2(x, y);
 			float depth = Linear01Depth(DepthTexture[samplePos]);
 			
-            if (samplePos.x < _ScreenParams.x && samplePos.y < _ScreenParams.y)
+            if (samplePos.x < (uint)_ScreenParams.x && samplePos.y < (uint)_ScreenParams.y)
 				maxDepth = max(maxDepth, depth);
 		}
 	}

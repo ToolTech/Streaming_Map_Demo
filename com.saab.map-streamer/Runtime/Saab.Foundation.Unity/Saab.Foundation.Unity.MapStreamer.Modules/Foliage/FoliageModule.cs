@@ -426,7 +426,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             ComputeShader.SetBuffer(kernelFindUV, "MinXY", _minXY);
             ComputeShader.SetBuffer(kernelFindUV, "VertexBuffer", vertexBuffer);
 
-            ComputeShader.Dispatch(kernelFindUV, Mathf.CeilToInt(vertexBuffer.count / 32) < 1 ? 1 : Mathf.CeilToInt(vertexBuffer.count / 32), 1, 1);
+            ComputeShader.Dispatch(kernelFindUV, Mathf.CeilToInt(vertexBuffer.count / 32f) < 1 ? 1 : Mathf.CeilToInt(vertexBuffer.count / 32f), 1, 1);
 
             var data = new uint[2];
             // TODO: this will cost some performance but will stop flying trees
@@ -435,16 +435,16 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             // ************* Find center of Node ************* //
 
-            var offsetX = ((texSize.x - 2) * pixelSize.x / 2 - mesh.bounds.extents.x);
+            var offsetX = (texSize.x - 2) * pixelSize.x / 2 - mesh.bounds.extents.x;
             offsetX = data[0] > 0 ? -offsetX : offsetX;
-            var offsetY = ((texSize.y - 2) * pixelSize.y / 2 - mesh.bounds.extents.z);
+            var offsetY = (texSize.y - 2) * pixelSize.y / 2 - mesh.bounds.extents.z;
             offsetY = data[1] > 0 ? offsetY : -offsetY;
 
             var center = mesh.bounds.center;
             center.x += offsetX;
             center.z += offsetY;
 
-            var extents = new Vector3(((texSize.x - 2) * pixelSize.x / 2), mesh.bounds.size.y, (texSize.y * pixelSize.y / 2));
+            var extents = new Vector3((texSize.x - 2) * pixelSize.x / 2, mesh.bounds.size.y, texSize.y * pixelSize.y / 2);
             ComputeShader.SetVector("MeshBoundsMax", center + extents);
 
             // ************* Generate Height Map  ************* //
@@ -483,10 +483,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         {
             var kernel = ComputeShader.FindKernel("CSDownscaleDepth");
 
-
             if (_depthMap == null)
             {
-                _depthMap?.Release();
                 _depthMap = new RenderTexture(downscale, downscale, 24, RenderTextureFormat.RFloat);
                 _depthMap.enableRandomWrite = true;
                 _depthMap.Create();
