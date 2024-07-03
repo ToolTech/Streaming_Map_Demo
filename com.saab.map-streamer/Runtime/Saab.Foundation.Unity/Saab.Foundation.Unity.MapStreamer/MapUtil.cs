@@ -34,35 +34,64 @@
 //
 //******************************************************************************
 
+using System;
 using GizmoSDK.Coordinate;
 using Saab.Foundation.Map;
 using Saab.Utility.Unity.NodeUtils;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Saab.Foundation.Unity.MapStreamer
 {
     public static class MapUtil
     {
-        public static bool WorldToUnity(Transform transform, LatPos position, bool clampToGround = false)
+        [Flags]
+        public enum ClampOptions
         {
-            var mp = new MapPos();
+            None = 0,
+            GroundLayer = 1 << 0,
+            BuildingLayer = 1 << 1,
+            AnyLayer = GroundLayer | BuildingLayer,
 
-            if (!MapControl.SystemMap.SetPosition(mp, position, clampToGround ? GroundClampType.GROUND : GroundClampType.NONE))
+            LoadTerrain = 1 << 16,
+        }
+
+        private static ClampFlags GetClampFlags(ClampOptions options)
+        {
+            return (options & ClampOptions.LoadTerrain) == ClampOptions.LoadTerrain
+                ? ClampFlags.UPDATE_DATA | ClampFlags.WAIT_FOR_DATA
+                : ClampFlags.FRUSTRUM_CULL;
+        }
+
+        private static GroundClampType GetClampType(ClampOptions options)
+        {
+            return (GroundClampType)(int)(options);
+        }
+
+        public static bool WorldToUnity(Transform transform, LatPos position, 
+            ClampOptions clampOptions = ClampOptions.None)
+        {
+            var clampFlags = GetClampFlags(clampOptions);
+            var clampType = GetClampType(clampOptions);
+
+            var mp = new MapPos();
+            mp.clampFlags = clampFlags;
+
+            if (!MapControl.SystemMap.SetPosition(mp, position, clampType, clampFlags))
                 return false;
 
             return MapToUnity(transform, mp);
         }
 
-        public static bool WorldToUnity(Transform transform, CartPos position, bool clampToGround = false)
+        public static bool WorldToUnity(Transform transform, CartPos position, 
+            ClampOptions clampOptions = ClampOptions.None)
         {
-            var mp = new MapPos();
+            var clampFlags = GetClampFlags(clampOptions);
+            var clampType = GetClampType(clampOptions);
 
-            if (!MapControl.SystemMap.SetPosition(mp, position, clampToGround ? GroundClampType.GROUND : GroundClampType.NONE))
+            var mp = new MapPos();
+            mp.clampFlags = clampFlags;
+
+            if (!MapControl.SystemMap.SetPosition(mp, position, clampType, clampFlags))
                 return false;
 
             return MapToUnity(transform, mp);
@@ -82,6 +111,24 @@ namespace Saab.Foundation.Unity.MapStreamer
             var local = position.LocalPosition;
             transform.localPosition = new Vector3(local.x, local.y, local.z);
 
+            return true;
+        }
+
+        public static bool MapToUnity(MapPos position, out Transform roi, out Vector3 offset)
+        {
+            roi = default;
+            offset = default;
+            
+            if (!MapControl.SystemMap.ToLocal(position))
+                return false;
+            
+            roi = NodeUtils.FindFirstGameObjectTransform(position.node.GetNativeReference());
+            if (!roi)
+                return false;
+
+            var local = position.LocalPosition;
+            offset = new Vector3(local.x, local.y, local.z);
+            
             return true;
         }
 
@@ -117,6 +164,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
 
             position = new MapPos();
+            position.clampFlags = ClampFlags.NONE;
             position.node = node.node;
 
             var nodeRelative = node.transform.InverseTransformPoint(transform.position);
@@ -135,23 +183,34 @@ namespace Saab.Foundation.Unity.MapStreamer
             return MapControl.SystemMap.GlobalToWorld(mappos.GlobalPosition(), out cartpos);
         }
 
-        public static bool WorldToMap(LatPos latpos, out MapPos mappos, bool clampToGround = false)
+        public static bool WorldToMap(LatPos latpos, out MapPos mappos, 
+            ClampOptions clampOptions = ClampOptions.None)
         {
+            var clampFlags = GetClampFlags(clampOptions);
+            var clampType = GetClampType(clampOptions);
+
             mappos = new MapPos();
-            return MapControl.SystemMap.SetPosition(mappos, latpos, clampToGround ? GroundClampType.GROUND : GroundClampType.NONE);
+
+            return MapControl.SystemMap.SetPosition(mappos, latpos, clampType, clampFlags);
         }
 
-        public static bool WorldToMap(CartPos cartpos, out MapPos mappos, bool clampToGround = false)
+        public static bool WorldToMap(CartPos cartpos, out MapPos mappos,
+            ClampOptions clampOptions = ClampOptions.None)
         {
+            var clampFlags = GetClampFlags(clampOptions);
+            var clampType = GetClampType(clampOptions);
+
             mappos = new MapPos();
-            return MapControl.SystemMap.SetPosition(mappos, cartpos, clampToGround ? GroundClampType.GROUND : GroundClampType.NONE);
+            mappos.clampFlags = clampFlags;
+
+            return MapControl.SystemMap.SetPosition(mappos, cartpos, clampType, clampFlags);
         }
 
         public static class Debug
         {
             public static GameObject CreatePrimitive(PrimitiveType primType, LatPos latpos, float scale = 1f, Color? color = null)
             {
-                if (!WorldToMap(latpos, out MapPos mappos, false))
+                if (!WorldToMap(latpos, out MapPos mappos, ClampOptions.None))
                     return null;
 
                 return CreatePrimitive(primType, mappos, scale, color);
@@ -159,7 +218,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             public static GameObject CreatePrimitive(PrimitiveType primType, CartPos cartpos, float scale = 1f, Color? color = null)
             {
-                if (!WorldToMap(cartpos, out MapPos mappos, false))
+                if (!WorldToMap(cartpos, out MapPos mappos, ClampOptions.None))
                     return null;
 
                 return CreatePrimitive(primType, mappos, scale, color);
@@ -188,10 +247,10 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             public static GameObject DrawLine(CartPos from, CartPos to, float size = 1f, Color? color = null)
             {
-                if (!WorldToMap(from, out var mapFrom, false))
+                if (!WorldToMap(from, out var mapFrom, ClampOptions.None))
                     return null;
                 
-                if (!WorldToMap(to, out var mapTo, false))
+                if (!WorldToMap(to, out var mapTo, ClampOptions.None))
                     return null;
 
                 return DrawLine(mapFrom, mapTo, size, color);
