@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Generic Builder Interface
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.155
+// Product		: Gizmo3D 2.12.184
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -49,9 +49,10 @@ namespace Saab.Foundation.Unity.MapStreamer
     {
         PoolObjectFeature Feature { get; }
         BuildPriority Priority { get; }
-        bool CanBuild(Node node);
-        bool Build(NodeHandle nodeHandle, GameObject gameObject, NodeHandle activeStateNode);
-        void BuiltObjectReturnedToPool(GameObject gameObject);
-        void CleanUp();
+        bool CanBuild(Node node, TraversalState traversalState, IntersectMaskValue intersectMask);
+        bool Build(NodeHandle nodeHandle, NodeHandle activeStateNode);
+        void BuiltObjectReturnedToPool(GameObject gameObject, bool sharedAsset);
+        void InitPoolObject(GameObject gameObject);
+        void SetTextureManager(TextureManager textureManager);
     }
 }

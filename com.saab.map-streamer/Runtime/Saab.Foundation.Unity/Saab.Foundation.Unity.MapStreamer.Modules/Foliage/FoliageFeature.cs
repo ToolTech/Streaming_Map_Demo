@@ -69,6 +69,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
     {
         // list of all instances currently being rendered
         private readonly List<FeatureData> _items = new List<FeatureData>(128);
+        // if a go exists in the render list, it exists in this lookup, used to avoid searching the list
+        private readonly HashSet<GameObject> _itemLookup = new HashSet<GameObject>();
+        
         private Vector2 _resolution;
         private readonly ComputeShader _placement;
         private readonly float _density;
@@ -119,6 +122,10 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _resolution = new Vector2((float)node.featureInfo.v11, (float)node.featureInfo.v22);
             var maxside = Mathf.Max(featureMap.width, featureMap.height);
 
+            var size = FindBufferSize(featureMap);
+            if (size >= ushort.MaxValue * 128)
+                return null;
+
             var data = new FeatureData(go, node.featureInfo, _density, (uint)maxside, _scale)
             {
                 FeatureMap = featureMap,
@@ -126,24 +133,32 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 surfaceHeight = height,
                 HeightMap = heightMap
             };
-      
-            var size = FindBufferSize(data);
+
+            
+
+
             data.TerrainPoints = new ComputeBuffer(size < 1 ? 1 : size, sizeof(float) * 8, ComputeBufferType.Append);
 
             FeaturePlacement(data);
 
             _items.Add(data);
+            _itemLookup.Add(go);
             //Debug.LogWarning($"added FeatureData");
 
             //_mappingBuffer.Release();
 
             return data;
         }
-        public void RemoveFoliage(GameObject gameobj)
+        public void RemoveFoliage(GameObject gameObj)
         {
+            if (!_itemLookup.Contains(gameObj))
+                return;
+
+            _itemLookup.Remove(gameObj);
+
             for (var i = 0; i < _items.Count; ++i)
             {
-                if (_items[i].Object != gameobj)
+                if (_items[i].Object != gameObj)
                     continue;
 
                 ClearFeature(_items[i]);
@@ -180,11 +195,11 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             data.Dispose();
         }
 
-        private int FindBufferSize(FeatureData node)
+        private int FindBufferSize(Texture2D featureMap)
         {
             var maxSize =
-                Mathf.CeilToInt((node.FeatureMap.width) * _resolution.x * _density) *
-                Mathf.CeilToInt((node.FeatureMap.height) * _resolution.y * _density);
+                Mathf.CeilToInt(featureMap.width * _resolution.x * _density) *
+                Mathf.CeilToInt(featureMap.height * _resolution.y * _density);
 
             return Mathf.CeilToInt(maxSize) < 1 ? 1 : Mathf.CeilToInt(maxSize);
 

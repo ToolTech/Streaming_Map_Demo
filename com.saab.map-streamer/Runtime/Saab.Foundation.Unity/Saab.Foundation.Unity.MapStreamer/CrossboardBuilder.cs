@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Special class for Crossboard builder
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.155
+// Product		: Gizmo3D 2.12.184
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -55,9 +55,10 @@ namespace Saab.Foundation.Unity.MapStreamer
         public PoolObjectFeature Feature => PoolObjectFeature.Crossboard;
 
         // lifetime data ----------
-        
+
         // we will cache crossboard textures
-        private readonly TextureCache _textureCache = new TextureCache();
+        // private readonly TextureCache _textureCache = new TextureCache();
+        private TextureManager _textureManager;
 
         // material to use when rendering
         private readonly Material _crossboardMaterial;
@@ -75,13 +76,13 @@ namespace Saab.Foundation.Unity.MapStreamer
             _computeShader = computeShader;
         }
 
-        public bool CanBuild(Node node)
+        public bool CanBuild(Node node, TraversalState traversalState, IntersectMaskValue intersectMask)
         {
             return node is Crossboard;
         }
 
         // TODO: Make functions...
-        public bool Build(NodeHandle nodeHandle, GameObject gameObject, NodeHandle activeStateNode)
+        public bool Build(NodeHandle nodeHandle, NodeHandle activeStateNode)
         {
             var node = nodeHandle.node;
 
@@ -165,7 +166,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                 {
                     var state = activeStateNode.node.State;
 
-                    if (!StateHelper.Build(state, out StateBuildOutput buildOutput, _textureCache))
+                    if (!StateHelper.Build(state, out StateBuildOutput buildOutput, _textureManager))
                         return false;
 
                     activeStateNode.stateLoadInfo |= StateLoadInfo.Texture;
@@ -182,7 +183,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             return true;
         }
 
-        public void BuiltObjectReturnedToPool(GameObject gameObject)
+        public void BuiltObjectReturnedToPool(GameObject gameObject, bool sharedAsset)
         {
             //var crossboardRenderer = gameObject.GetComponent<CrossboardRenderer_ComputeShader>();
             //if (!crossboardRenderer)
@@ -192,9 +193,14 @@ namespace Saab.Foundation.Unity.MapStreamer
             //GameObject.Destroy(crossboardRenderer);
         }
 
-        public void CleanUp()
+        public void InitPoolObject(GameObject gameObject)
         {
-            throw new System.NotImplementedException();
+
+        }
+
+        public void SetTextureManager(TextureManager textureManager)
+        {
+            _textureManager = textureManager;
         }
     }
 }

@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Helper for texture and state uploads
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.155
+// Product		: Gizmo3D 2.12.184
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -47,8 +47,7 @@ using GizmoSDK.GizmoBase;
 using GizmoSDK.Gizmo3D;
 
 using gzTexture = GizmoSDK.Gizmo3D.Texture;
-using Unity.Collections.LowLevel.Unsafe;
-using Unity.Collections;
+using Texture = UnityEngine.Texture;
 
 namespace Saab.Foundation.Unity.MapStreamer
 {
@@ -70,100 +69,105 @@ namespace Saab.Foundation.Unity.MapStreamer
         public DynamicType border_y;
     }
 
-    public interface ICache<in TKey, TValue>
-    {
-        bool TryGet(TKey key, out TValue value);
-        bool TryAdd(TKey key, TValue value);
-        void CleanUp();
-    }
-
-    // Basic threadsafe implementation of a texture cache
-    public class TextureCache : ICache<IntPtr, Texture2D>
-    {
-        private readonly ConcurrentDictionary<IntPtr, Texture2D> _cache = new ConcurrentDictionary<IntPtr, Texture2D>();
-        public bool TryGet(IntPtr key, out Texture2D value)
-        {
-            return _cache.TryGetValue(key, out value);
-        }
-        public bool TryAdd(IntPtr key, Texture2D value)
-        {
-            if (_cache.TryAdd(key, value))
-            {
-                Reference.Ref(key);
-                return true;
-            }
-
-            return false;
-        }
-
-        public void CleanUp()
-        {
-            foreach (var item in _cache)
-            {
-                var count = Reference.GetRef(item.Key);
-
-                if(count<=2)    // Possibly One native (+1) and one managed (1)
-                {
-                    // Move dealloc to NodeLocked by secondary thread
-                    ThreadEditLockedDeallocator.Dealloc(item.Key);
-
-                    Reference.UnRef(item.Key);
-
-                    Texture2D tex;
-
-                    _cache.TryRemove(item.Key, out tex);
-                        
-                }
-            }
-        }
-    }
-
     public static class StateHelper
     {
         private static readonly Dictionary<TextureFormat, bool> _supportedFormats = new Dictionary<TextureFormat, bool>();
 
-        public static bool Build(State state, out StateBuildOutput output, ICache<IntPtr, Texture2D> textureCache = null)
+        public static bool Build(State state, out StateBuildOutput output, TextureManager textureCache = null)
         {
             output = default;
 
-            try
+            Performance.Enter("StateHelper.Build");
+
+            if (!ReadTextureFromState(state, out Texture2D texture, textureCache))
+                return false;
+
+            output.Texture = texture;
+
+            if (ReadTextureFromState(state, out Texture2D feature, textureCache, out TextureImageInfo info, 1, false))       // Features always singletons and no mipmap force
             {
-                Performance.Enter("StateBuilder.Build");
+                output.Feature = feature;
 
-                if (!ReadTextureFromState(state, out Texture2D texture,textureCache,null))
-                    return false;
-
-                output.Texture = texture;
-
-                TextureImageInfo info=new TextureImageInfo();
-
-                if (ReadTextureFromState(state, out Texture2D feature, null, info, 1, false))       // Features always singletons and no mipmap force
-                {
-                    output.Feature = feature;
-                    
-                    if(info.homography.Is("gzImageHomography"))
-                        output.Feature_homography = ((ImageHomography)info.homography);
-                }
-
-                info = new TextureImageInfo();
-
-                if (ReadTextureFromState(state, out Texture2D surface, null, info, 2, false))       // Features always singletons and no mipmap force
-                {
-                    output.SurfaceHeight = surface;
-                                        
-                    if (info.homography.Is("gzImageHomography"))
-                        output.SurfaceHeight_homography = ((ImageHomography)info.homography);
-                }
+                if (info.homography.Is("gzImageHomography"))
+                    output.Feature_homography = ((ImageHomography)info.homography);
             }
-            finally
+
+            if (ReadTextureFromState(state, out Texture2D surface, textureCache, out info, 2, false))       // Features always singletons and no mipmap force
             {
-                Performance.Leave();
+                output.SurfaceHeight = surface;
+
+                if (info.homography.Is("gzImageHomography"))
+                    output.SurfaceHeight_homography = ((ImageHomography)info.homography);
+            }
+
+            Performance.Leave(); // StateHelper.Build
+
+            return true;
+        }
+
+        public static bool Build(State state, out Texture2D output, TextureManager textureCache = null)
+        {
+            output = default;
+
+            Performance.Enter("StateHelper.Build");
+
+            if (!ReadTextureFromState(state, out Texture2D texture, textureCache))
+                return false;
+
+            output = texture;
+
+            Performance.Leave(); // StateHelper.Build
+
+            return true;
+        }
+
+        private static bool ReadTextureFromState(State state, out Texture2D result, TextureManager textureCache, out TextureImageInfo info, uint unit=0,bool useMipMap=true)
+        {
+            result = null;
+            info = null;
+
+            if (!state.HasTexture(unit) || state.GetMode(StateMode.TEXTURE) != StateModeActivation.ON)
+                return false;
+
+            using (var texture = state.GetTexture(unit))
+            {
+                try
+                {
+                    if (textureCache != null)
+                    {
+                        var ptr = texture.GetNativeReference();
+
+                        if (textureCache.TryGet(ptr, out Texture cachedTexture, out TextureImageInfo cachedInfo))
+                        {
+                            result = (Texture2D)cachedTexture;
+                            info = cachedInfo;
+                            return true;
+                        }
+
+                        info = new TextureImageInfo();
+
+                        if (!CopyTexture(texture, out result, info, useMipMap))
+                            return false;
+
+                        return textureCache.TryAdd(ptr, result, info);
+                    }
+
+                    info = new TextureImageInfo();
+
+                    if (!CopyTexture(texture, out result, info, useMipMap))
+                        return false;
+                }
+                finally
+                {
+                    // prevent dispose from locking object by releasing it manually here
+                    texture.ReleaseAlreadyLocked();
+                }
             }
 
             return true;
         }
 
-        private static bool ReadTextureFromState(State state, out Texture2D result, ICache<IntPtr, Texture2D> textureCache, TextureImageInfo tex_image_info, uint unit=0,bool useMipMap=true)
+        private static bool ReadTextureFromState(State state, out Texture2D result, TextureManager textureCache, uint unit = 0, bool useMipMap = true)
         {
             result = null;
 
@@ -172,63 +176,38 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             using (var texture = state.GetTexture(unit))
             {
-                if (textureCache != null)
+                try
                 {
-                    // Check possible shared states
-
-                    var stateShare = state.GetReferenceCount();
-
-                    if(stateShare>2)             // Share: 1 native, 1 managed, extra shared>2
+                    if (textureCache != null)
                     {
-                        if (textureCache.TryGet(state.GetNativeReference(), out result))
+                        var ptr = texture.GetNativeReference();
+
+                        if (textureCache.TryGet(ptr, out Texture cachedTexture, out _))
                         {
-                            texture.ReleaseAlreadyLocked();
+                            result = (Texture2D)cachedTexture;
                             return true;
                         }
 
-                        if (!CopyTexture(texture, out result, tex_image_info, useMipMap))
+                        if (!CopyTexture(texture, out result, null, useMipMap))
                             return false;
 
-                        // Add a reference to data
-
-                        textureCache.TryAdd(state.GetNativeReference(), result);
-
-                        texture.ReleaseAlreadyLocked();
-
-                        return true;
+                        return textureCache.TryAdd(ptr, result, null);
                     }
 
-                    var texShare = texture.GetReferenceCount();
-
-                    if (texShare > 2)             // Share: 1 native, 1 managed, extra shared>2
-                    {
-                        if (textureCache.TryGet(texture.GetNativeReference(), out result))
-                        {
-                            texture.ReleaseAlreadyLocked();
-                            return true;
-                        }
-
-                        if (!CopyTexture(texture, out result, tex_image_info, useMipMap))
-                            return false;
-
-                        textureCache.TryAdd(texture.GetNativeReference(), result);
-
-                        texture.ReleaseAlreadyLocked();
-
-                        return true;
-                    }
+                    if (!CopyTexture(texture, out result, null, useMipMap))
+                        return false;
                 }
-
-                if (!CopyTexture(texture, out result, tex_image_info, useMipMap))
-                    return false;
-
-                texture.ReleaseAlreadyLocked();
+                finally
+                {
+                    // prevent dispose from locking object by releasing it manually here
+                    texture.ReleaseAlreadyLocked();
+                }
             }
 
             return true;
         }
 
-        private static bool CopyTexture(gzTexture gzTexture, out Texture2D result, TextureImageInfo tex_image_info, bool mipChain = true)
+        private static bool CopyTexture(gzTexture gzTexture, out Texture2D result, TextureImageInfo info, bool mipChain = true)
         {
             result = null;
 
@@ -237,11 +216,11 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             using (var image = gzTexture.GetImage())
             {
-                var imageFormat = image.GetFormat();
+                var imageFormat = image.Format;
 
-                var componentType = image.GetComponentType();
+                var componentType = image.ComponentType;
 
-                var components = image.GetComponents();
+                var components = image.Components;
 
                 var textureFormat = GetUnityTextureFormat(imageFormat,componentType,components);
 
@@ -292,12 +271,12 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                 result.Apply(mipChain, true);
 
-                if (tex_image_info != null)
+                if (info != null)
                 {
-                    tex_image_info.homography = image.GetAttribute("UserDataImInfo", "ImI-Wrld-Hom");
+                    info.homography = image.GetAttribute("UserDataImInfo", "ImI-Wrld-Hom");
 
-                    tex_image_info.border_x = image.GetAttribute("UserDataImInfo", "ImI-Pixel-X-border");
-                    tex_image_info.border_y = image.GetAttribute("UserDataImInfo", "ImI-Pixel-Y-border");
+                    info.border_x = image.GetAttribute("UserDataImInfo", "ImI-Pixel-X-border");
+                    info.border_y = image.GetAttribute("UserDataImInfo", "ImI-Pixel-Y-border");
                 }
             }
 

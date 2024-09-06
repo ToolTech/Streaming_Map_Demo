@@ -2,14 +2,14 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <Platforms>AnyCPU;x64</Platforms>
+    <Platforms>x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Coordinate" Version="2.12.155.1" />
-    <PackageReference Include="Gizmo3D" Version="2.12.155.1" />
-    <PackageReference Include="GizmoBase" Version="2.12.155.1" />
-    <PackageReference Include="GizmoDistribution" Version="2.12.155.1" />
+    <PackageReference Include="Coordinate" Version="2.12.184.1" />
+    <PackageReference Include="Gizmo3D" Version="2.12.184.1" />
+    <PackageReference Include="GizmoBase" Version="2.12.184.1" />
+    <PackageReference Include="GizmoDistribution" Version="2.12.184.1" />
   </ItemGroup>
 
   <Target Name="CopyFilesAfterBuild" AfterTargets="Build" DependsOnTargets="CustomPostbuildTarget">

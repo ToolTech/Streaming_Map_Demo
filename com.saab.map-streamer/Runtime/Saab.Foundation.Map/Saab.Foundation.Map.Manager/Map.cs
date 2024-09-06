@@ -19,7 +19,7 @@
 // Module		: Saab.Foundation.Map.Manager
 // Description	: Map Manager of maps in BTA
 // Author		: Anders Modén		
-// Product		: Gizmo3D 2.12.155
+// Product		: Gizmo3D 2.12.184
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -75,8 +75,6 @@ namespace Saab.Foundation.Map
 
     public class MapControl
     {
-        const string USER_DATA_DB_INFO              = "UserDataDbInfo";
-
         // Constants for GZ_DB_INFO_PROJECTION ---------------------------------------------------------------------------------------------
 
         const string GZ_DB_INFO_PROJECTION_FLAT           = "Flat Earth";
@@ -381,7 +379,7 @@ namespace Saab.Foundation.Map
             Intersector isect = new Intersector();
 
             var mask = GetMask(clampType);
-            isect.SetIntersectMask(mask);  // Lets hit the ground
+            isect.IntersectMask=mask;  // Lets hit the ground
 
             // Check camera frustrum -----------------------------------------------------------
 
@@ -396,8 +394,8 @@ namespace Saab.Foundation.Map
             // Adjust intersector to use origo as center
             global_position = global_position - origo;
 
-            isect.SetStartPosition((Vec3)global_position);
-            isect.SetDirection(direction);
+            isect.StartPosition=(Vec3)global_position;
+            isect.Direction=direction;
 
             if (isect.Intersect(_currentMap,  IntersectQuery.ABC_TRI | 
                                                     IntersectQuery.NEAREST_POINT |
@@ -596,9 +594,9 @@ namespace Saab.Foundation.Map
                     origo = result.position;
 
 
-                isect.SetStartPosition((Vec3)(result.position - origo) - 10000.0f * down);  // Move backwards
-                isect.SetDirection(down);
-                isect.SetIntersectMask(GetMask(groundClamp));
+                isect.StartPosition=(Vec3)(result.position - origo) - 10000.0f * down;  // Move backwards
+                isect.Direction=down;
+                isect.IntersectMask=GetMask(groundClamp);
 
                 if (isect.Intersect(_currentMap, IntersectQuery.NEAREST_POINT | IntersectQuery.ABC_TRI |
                                                     (flags.HasFlag(ClampFlags.ALIGN_NORMAL_TO_SURFACE) ? IntersectQuery.NORMAL : 0) | //IntersectQuery.NORMAL |
@@ -876,14 +874,16 @@ namespace Saab.Foundation.Map
 
                     _currentMap = value;
 
-                    if (value != null && value.IsValid())
+                    if (value != null && value.IsValid() && value.HasDbInfo())
                     {
-                        var projection = _currentMap.GetAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_PROJECTION);
+                        var projection = _currentMap.GetDbInfo(GZ_DB_INFO_PROJECTION);
 
                         if (projection == GZ_DB_INFO_PROJECTION_UTM)
                         {
                             _mapType = MapType.UTM;
-                            UTMPos utmOrigin = _currentMap.GetAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_ORIGIN_POS);
+
+                            UTMPos utmOrigin = _currentMap.GetDbInfo( GZ_DB_INFO_DB_ORIGIN_POS);
+
                             _origin = new Vec3D(utmOrigin.Easting, utmOrigin.H, -utmOrigin.Northing);
 
                             _metaData = new CoordinateSystemMetaData(utmOrigin.Zone, utmOrigin.North);
@@ -893,7 +893,7 @@ namespace Saab.Foundation.Map
                         else if (projection == GZ_DB_INFO_PROJECTION_FLAT)   // To run a 3D world without world coordinates
                         {
                             _mapType = MapType.PLAIN;
-                            _origin = (Vec3D)_currentMap.GetAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_ORIGIN_POS).GetVec3();
+                            _origin = (Vec3D)_currentMap.GetDbInfo( GZ_DB_INFO_DB_ORIGIN_POS).GetVec3();
 
                             _metaData.value1 = 0;
                             _metaData.value2 = 0;
@@ -903,7 +903,7 @@ namespace Saab.Foundation.Map
                         else if (projection == GZ_DB_INFO_PROJECTION_SPHERE)
                         {
                             _mapType = MapType.GEOCENTRIC;
-                            CartPos cartOrigin = _currentMap.GetAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_ORIGIN_POS);
+                            CartPos cartOrigin = _currentMap.GetDbInfo( GZ_DB_INFO_DB_ORIGIN_POS);
                             _origin = new Vec3D(cartOrigin.X, cartOrigin.Y, cartOrigin.Z);
 
                             _metaData.value1 = 0;
@@ -922,25 +922,25 @@ namespace Saab.Foundation.Map
                             _coordSystem = new CoordinateSystem();
                         }
 
-                        if(_currentMap.HasAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_COORD_SYS))
-                            _coordSystem = new CoordinateSystem(_currentMap.GetAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_COORD_SYS));
+                        if(_currentMap.HasDbInfo(GZ_DB_INFO_COORD_SYS))
+                            _coordSystem = new CoordinateSystem(_currentMap.GetDbInfo( GZ_DB_INFO_COORD_SYS));
 
-                        if (_currentMap.HasAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_MAX_LOD_RANGE))
-                            _maxLODDistance = _currentMap.GetAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_MAX_LOD_RANGE).GetNumber();
+                        if (_currentMap.HasDbInfo(GZ_DB_INFO_DB_MAX_LOD_RANGE))
+                            _maxLODDistance = _currentMap.GetDbInfo( GZ_DB_INFO_DB_MAX_LOD_RANGE).GetNumber();
                         else
                             _maxLODDistance = 0;
 
-                        if (_currentMap.HasAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_NE_POS))
-                            _ne_extent = _currentMap.GetAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_NE_POS);
+                        if (_currentMap.HasDbInfo(GZ_DB_INFO_DB_NE_POS))
+                            _ne_extent = _currentMap.GetDbInfo( GZ_DB_INFO_DB_NE_POS);
                         else
                             _ne_extent = new LatPos(0,0,0);
 
-                        if (_currentMap.HasAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_SW_POS))
-                            _sw_extent = _currentMap.GetAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_SW_POS);
+                        if (_currentMap.HasDbInfo(GZ_DB_INFO_DB_SW_POS))
+                            _sw_extent = _currentMap.GetDbInfo( GZ_DB_INFO_DB_SW_POS);
                         else
                             _sw_extent = new LatPos(0, 0, 0);
 
-                        _db_size= _currentMap.GetAttribute(USER_DATA_DB_INFO, GZ_DB_INFO_DB_SIZE).AsString();
+                        _db_size= _currentMap.GetDbInfo( GZ_DB_INFO_DB_SIZE).AsString();
 
                         _topRoi = FindTopRoi(value);
 

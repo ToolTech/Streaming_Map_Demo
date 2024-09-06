@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Bindings stub for Gizmo Messages
 // Author		: Anders Modén
-// Product		: GizmoBase 2.12.155
+// Product		: GizmoBase 2.12.184
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -162,8 +162,8 @@ namespace Saab.Unity.Initializer
 
             // Set up scene manager camera
 
-            SceneManager scenemanager = GetComponent<SceneManager>();
-            CameraControl cameracontrol = GetComponent<CameraControl>();
+            SceneManager scenemanager = FindObjectOfType<SceneManager>();
+            CameraControl cameracontrol = FindObjectOfType<CameraControl>();
 
             scenemanager.MapUrl = KeyDatabase.GetDefaultUserKey("SceneManager/MapUrl", scenemanager.MapUrl);
 
@@ -218,6 +218,7 @@ namespace Saab.Unity.Initializer
 
         private void Update()
         {
+
             double time = GizmoSDK.GizmoBase.Time.SystemSeconds;
 
             if (_frameTime>0)

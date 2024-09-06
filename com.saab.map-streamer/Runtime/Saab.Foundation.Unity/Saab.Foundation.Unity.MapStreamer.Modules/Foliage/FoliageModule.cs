@@ -123,9 +123,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _mappingTable = TerrainMapping.MapFeatureData();
 
             StartCoroutine(WaitForDepth());
-            SceneManager.OnNewGeometry += SceneManager_OnNewGeometry;
+            SceneManager.OnNewTerrain += SceneManager_OnNewTerrain;
             SceneManager.OnPostTraverse += SceneManager_OnPostTraverse;
-            SceneManager.OnRemoveGeometry += SceneManager_OnEnterPool;
+            SceneManager.OnRemoveTerrain += SceneManager_OnRemoveTerrain;
 
             _minXY = new ComputeBuffer(2, sizeof(uint), ComputeBufferType.Default);
 
@@ -277,11 +277,11 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 _frustum[i] = new Vector4(planes[i].normal.x, planes[i].normal.y, planes[i].normal.z, planes[i].distance);
             }
         }
-        private void SceneManager_OnEnterPool(GameObject go)
+        private void SceneManager_OnRemoveTerrain(GameObject go)
         {
             foreach (var set in Features)
             {
-                set.FoliageFeature.RemoveFoliage(go);
+                set.FoliageFeature?.RemoveFoliage(go);
             }
         }
 
@@ -291,66 +291,72 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             public int FrameCount { get; set; }
         }
 
-        private void SceneManager_OnNewGeometry(GameObject go)
+        private void SceneManager_OnNewTerrain(GameObject go, bool isAsset)
         {
+            if (isAsset)
+                return;
+            
             AddJob(go);
-
-            // ---- Used to que up foliage and wait a set number of frames before calculating/display them ----
-            //_futurePool.Enqueue(new FoliageJob() { gameObject = go, FrameCount = Time.frameCount });
-        }
-
-        private void Update()
-        {
-            while (_futurePool.Count != 0 && Time.frameCount - _futurePool.Peek().FrameCount >= 2)
-            {
-                var set = _futurePool.Dequeue();
-                AddJob(set.gameObject);
-            }
         }
 
         private void AddJob(GameObject go)
         {
-            var nodehandle = go.GetComponent<NodeHandle>();
-            if (nodehandle != null && !Disabled && go.activeInHierarchy && nodehandle.node.BoundaryRadius > 5)
+            if (Disabled || !go.activeInHierarchy)
+                return;
+
+            if (!go.TryGetComponent<MeshFilter>(out var meshFilter))
+                return;
+
+            var mesh = meshFilter.sharedMesh;
+            if (!mesh)
+                return;
+
+            if (!go.TryGetComponent<NodeHandle>(out var nodeHandle))
+                return;
+
+            if (!nodeHandle.texture || !nodeHandle.feature)
+                return;
+
+            // results from native calls should always be cached
+            var radius = nodeHandle.node.BoundaryRadius;
+
+            if (radius <= 5 || radius >= 900)
+                return;
+
+            var featureInfo = nodeHandle.featureInfo;
+
+            var pixelSize = new Vector2((float)featureInfo.v11, (float)featureInfo.v22);
+            float scale = 1000;
+            
+            var nodeOffset = new Vector2(
+                (float)(featureInfo.v13 + featureInfo.v11) % scale,
+                (float)(featureInfo.v23 + featureInfo.v22) % scale);
+
+            var texSize = new Vector2(nodeHandle.texture.width, nodeHandle.texture.height);
+
+            ComputeShader.SetVector("terrainResolution", texSize);
+            ComputeShader.SetVector("terrainSize", mesh.bounds.size);
+            ComputeShader.SetVector("NodeOffset", nodeOffset);
+            ComputeShader.SetVector("Resolution", pixelSize);
+            ComputeShader.SetMatrix("ObjToWorld", go.transform.localToWorldMatrix);
+
+            var heightmap = GenerateHeight(texSize, pixelSize, mesh);
+
+            RenderTexture surface = null;
+            if (nodeHandle.surfaceHeight == null)
+                surface = GenerateSurfaceHeight(nodeHandle.texture);
+
+            foreach (var set in Features)
             {
-                if (nodehandle.texture == null || nodehandle.feature == null)
+                if (!set.Enabled)
+                    continue;
+
+                var setting = GetSettings(set.SettingsType);
+                ComputeShader.SetFloat("Density", set.Density * setting.Density);
+
+                if (radius < set.BoundaryRadius)
                 {
-                    return;
-                }
-
-                if (nodehandle.node.BoundaryRadius >= 900)
-                    return;
-
-                var pixelSize = new Vector2((float)nodehandle.featureInfo.v11, (float)nodehandle.featureInfo.v22);
-                float scale = 1000;
-                var nodeOffset = new Vector2((float)(nodehandle.featureInfo.v13 + nodehandle.featureInfo.v11) % scale, (float)(nodehandle.featureInfo.v23 + nodehandle.featureInfo.v22) % scale);
-                var texSize = new Vector2(nodehandle.texture.width, nodehandle.texture.height);
-                var mesh = go.GetComponent<MeshFilter>().sharedMesh;
-
-                ComputeShader.SetVector("terrainResolution", texSize);
-                ComputeShader.SetVector("terrainSize", mesh.bounds.size);
-                ComputeShader.SetVector("NodeOffset", nodeOffset);
-                ComputeShader.SetVector("Resolution", pixelSize);
-                ComputeShader.SetMatrix("ObjToWorld", go.transform.localToWorldMatrix);
-
-                var heightmap = GenerateHeight(texSize, pixelSize, mesh);
-
-                RenderTexture surface = null;
-                if (nodehandle.surfaceHeight == null)
-                    surface = GenerateSurfaceHeight(nodehandle.texture);
-
-                foreach (var set in Features)
-                {
-                    if (!set.Enabled)
-                        continue;
-
-                    var setting = GetSettings(set.SettingsType);
-                    ComputeShader.SetFloat("Density", set.Density * setting.Density);
-
-                    if (nodehandle.node.BoundaryRadius < set.BoundaryRadius)
-                    {
-                        set.FoliageFeature.AddFoliage(go, nodehandle, heightmap, surface);
-                    }
+                    set.FoliageFeature.AddFoliage(go, nodeHandle, heightmap, surface);
                 }
             }
         }
@@ -431,7 +437,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             var data = new uint[2];
             // TODO: this will cost some performance but will stop flying trees
             // find a better solution in future, avoid copying from gpu to cpu and back again
-            _minXY.GetData(data);
+            //_minXY.GetData(data);
 
             // ************* Find center of Node ************* //
 
@@ -514,13 +520,15 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         private void SceneManager_OnPostTraverse(bool locked)
         {
+            if (Disabled || !_hasDepthTexture)
+                return;
+
             if (NativeLeakDetection)
                 UnsafeUtility.SetLeakDetectionMode(NativeLeakDetectionMode.EnabledWithStackTrace);
             else
                 UnsafeUtility.SetLeakDetectionMode(NativeLeakDetectionMode.Disabled);
 
-            if (Disabled || !_hasDepthTexture)
-                return;
+            
 
             var cam = SceneManager.SceneManagerCamera.Camera;
             GenerateFrustumPlane(cam);

@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Manages camera updates with large coordinates
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.155
+// Product		: Gizmo3D 2.12.184
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -199,86 +199,73 @@ namespace Saab.Foundation.Unity.MapStreamer
         // Update is called once per frame
         void Update()
         {
-            try
+            Performance.Enter("CameraControl.Update");                
+            // Check mouse click
+
+            if (Input.GetButtonDown("Fire1") && Input.GetKey(KeyCode.LeftShift) && !_inputLocked)
             {
-                Performance.Enter("CameraControl.Update");
-                // Check mouse click
+                Map.MapPos mapPos;
 
-                if (Input.GetButtonDown("Fire1") && Input.GetKey(KeyCode.LeftShift) && !_inputLocked)
+                var layerMask = GroundClampType.GROUND;
+
+                if (Map.MapControl.SystemMap.GetScreenGroundPosition((int)Input.mousePosition.x, (int)(Screen.height - Input.mousePosition.y), (uint)Screen.width, (uint)Screen.height, out mapPos, layerMask, Map.ClampFlags.DEFAULT))
                 {
-                    Map.MapPos mapPos;
+                    List<GameObject> list;
 
-                    var layerMask = GroundClampType.GROUND;
-
-                    if (Map.MapControl.SystemMap.GetScreenGroundPosition((int)Input.mousePosition.x, (int)(Screen.height - Input.mousePosition.y), (uint)Screen.width, (uint)Screen.height, out mapPos, layerMask, Map.ClampFlags.DEFAULT))
+                    if (NodeUtils.FindGameObjects(mapPos.node.GetNativeReference(), out list))
                     {
-                        List<GameObject> list;
-
-                        if (NodeUtils.FindGameObjects(mapPos.node.GetNativeReference(), out list))
+                        foreach (GameObject o in list)
                         {
-                            foreach (GameObject o in list)
-                            {
-                                GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                            GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
 
-                                sphere.transform.parent = o.transform;
-                                sphere.transform.transform.localPosition = new Vector3((float)mapPos.position.x, (float)mapPos.position.y, (float)mapPos.position.z);
-                                sphere.transform.localScale = new Vector3(10, 10, 10);
-                            }
+                            sphere.transform.parent = o.transform;
+                            sphere.transform.transform.localPosition = new Vector3((float)mapPos.position.x, (float)mapPos.position.y, (float)mapPos.position.z);
+                            sphere.transform.localScale = new Vector3(10, 10, 10);
                         }
-
-                        // Just test some update
-                        mapPos.position += new Vec3(1, 1, 1);
-
-                        Map.MapControl.SystemMap.UpdatePosition(mapPos, GroundClampType.GROUND);
-
-                        GlobalPosition = mapPos.GlobalPosition(new Vec3(0, 0, 10));
                     }
 
+                    // Just test some update
+                    mapPos.position += new Vec3(1, 1, 1);
 
+                    Map.MapControl.SystemMap.UpdatePosition(mapPos, GroundClampType.GROUND);
+
+                    GlobalPosition = mapPos.GlobalPosition(new Vec3(0, 0, 10));
                 }
-
-                if (Input.GetButtonDown("Fire2"))
-                {
-                    GizmoSDK.Coordinate.LatPos latpos = new GizmoSDK.Coordinate.LatPos
-                    {
-                        Altitude = 245.52585220821,
-                        Latitude = 1.00778345058085,
-                        Longitude = 0.251106492463706
-
-                    };
-
-                    Map.MapPos mappos;
-
-                    if (Map.MapControl.SystemMap.GetPosition(latpos, out mappos, Map.GroundClampType.GROUND, Map.ClampFlags.WAIT_FOR_DATA))
-                    {
-                        Debug.Log("Hit Ground ok");
-                    }
-
-                    //Performance.DumpPerformanceInfo();
-                }
-
-                //transform.position;
-
-
-                if (Input.GetKey("b"))
-                {
-                    GizmoSDK.Gizmo3D.DynamicLoaderManager.StopManager();
-                }
-
-                if (Input.GetKey("v"))
-                {
-                    GizmoSDK.Gizmo3D.DynamicLoaderManager.StartManager();
-                }
-
-
-                //transform.position = pos;
 
 
             }
-            finally
+
+            if (Input.GetButtonDown("Fire2"))
             {
-                Performance.Leave();
+                GizmoSDK.Coordinate.LatPos latpos = new GizmoSDK.Coordinate.LatPos
+                {
+                    Altitude = 245.52585220821,
+                    Latitude = 1.00778345058085,
+                    Longitude = 0.251106492463706
+
+                };
+
+                Map.MapPos mappos;
+
+                if (Map.MapControl.SystemMap.GetPosition(latpos, out mappos, Map.GroundClampType.GROUND, Map.ClampFlags.WAIT_FOR_DATA))
+                {
+                    Debug.Log("Hit Ground ok");
+                }
+
+                //Performance.DumpPerformanceInfo();
             }
+
+            if (Input.GetKey("b"))
+            {
+                GizmoSDK.Gizmo3D.DynamicLoaderManager.StopManager();
+            }
+
+            if (Input.GetKey("v"))
+            {
+                GizmoSDK.Gizmo3D.DynamicLoaderManager.StartManager();
+            }
+
+            Performance.Leave(); // CameraControl.Update
         }
 
         public void PreTraverse(bool locked)

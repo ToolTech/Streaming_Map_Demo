@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Handle to native Gizmo3D nodes
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.155
+// Product		: Gizmo3D 2.12.184
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -81,6 +81,11 @@ namespace Saab.Foundation.Unity.MapStreamer
         /// we shall continiously update our transform
         /// </summary>
         UpdateTransform = 1 << 2,
+
+        /// <summary>
+        /// node is referencing an asset prefab
+        /// </summary>
+        AssetInstance = 1 << 3,
     }
 
     // The NodeHandle component of a game object stores a Node reference to the corresponding Gizmo item on the native side
@@ -90,31 +95,43 @@ namespace Saab.Foundation.Unity.MapStreamer
         public Node node { get; internal set; }
 
         // Tracks internal state of the node
+        [NonSerialized]
         internal NodeStateFlags stateFlags;
 
         // Tracks state status
+        [NonSerialized]
         internal StateLoadInfo stateLoadInfo;
 
         // Pooling key associated with this handle
+        [SerializeField]
         internal PoolObjectFeature featureKey;
 
         // builder associated with this node
+        [NonSerialized]
         internal INodeBuilder builder;
 
+        // used during delayed build to detect recycled nodes
+        [NonSerialized]
+        internal byte version;
+
         // state-data (for now only single texture)
+        [NonSerialized]
         public Texture2D texture;
 
         // state-data-feature (for now only single texture)
+        [NonSerialized]
         public Texture2D feature;
 
         // state-data-height (for now only single texture)
+        [NonSerialized]
         public Texture2D surfaceHeight;
 
         // resolution in meters for feature map
+        [NonSerialized]
         public Matrix3D featureInfo;
 
         private const string ID = "Saab.Foundation.Unity.MapStreamer.NodeHandle";
-
+        
         internal bool inNodeUtilsRegistry
         {
             get { return (stateFlags & NodeStateFlags.InRegistry) != NodeStateFlags.None; }
@@ -183,6 +200,34 @@ namespace Saab.Foundation.Unity.MapStreamer
             transform.localPosition = mat4.Translation().ToVector3();
             transform.localScale = mat4.Scale().ToVector3();
             transform.localRotation = mat4.Quaternion().ToQuaternion();
+        }
+
+        internal void Recycle(TextureManager textureManager)
+        {
+            if (node != null)
+                node.ReleaseAlreadyLocked();
+            
+            node = null;
+            builder = null;
+            stateLoadInfo = StateLoadInfo.None;
+            stateFlags = NodeStateFlags.None;
+            if (texture)
+            {
+                textureManager.Free(texture);
+                texture = null;
+            }
+            if (feature)
+            {
+                textureManager.Free(feature);
+                feature = null;
+            }
+            if (surfaceHeight)
+            {
+                textureManager.Free(surfaceHeight);
+                surfaceHeight = null;
+            }
+            featureInfo = default;
+            version++;
         }
     }
 }

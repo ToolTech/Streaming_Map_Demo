@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Adds PropertyAttributes to GizmoSDK NodeHandler
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.155
+// Product		: Gizmo3D 2.12.184
 //
 //
 //
@@ -49,6 +49,7 @@ using System.Reflection;
 
 using GizmoSDK.Gizmo3D;
 using Saab.Foundation.Unity.MapStreamer;
+using GizmoSDK.GizmoBase;
 
 [AttributeUsage(AttributeTargets.Property)]
 public class ExposePropertyAttribute : Attribute
@@ -316,11 +317,11 @@ public class NodeHandleEditor : Editor
                
         // ------------------------- Name -----------------------------------------------------
 
-        string name = EditorGUILayout.TextField("Name",node.GetName(), emptyOptions);
+        string name = EditorGUILayout.DelayedTextField("Name",node.Name, emptyOptions);
                
-        if (name != node.GetName())
+        if (name != node.Name)
         {
-            node.SetName(name);
+            node.Name=name;
             change = true;
 
             if (name.Length > 0)
@@ -328,6 +329,44 @@ public class NodeHandleEditor : Editor
             else
                 m_Instance.gameObject.name = node.GetNativeTypeName();
         }
+
+        // ------------------------- Type -----------------------------------------------------
+
+        EditorGUILayout.LabelField("Type", node.GetNativeTypeName(), emptyOptions);
+
+        EditorGUILayout.Separator();
+
+        // ------------------------- NodeID -----------------------------------------------------
+
+        string nodeID = EditorGUILayout.DelayedTextField("NodeID", node.NodeID.ToString(), emptyOptions);
+
+        if (nodeID!=node.NodeID.ToString())
+        {
+            change = true;
+            node.NodeID = Convert.ToUInt32(nodeID); 
+        }
+
+        // ------------------------- StateID -----------------------------------------------------
+
+        if (node.HasState())
+        {
+            var ID = node.State.StateID;
+
+            string stateID = EditorGUILayout.DelayedTextField("StateID", ID.ToString(), emptyOptions);
+
+            if (stateID != ID.ToString())
+            {
+                change = true;
+                node.State.StateID = Convert.ToUInt32(stateID);
+            }
+
+            var state = node.State;
+            var refCount = state.GetReferenceCount() - 1;
+            EditorGUILayout.LabelField("State Refs", refCount.ToString());
+            state.Release();
+        }
+
+        EditorGUILayout.Separator();
 
         // ------------------------ Boundary --------------------------------------------------
 
@@ -341,6 +380,37 @@ public class NodeHandleEditor : Editor
             change = true;
         }
 
+        EditorGUILayout.Separator();
+
+        // ------------------------- Meta -----------------------------------------------------
+
+        if (node.HasDbInfo())
+            EditorGUILayout.LabelField("DbInfo", node.GetDbInfo().ToJSON(), EditorStyles.wordWrappedLabel, emptyOptions);
+
+        // ------------------------- GDAL Meta -----------------------------------------------------
+
+        if(node.ExistUserData("GDAL"))
+        {
+            UserDataAttributeContainer gdal=node.GetUserData("GDAL") as UserDataAttributeContainer;
+            
+            if (gdal != null) 
+            {
+                var container=gdal.GetAttributes();
+
+                if(container != null) 
+                {
+                    EditorGUILayout.LabelField("GDAL", container.ToJSON(), EditorStyles.wordWrappedLabel, emptyOptions);
+                }
+            }
+        }
+
+        // ------------------------- Mask Info -----------------------------------------------------
+        
+        EditorGUILayout.LabelField("Intersector Mask", node.IntersectMask.ToString());
+
+        EditorGUILayout.Separator();
+
+        EditorGUILayout.LabelField("Cull Mask", node.CullMask.ToString());
 
         EditorGUILayout.Separator();
 
@@ -369,12 +439,39 @@ public class NodeHandleEditor : Editor
 
         // ------------------------ GetLastAccessRenderCount ------------------------------------
 
-        EditorGUILayout.LabelField("Last Access", string.Format("{0}", loader.GetLastAccessRenderCount()));
+        EditorGUILayout.LabelField("Last Access", string.Format("{0}", loader.LastAccessRenderCount));
 
         EditorGUILayout.Separator();
 
         return change;
     }
+
+    bool PropEdit_RefNode(RefNode refnode)
+    {
+        if (refnode == null)
+            return false;
+
+        bool change = false;
+
+        GUILayoutOption[] emptyOptions = new GUILayoutOption[0];
+
+        // ------------------------- RefNodeID -----------------------------------------------------
+
+        var refNodeID = refnode.ReferenceNodeID;
+
+        string id = EditorGUILayout.DelayedTextField("RefNodeID", refNodeID.ToString(), emptyOptions);
+        
+        if (id != refNodeID.ToString())
+        {
+            change = true;
+            refnode.ReferenceNodeID = Convert.ToUInt32(id);
+        }
+
+        EditorGUILayout.Separator();
+
+        return change;
+    }
+
     public override void OnInspectorGUI()
     {
 
@@ -425,6 +522,9 @@ public class NodeHandleEditor : Editor
                 change = true;
 
             if (PropEdit_Node(m_Instance.node as Node))
+                change = true;
+
+            if (PropEdit_RefNode(m_Instance.node as RefNode))
                 change = true;
 
             if (PropEdit_DynamicLoader(m_Instance.node as DynamicLoader))
