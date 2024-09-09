@@ -1366,7 +1366,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         private readonly System.Diagnostics.Stopwatch _renderTimer = new System.Diagnostics.Stopwatch();
 
-        private void Render()
+        public void Render()
         {
             _renderTimer.Restart();
 
