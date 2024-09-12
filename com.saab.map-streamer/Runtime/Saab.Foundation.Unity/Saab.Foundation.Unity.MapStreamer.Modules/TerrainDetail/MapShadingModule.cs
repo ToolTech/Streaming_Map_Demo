@@ -57,7 +57,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         private readonly Dictionary<GameObject, Material> _materials = new Dictionary<GameObject, Material>();
 
-        private void Start()
+        private void Awake()
         {
             if (SceneManager == null)
                 return;
@@ -83,8 +83,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         private void InitMapModules()
         {
-            SceneManager.OnNewTerrain += SceneManager_OnNewGeometry;
-            SceneManager.OnEnterPool += SceneManager_OnEnterPool;
+            SceneManager.OnNewTerrain += SceneManager_OnNewTerrain;
+            SceneManager.OnRemoveTerrain += SceneManager_OnRemoveTerrain;
         }
 
         private void InitDetailTexturing()
@@ -155,7 +155,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             }
         }
 
-        private void SceneManager_OnNewGeometry(GameObject go, bool isAsset)
+        private void SceneManager_OnNewTerrain(GameObject go, bool isAsset)
         {
             if (!go.TryGetComponent<NodeHandle>(out var nodehandle))
                 return;
@@ -203,7 +203,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             RefreshSettings(material);
         }
 
-        private void SceneManager_OnEnterPool(GameObject go)
+        private void SceneManager_OnRemoveTerrain(GameObject go)
         {
             _materials.Remove(go);
         }

@@ -832,7 +832,9 @@ namespace Saab.Foundation.Unity.MapStreamer
                 if (node != null)
                 {
                     _native_scene.AddNode(MapControl.SystemMap.CurrentMap);
+#if DEBUG
                     _native_scene.Debug();
+#endif
 
                     _root = new GameObject("root");
                     GameObject scene = BeginTraverse(MapControl.SystemMap.CurrentMap);
@@ -899,7 +901,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                 if (_root)
                 {
                     UnloadHierarchy(_root.transform);
-                    Free(_root.transform);
+                    FreeInternal(_root.transform);
                     _root = null;
                 }
 
