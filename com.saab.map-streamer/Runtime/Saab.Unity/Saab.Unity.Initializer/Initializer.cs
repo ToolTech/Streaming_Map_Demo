@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Bindings stub for Gizmo Messages
 // Author		: Anders Modén
-// Product		: GizmoBase 2.12.184
+// Product		: GizmoBase 2.12.185
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
