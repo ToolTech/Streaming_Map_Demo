@@ -1578,6 +1578,10 @@ namespace Saab.Foundation.Unity.MapStreamer
                 if (nodeHandle.inNodeUpdateList)
                     updateNodeObjects.Remove(transform.gameObject);
 
+                // remove from registry
+                if (nodeHandle.inNodeUtilsRegistry)
+                    NodeUtils.RemoveGameObjectReferenceUnsafe(nodeHandle.node.GetNativeReference(), transform.gameObject);
+
                 // invalidate any pending builds for this node handle
                 nodeHandle.version++;
             }
@@ -1669,9 +1673,6 @@ namespace Saab.Foundation.Unity.MapStreamer
             tr.localScale = Vector3.one;
 
             var node = nodeHandle.node;
-
-            if (nodeHandle.inNodeUtilsRegistry)
-                NodeUtils.RemoveGameObjectReferenceUnsafe(node.GetNativeReference(), go);
 
             if (nodeHandle.builder != null)
             {
