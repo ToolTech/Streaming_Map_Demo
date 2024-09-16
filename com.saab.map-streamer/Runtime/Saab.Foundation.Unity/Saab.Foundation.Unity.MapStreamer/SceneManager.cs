@@ -413,7 +413,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             OnNewLoader?.Invoke(data.NodeHandle.gameObject, false);
 
             // gzDynamicLoader is gzGroup
-            ProcessGroup(node, in data, false);
+            // ProcessGroup(node, in data, false);
         }
 
         private void ProcessLod(Lod node, in TraversalStateData data)
@@ -651,7 +651,8 @@ namespace Saab.Foundation.Unity.MapStreamer
                 return null;
 
             // Check for asset top node
-            if ((data.TraversalStateFlags & TraversalState.Asset) == TraversalState.None && node.HasNodeID())
+            if ((data.TraversalStateFlags & (TraversalState.Asset | TraversalState.AssetInstance)) == TraversalState.None
+                && node.HasNodeID())
             {
                 // mostly for debug purposes, will allow us to skip asset loading
                 if (Settings.Options.HasFlag(SceneManagerOptions.DisableInstancing))
