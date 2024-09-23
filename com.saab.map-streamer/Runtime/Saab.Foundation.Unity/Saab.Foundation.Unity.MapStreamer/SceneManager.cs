@@ -133,9 +133,6 @@ namespace Saab.Foundation.Unity.MapStreamer
     [Serializable]
     public struct SceneManagerSettings
     {
-        // ************* [Deprecated] *************
-        //public UnityEngine.Shader CrossboardShader;
-        public UnityEngine.ComputeShader ComputeShader;
         public double   MaxBuildTime;                       // Max time to spend in frame to build objects
         public double   MinBuildTime;                       // Min time to spend in frame to build objects
         public byte     DynamicLoaders;
@@ -899,14 +896,29 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                 pendingActivations.Clear();
 
+                // allow builders to perform custom clean up
+                foreach (var builder in _builders)
+                    builder.Reset();
+
+                _assetInstanceBuilder.Reset();
+
                 if (_root)
                 {
                     UnloadHierarchy(_root.transform);
-                    FreeInternal(_root.transform);
+                    Free(_root.transform);
+                    FreeFromPendingQueue(int.MaxValue);
                     _root = null;
                 }
 
                 _native_scene?.RemoveAllNodes();
+
+                _textureManager.Clear();
+
+                // clear all pending asset loads
+                _deferredAssetLoads.Clear();
+
+                // clear any pending builds
+                pendingBuilds.Clear();
 
                 MapControl.SystemMap.Reset();
             }
@@ -969,6 +981,12 @@ namespace Saab.Foundation.Unity.MapStreamer
             var pools = _free.Where(p => p != null).ToArray();
             foreach (byte poolId in pools.Select(p => (byte)Array.IndexOf(_free, p)))
                 _preAllocationRoundRobinQueue.Enqueue(poolId);
+
+            if (_poolPrefabs[(int)PoolObjectFeature.StaticMesh] == null)
+            {
+                Settings.Options |= SceneManagerOptions.DisableInstancing;
+                Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "disabling instancing, no builder for StaticMesh feature");
+            }
 
         
 
@@ -1203,12 +1221,8 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             // We must be called in edit lock
 
-            Performance.Enter("SM.ProcessPendingUpdates.BuildGO");
-
             // Process changes of the scenegraph
             ProcessPendingLoaders();
-
-            Performance.Leave(); // SM.ProcessPendingUpdates.BuildGO
         }
 
         private void ProcessPendingUpdatesPostTraversal()
@@ -1217,12 +1231,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             #region Activate/Deactivate GameObjects based on scenegraph -----------------------------------------------------
 
-            Performance.Enter("SM.ProcessPendingUpdates.ActivateGO");
-
-
             ProcessPendingActivations();
-
-            Performance.Leave(); // SM.ProcessPendingUpdates.ActivateGO
 
             #endregion
 
@@ -1239,17 +1248,9 @@ namespace Saab.Foundation.Unity.MapStreamer
             if (remainingBuildTime < TimeSpan.FromSeconds(Settings.MinBuildTime))
                 remainingBuildTime = TimeSpan.FromSeconds(Settings.MinBuildTime);
 
-            Performance.Enter("SM.ProcessPendingUpdates.DequeBuildGO");
-
             ProcessPendingBuilders(remainingBuildTime);
 
-            Performance.Leave(); // SM.ProcessPendingUpdates.DequeBuildGO
-
             #endregion
-
-            Performance.Enter("SM.ProcessPendingUpdates.Cleanup");
-            
-            Performance.Leave(); // SM.ProcessPendingUpdates.Cleanup
         }
 
         private void ProcessPendingLoaders()
@@ -1348,16 +1349,12 @@ namespace Saab.Foundation.Unity.MapStreamer
         private void UpdateNodeInternals()
         {
             // Only called if SceneManagerCamera is not null
-            Performance.Enter("SM.UpdateNodeInternals");
-
             foreach (GameObject go in updateNodeObjects)
             {
                 NodeHandle h = go.GetComponent<NodeHandle>();
 
                 h.UpdateNodeInternals();
             }
-
-            Performance.Leave(); // SM.UpdateNodeInternals
         }
 
         // Update is called once per frame
@@ -1373,24 +1370,27 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             _renderTimer.Restart();
 
-            // Check if global world camera is present -----------------------
+            RenderInternal();
+            
+            // -------------------------------------------------------------
+            SceneManagerCamera.PostTraverse(false);
+            OnPostTraverse?.Invoke(false);
+        }
 
+        private void RenderInternal()
+        {
+            // Check if global world camera is present -----------------------
             if (SceneManagerCamera == null)
                 return;
 
             // Check if local unity camera is present ------------------------
-
             var unityCamera = SceneManagerCamera.Camera;
-
             if (unityCamera == null)
                 return;
 
             // Check if local native camera is present ------------------------
-
             if (_native_camera == null)
                 return;
-
-            Performance.Enter("SM.Update");
 
             // Lets try to build a scenegraph from pending changes from previous pass
             if (!NodeLock.TryLockEdit(30))      // 30 msek allow latency of other pending editor
@@ -1398,20 +1398,10 @@ namespace Saab.Foundation.Unity.MapStreamer
                 Message.Send(ID, MessageLevel.DEBUG, "Lock contention detected! NodeLock::TryLockEdit() FRAME LOST");
 
                 // We failed to refresh scene in reasonable time but we still need to issue updates;
-
-                Performance.Enter("SM.Update.PreTraverse");
-
                 SceneManagerCamera.PreTraverse(false);
                 OnPreTraverse?.Invoke(false);
-                
-                Performance.Leave(); // SM.Update.PreTraverse
-                Performance.Leave(); // SM.Update
-                        
                 return;
             }
-
-            // Notify about we are starting to traverse -----------------------
-            Performance.Enter("SM.Update.PreTraverse");
 
             // Signal the world camera we are in pre traverse locked
             SceneManagerCamera.PreTraverse(true);
@@ -1419,20 +1409,12 @@ namespace Saab.Foundation.Unity.MapStreamer
             // Signal the SM we are in pre traverse locked
             OnPreTraverse?.Invoke(true);
 
-            Performance.Leave(); // SM.Update.PreTraverse
-            
-                    
-            Performance.Enter("SM.ProcessPendingUpdatesPreTraversal");
-
             // Builds a scenegraph from changes from previous frame
             ProcessPendingUpdatesPreTraversal();
-                    
-            Performance.Leave(); // SM.ProcessPendingUpdatesPreTraversal
 
             if (!NodeLock.ChangeToRenderLock())
             {
                 NodeLock.UnLock();
-
                 Message.Send(ID, MessageLevel.DEBUG, "Failed to change into RenderLock");
             }
 
@@ -1443,46 +1425,29 @@ namespace Saab.Foundation.Unity.MapStreamer
             if (activePendingLoaders.Count > 0) // Check if we got a mismatch in updates
             {
                 NodeLock.UnLock(); // Unlock render
-
                 Message.Send(ID, MessageLevel.FATAL, "Mismatch in virtual context (loaded/unloaded data)");
-
                 return;
             }
 
             // We are now locked in Render
             RenderInternal(unityCamera);
-                    
+
             if (!NodeLock.ChangeToEditLock())
             {
                 NodeLock.UnLock();
-
                 Message.Send(ID, MessageLevel.DEBUG, "Failed to change into EditLock");
             }
 
             if (!NodeLock.IsLockedByMe())
                 return;
 
-            Performance.Enter("SM.ProcessPendingUpdatesPostTraversal");
-
             // Builds a scenegraph from changes from previous frame
             ProcessPendingUpdatesPostTraversal();
-            
-            Performance.Leave(); // SM.ProcessPendingUpdatesPostTraversal
 
             NodeLock.UnLock();
 
             // Unlocked updates
             UpdateNodeInternals();
-
-            // -------------------------------------------------------------
-            Performance.Leave(); // SM.Update
-
-            Performance.Enter("SM.Update.PostTraverse");
-                
-            SceneManagerCamera.PostTraverse(false);
-            OnPostTraverse?.Invoke(false);
-
-            Performance.Leave(); // SM.Update.PostTraverse
         }
 
         private void RenderInternal(UnityEngine.Camera UnityCamera)
@@ -1534,7 +1499,7 @@ namespace Saab.Foundation.Unity.MapStreamer
         private NodeHandle Allocate(PoolObjectFeature featureKey, Node node)
         {
             var idx = (byte)featureKey;
-            var pool = _free[idx];
+            var pool = _free[idx];               
 
             if (pool.Count == 0)
                 FreeFromPendingQueue(100);

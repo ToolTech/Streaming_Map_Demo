@@ -74,7 +74,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         public void InitializeModule()
         {
-            if (SceneManager)
+            if (SceneManager && EnableDetailedTextures)
             {
                 InitMapModules();
                 InitDetailTexturing();
@@ -184,18 +184,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             material.SetFloat(Shader.PropertyToID("_DetailTextureFadeStart"), 50);
             material.SetFloat(Shader.PropertyToID("_DetailTextureFadeZoneLength"), 100);
 
-            material.SetFloat("_Smoothness", SmoothnessModifier);
-            material.SetFloat("_RoughnessFallback", RoughnessFallback);
-            material.SetFloat("_HueShiftInclusion", HueShiftInclusion);
-            material.SetFloat("_SecondaryNormalIntensity", SecondaryNormalIntensity);
-            material.SetFloat("_TertiaryNormalIntensity", TertiaryNormalIntensity);
-            material.SetKeyword(new UnityEngine.Rendering.LocalKeyword(meshRenderer.material.shader, "DETAIL_TEXTURES_ON"), EnableDetailedTextures);
 
             material.SetTexture(Shader.PropertyToID("_Textures"), _textureArray);
             material.SetTexture(Shader.PropertyToID("_NormalMaps"), _normalMapArray);
             material.SetTexture(Shader.PropertyToID("_HeightMaps"), _heightMapArray);
             material.SetTexture(Shader.PropertyToID("_RoughnessMaps"), _roughnessMapArray);
-
+            
             material.SetBuffer("_MappingBuffer", _mappingBuffer);
 
             _materials.Add(go, material);

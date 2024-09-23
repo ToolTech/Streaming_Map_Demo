@@ -36,7 +36,6 @@
 
 // Framework
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 
 // Unity
@@ -77,8 +76,6 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             output = default;
 
-            Performance.Enter("StateHelper.Build");
-
             if (!ReadTextureFromState(state, out Texture2D texture, textureCache))
                 return false;
 
@@ -86,21 +83,25 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             if (ReadTextureFromState(state, out Texture2D feature, textureCache, out TextureImageInfo info, 1, false))       // Features always singletons and no mipmap force
             {
-                output.Feature = feature;
-
-                if (info.homography.Is("gzImageHomography"))
+                if (info != null && info.homography.Is("gzImageHomography"))
+                {
+                    output.Feature = feature;
                     output.Feature_homography = ((ImageHomography)info.homography);
+                }
+                else
+                    output.Feature = null;
             }
 
             if (ReadTextureFromState(state, out Texture2D surface, textureCache, out info, 2, false))       // Features always singletons and no mipmap force
             {
-                output.SurfaceHeight = surface;
-
-                if (info.homography.Is("gzImageHomography"))
+                if (info != null && info.homography.Is("gzImageHomography"))
+                {
+                    output.SurfaceHeight = surface;
                     output.SurfaceHeight_homography = ((ImageHomography)info.homography);
+                }
+                else
+                    output.SurfaceHeight = null;
             }
-
-            Performance.Leave(); // StateHelper.Build
 
             return true;
         }
@@ -109,14 +110,10 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             output = default;
 
-            Performance.Enter("StateHelper.Build");
-
             if (!ReadTextureFromState(state, out Texture2D texture, textureCache))
                 return false;
 
             output = texture;
-
-            Performance.Leave(); // StateHelper.Build
 
             return true;
         }

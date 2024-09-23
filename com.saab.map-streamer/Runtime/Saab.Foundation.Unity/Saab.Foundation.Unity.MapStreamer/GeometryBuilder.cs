@@ -65,6 +65,11 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             _textureManager = textureManager;
         }
+
+        public virtual void Reset()
+        {
+            // NOP
+        }
     }
 
     public abstract class GeometryBuilderBase : NodeBuilderBase

@@ -183,11 +183,11 @@ namespace Saab.Unity.Initializer
                 case MessageLevel.PERF_DEBUG:
                 case MessageLevel.DEBUG:
                 case MessageLevel.TRACE_DEBUG:
-                    Debug.Log(message);
+                    Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, message);
                     break;
 
                 case MessageLevel.NOTICE:
-                    Debug.Log(message);
+                    Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, message);
                     break;
 
                 case MessageLevel.WARNING:
@@ -203,7 +203,7 @@ namespace Saab.Unity.Initializer
                     break;
 
                 case MessageLevel.ALWAYS:
-                    Debug.Log(message);
+                    Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, message);
                     break;
             }
         }
@@ -227,58 +227,49 @@ namespace Saab.Unity.Initializer
             _frameTime = time;
 
 
-            try
-            {
-                Performance.Enter("Initializer.Update");
-
-                // Example of getting performance graphical output
+            // Example of getting performance graphical output
 
 #if SHOW_TRACERS
 
-                if (_counter == 10)
-                {
-                    tracer = new PerformanceTracer();
+            if (_counter == 10)
+            {
+                tracer = new PerformanceTracer();
 
-                    tracer.AddAll();
+                tracer.AddAll();
 
-                    tracer.Run();
-                }
+                tracer.Run();
+            }
 
 #endif // SHOW_TRACERS
 
 
-                _counter++;
+            _counter++;
 
-                // Exemple of getting allocate dmemory in native parts
+            // Exemple of getting allocate dmemory in native parts
 
 #if SHOW_MEMORY
-                if (_counter % 30 == 0)
-                {
-                    //System.GC.Collect();
-                    //System.GC.WaitForPendingFinalizers();
+            if (_counter % 30 == 0)
+            {
+                //System.GC.Collect();
+                //System.GC.WaitForPendingFinalizers();
 
-                    GizmoSDK.GizmoBase.Monitor.AddValue("mem", MemoryControl.GetAllocMem());
+                GizmoSDK.GizmoBase.Monitor.AddValue("mem", MemoryControl.GetAllocMem());
 
-                    GizmoSDK.GizmoBase.Monitor.AddValue("internal", MemoryControl.GetAllocMem(0, 0, false, true));
+                GizmoSDK.GizmoBase.Monitor.AddValue("internal", MemoryControl.GetAllocMem(0, 0, false, true));
 
-                    GizmoSDK.GizmoBase.Monitor.AddValue("dyn", MemoryControl.GetAllocMem(66666));
+                GizmoSDK.GizmoBase.Monitor.AddValue("dyn", MemoryControl.GetAllocMem(66666));
 
-                    GizmoSDK.GizmoBase.Monitor.AddValue("tex", Image.GetRegisteredImageData());
-                }
+                GizmoSDK.GizmoBase.Monitor.AddValue("tex", Image.GetRegisteredImageData());
+            }
 #endif //SHOW_MEMORY
 
 #if SHOW_FPS
-                if (_counter % 30 == 0)
-                {
-                    GizmoSDK.GizmoBase.Monitor.AddValue("fps", 1 / _frameDurationTime);
-                }
+            if (_counter % 30 == 0)
+            {
+                GizmoSDK.GizmoBase.Monitor.AddValue("fps", 1 / _frameDurationTime);
+            }
 #endif //SHOW_FPS
 
-            }
-            finally
-            {
-                Performance.Leave();
-            }
         }
     }
 

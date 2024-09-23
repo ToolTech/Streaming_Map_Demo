@@ -114,5 +114,14 @@ namespace Saab.Foundation.Unity.MapStreamer
             // failed to find the given resource, no operation performed
             return false;
         }
+
+        public void Clear()
+        {
+            foreach (var kvp in _lookup)
+                GameObject.Destroy(kvp.Key);
+            
+            _lookup.Clear();
+            _textureCache.Clear();
+        }
     }
 }

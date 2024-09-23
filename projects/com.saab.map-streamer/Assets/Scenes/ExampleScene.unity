@@ -156,7 +156,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Settings:
-    ComputeShader: {fileID: 0}
     MaxBuildTime: 0.016
     MinBuildTime: 0.004
     DynamicLoaders: 4
@@ -208,7 +207,7 @@ MonoBehaviour:
   _mode: 1
   _fallbackMaterial: {fileID: 2100000, guid: aaa1d8c29d6c5924296633de6b87f492, type: 2}
   _material: {fileID: 2100000, guid: 7b3b84139d8f3354e927c3e2d99d2e53, type: 2}
-  _mask: 8
+  _mask: 2056
   _forceFallbackMaterial: 0
 --- !u!114 &44396063
 MonoBehaviour:

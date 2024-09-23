@@ -199,9 +199,6 @@ namespace Saab.Foundation.Unity.MapStreamer
         // Update is called once per frame
         void Update()
         {
-            Performance.Enter("CameraControl.Update");                
-            // Check mouse click
-
             if (Input.GetButtonDown("Fire1") && Input.GetKey(KeyCode.LeftShift) && !_inputLocked)
             {
                 Map.MapPos mapPos;
@@ -251,8 +248,6 @@ namespace Saab.Foundation.Unity.MapStreamer
                 {
                     Debug.Log("Hit Ground ok");
                 }
-
-                //Performance.DumpPerformanceInfo();
             }
 
             if (Input.GetKey("b"))
@@ -264,8 +259,6 @@ namespace Saab.Foundation.Unity.MapStreamer
             {
                 GizmoSDK.Gizmo3D.DynamicLoaderManager.StartManager();
             }
-
-            Performance.Leave(); // CameraControl.Update
         }
 
         public void PreTraverse(bool locked)

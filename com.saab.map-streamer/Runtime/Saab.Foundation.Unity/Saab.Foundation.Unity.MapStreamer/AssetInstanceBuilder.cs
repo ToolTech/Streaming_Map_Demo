@@ -110,6 +110,26 @@ namespace Saab.Foundation.Unity.MapStreamer
             // nop
         }
 
+        public void Reset()
+        {
+            foreach (var kvp in _assetPrefabs)
+            {
+                var prefabNodeHandle = kvp.Value;
+                if (prefabNodeHandle.TryGetComponent<MeshFilter>(out var meshFilter))
+                {
+                    GameObject.Destroy(meshFilter.sharedMesh);
+                    meshFilter.sharedMesh = null;
+                }
+                if (prefabNodeHandle.TryGetComponent<MeshRenderer>(out var meshRenderer))
+                {
+                    GameObject.Destroy(meshRenderer.sharedMaterial);
+                    meshRenderer.sharedMaterial = null;
+                }
+            }
+
+            _assetPrefabs.Clear();
+        }
+
         private void CreateInstanceFromPrefab(NodeHandle clone, NodeHandle src)
         {
             // copy mesh renderer and assign shared material instance

@@ -48,11 +48,50 @@ namespace Saab.Foundation.Unity.MapStreamer
     public interface INodeBuilder
     {
         PoolObjectFeature Feature { get; }
-        BuildPriority Priority { get; }
+
+         BuildPriority Priority { get; }
+
+        /// <summary>
+        /// Invoked by the SceneManager to determine if the provided node together with additional info
+        /// is a valid build target for this builder
+        /// </summary>
+        /// <param name="node">Node</param>
+        /// <param name="traversalState">Current traversal state</param>
+        /// <param name="intersectMask">Current intersector mask</param>
+        /// <returns></returns>
         bool CanBuild(Node node, TraversalState traversalState, IntersectMaskValue intersectMask);
+
+        /// <summary>
+        /// Builds the object from a native node using the provided state information
+        /// </summary>
+        /// <param name="nodeHandle">NodeHandle</param>
+        /// <param name="activeStateNode">Current active state, such as texture and color information</param>
+        /// <returns></returns>
         bool Build(NodeHandle nodeHandle, NodeHandle activeStateNode);
+
+        /// <summary>
+        /// Invoked when an object built by this builder is recycled
+        /// </summary>
+        /// <param name="gameObject">object that was recycled</param>
+        /// <param name="sharedAsset">true if the object was was sharing resources</param>
         void BuiltObjectReturnedToPool(GameObject gameObject, bool sharedAsset);
+
+        /// <summary>
+        /// Invoked when allocating new objects for this builder instance, allowing the builder
+        /// to add all required components
+        /// </summary>
+        /// <param name="gameObject">GameObject to decorate</param>
         void InitPoolObject(GameObject gameObject);
+
+        /// <summary>
+        /// Assigns the texture manager instance that the builder should use when working with textures
+        /// </summary>
+        /// <param name="textureManager">Assigned TextureManager instance</param>
         void SetTextureManager(TextureManager textureManager);
+
+        /// <summary>
+        /// Invoked as a result of reset, builder should clear any state
+        /// </summary>
+        void Reset();
     }
 }
