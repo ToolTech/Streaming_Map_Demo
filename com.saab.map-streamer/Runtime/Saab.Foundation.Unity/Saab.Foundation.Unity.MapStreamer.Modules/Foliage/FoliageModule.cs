@@ -13,6 +13,9 @@
  * Export Control:             NOT EXPORT CONTROLLED
  */
 
+using GizmoSDK.Coordinate;
+using GizmoSDK.GizmoBase;
+using Saab.Foundation.Map;
 using Saab.Utility.GfxCaps;
 using System;
 using System.Collections;
@@ -37,7 +40,10 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         [Range(0.001f, 1)]
         public float ScreenCoverage = 0.001f;
         public float Density;
-        public uint BoundaryRadius;
+        /// <summary>
+        /// Node LOD's larger than this will not use features from this set.
+        /// </summary>
+        public uint NodeMaxWidth;
         public bool Shadows;
         public bool Crossboard;
         [Header("calculated drawDistance")]
@@ -134,9 +140,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 var featureSet = Features[i];
                 var settings = GetSettings(featureSet.SettingsType);
                 featureSet.Enabled = settings.Enabled;
-
-                if (!settings.Enabled)
-                    continue;
 
                 featureSet.FoliageFeature = new FoliageFeature(Mathf.CeilToInt(featureSet.BufferSize * settings.Density), featureSet.Density * settings.Density, TerrainMapping.FeatureTruthTable(_mappingTable, featureSet.mapFeature), ComputeShader);
 
@@ -317,12 +320,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             if (!nodeHandle.texture || !nodeHandle.feature)
                 return;
 
-            // results from native calls should always be cached
-            var radius = nodeHandle.node.BoundaryRadius;
-
-            if (radius <= 5 || radius >= 900)
-                return;
-
             var featureInfo = nodeHandle.featureInfo;
 
             var pixelSize = new Vector2((float)featureInfo.v11, (float)featureInfo.v22);
@@ -332,7 +329,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 (float)(featureInfo.v13 + featureInfo.v11) % scale,
                 (float)(featureInfo.v23 + featureInfo.v22) % scale);
 
-            var texSize = new Vector2(nodeHandle.texture.width, nodeHandle.texture.height);
+            var tex = nodeHandle.texture;
+            var texSize = new Vector2(tex.width, tex.height);
 
             ComputeShader.SetVector("terrainResolution", texSize);
             ComputeShader.SetVector("terrainSize", mesh.bounds.size);
@@ -340,11 +338,39 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             ComputeShader.SetVector("Resolution", pixelSize);
             ComputeShader.SetMatrix("ObjToWorld", go.transform.localToWorldMatrix);
 
-            var heightmap = GenerateHeight(texSize, pixelSize, mesh);
+            var fullNodeSize = pixelSize * texSize;
+            var nodeSide = Mathf.Max(fullNodeSize.x, fullNodeSize.y);
+
+            if (nodeSide > 2048)
+                return;
+
+            var meshCenter = nodeHandle.node.BoundaryCenter;
+
+            MapControl.SystemMap.GlobalToWorld(meshCenter, out GizmoSDK.Coordinate.CartPos cartPos);
+            var coordConverter = new Coordinate();
+            coordConverter.SetCartPos(cartPos);
+            coordConverter.GetUTMPos(out var utmPos);
+
+            var topLeftCorner = nodeHandle.featureInfo * new Vec3D(0, 0, 1);
+
+            var nodeSize = (texSize * pixelSize);
+            var nodeOffsetDiff = nodeSize - new Vector2(mesh.bounds.size.x, mesh.bounds.size.z);
+            var centerOffset = new Vec3D(topLeftCorner.x - utmPos.Easting, 0, topLeftCorner.y - utmPos.Northing);
+
+            if (Math.Abs(centerOffset.x) < nodeSize.x / 2)
+                nodeOffsetDiff.x *= -1;
+
+            if (Math.Abs(centerOffset.y) > nodeSize.y / 2)
+                nodeOffsetDiff.y *= -1;
+
+            centerOffset.x += nodeOffsetDiff.x;
+            centerOffset.y += nodeOffsetDiff.y;
+
+            var heightmap = GenerateHeight(texSize, pixelSize, mesh, centerOffset);
 
             RenderTexture surface = null;
             if (nodeHandle.surfaceHeight == null)
-                surface = GenerateSurfaceHeight(nodeHandle.texture);
+                surface = GenerateSurfaceHeight(tex);
 
             foreach (var set in Features)
             {
@@ -354,7 +380,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 var setting = GetSettings(set.SettingsType);
                 ComputeShader.SetFloat("Density", set.Density * setting.Density);
 
-                if (radius < set.BoundaryRadius)
+                if (nodeSide < set.NodeMaxWidth)
                 {
                     set.FoliageFeature.AddFoliage(go, nodeHandle, heightmap, surface);
                 }
@@ -394,7 +420,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             return _surfaceheightMap;
         }
 
-        private RenderTexture GenerateHeight(Vector2 texSize, Vector2 pixelSize, Mesh mesh)
+        private RenderTexture GenerateHeight(Vector2 texSize, Vector2 pixelSize, Mesh mesh, Vec3D offset)
         {
 
             ComputeShader.SetVector("Resolution", pixelSize);
@@ -418,40 +444,16 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             ComputeShader.SetInt("TexcoordOffset", texOffset / 4);
             ComputeShader.SetInt("VertexBufferStride", stride / 4);
 
-            // ************* find node corners ************* //
-
-            uint maxside = (uint)Mathf.Max(texSize.x, texSize.y);
-
-            uint[] max = { maxside * 2, maxside * 2 };
-            _minXY.SetData(max);
-
             var indicesCount = mesh.GetIndexCount(0);
-
-            var kernelFindUV = ComputeShader.FindKernel("CSFindMinUv");
             ComputeShader.SetInt("uvCount", vertexBuffer.count);
-            ComputeShader.SetBuffer(kernelFindUV, "MinXY", _minXY);
-            ComputeShader.SetBuffer(kernelFindUV, "VertexBuffer", vertexBuffer);
 
-            ComputeShader.Dispatch(kernelFindUV, Mathf.CeilToInt(vertexBuffer.count / 32f) < 1 ? 1 : Mathf.CeilToInt(vertexBuffer.count / 32f), 1, 1);
-
-            var data = new uint[2];
-            // TODO: this will cost some performance but will stop flying trees
-            // find a better solution in future, avoid copying from gpu to cpu and back again
-            //_minXY.GetData(data);
-
-            // ************* Find center of Node ************* //
-
-            var offsetX = (texSize.x - 2) * pixelSize.x / 2 - mesh.bounds.extents.x;
-            offsetX = data[0] > 0 ? -offsetX : offsetX;
-            var offsetY = (texSize.y - 2) * pixelSize.y / 2 - mesh.bounds.extents.z;
-            offsetY = data[1] > 0 ? offsetY : -offsetY;
-
-            var center = mesh.bounds.center;
-            center.x += offsetX;
-            center.z += offsetY;
-
-            var extents = new Vector3((texSize.x - 2) * pixelSize.x / 2, mesh.bounds.size.y, texSize.y * pixelSize.y / 2);
-            ComputeShader.SetVector("MeshBoundsMax", center + extents);
+            // ************* find node corners ************* //
+   
+            //var nodeTexCenter = mesh.bounds.center + new Vector3((float)offset.x + mesh.bounds.extents.x, (float)offset.y, (float)offset.z + mesh.bounds.extents.z);
+            //var nodeExtents = new Vector3((texSize.x - 2) * pixelSize.x / 2, mesh.bounds.size.y, texSize.y * pixelSize.y / 2);
+            //var nodeTexTopLeft = nodeTexTopLeft + nodeExtents;
+            var nodeTexTopLeft =  mesh.bounds.center - new Vector3((float)offset.x + (texSize.x * pixelSize.x), (float)offset.y, (float)offset.z) ;
+            ComputeShader.SetVector("MeshBoundsMax", nodeTexTopLeft );
 
             // ************* Generate Height Map  ************* //
 

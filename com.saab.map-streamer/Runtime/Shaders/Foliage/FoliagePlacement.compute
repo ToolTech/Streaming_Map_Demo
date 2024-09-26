@@ -145,9 +145,8 @@ float GetHeightOfPlaneAtXZ(float3 planeNormal, float3 pointInPlane, float2 xz, o
 float3 GetPixelCoord(float2 uv, float height = 0)
 {
 	// z-coordinate is negative because of the infamous BTA Z-flip	
-	float2 offset = terrainResolution * Resolution;
-	float3 coord = float3(uv.x * Resolution.x - offset.x + MeshBoundsMax.x, height, -uv.y * Resolution.y + MeshBoundsMax.z);
-	return coord;
+    float3 coord = float3(uv.x * Resolution.x + MeshBoundsMax.x, height, -uv.y * Resolution.y + MeshBoundsMax.z);
+    return coord;
 }
 
 float Random(float input, float mutator = 0.546)
@@ -430,6 +429,12 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
 
 					float surfaceHeight = HeightSurface[uvHeight] * 255;
 
+					// Check if surfaceHeight is "Undefined" give random value as in CSSurfaceHeightMap
+                    if (surfaceHeight <= 0)
+                    {
+                        surfaceHeight = (3 + length(color) / 3 * 18) * 255;
+                    }
+            										
 					float3 coord = float3(foliagePoint.x + randomPoint.x, height, foliagePoint.y + randomPoint.y);
 
 					FoliagePoint res;
@@ -453,7 +458,6 @@ inline bool IsInFrustum(float3 positionAfterProjection, float threshold)
 		dot(normalize(frustumPlanes[2].xyz), positionAfterProjection) >= threshold &&
 		dot(normalize(frustumPlanes[3].xyz), positionAfterProjection) >= threshold);
 }
-
 
 float3 GetScreenPos(float3 pos)
 {
@@ -496,7 +500,6 @@ bool IsHidden(float3 pos, float height, float distance, float bias = 10)
 	
     return false;
 }
-
 
 // ************* Cull Points ************* //
 [numthreads(128, 1, 1)]

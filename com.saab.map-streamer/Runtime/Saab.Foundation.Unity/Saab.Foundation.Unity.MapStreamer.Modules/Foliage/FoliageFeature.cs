@@ -134,9 +134,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 HeightMap = heightMap
             };
 
-            
-
-
             data.TerrainPoints = new ComputeBuffer(size < 1 ? 1 : size, sizeof(float) * 8, ComputeBufferType.Append);
 
             FeaturePlacement(data);
