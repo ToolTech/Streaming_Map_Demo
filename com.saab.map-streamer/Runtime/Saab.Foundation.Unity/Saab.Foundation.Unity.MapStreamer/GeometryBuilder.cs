@@ -112,7 +112,9 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             if (!GeometryHelper.Build(geo, out Mesh mesh, out Color uniformColor))
             {
+#if DEBUG
                 Debug.LogError("failed to generate mesh, no geometry was built");
+#endif
 
                 Destroy(mesh);
                 meshFilter.sharedMesh = null;
@@ -136,13 +138,17 @@ namespace Saab.Foundation.Unity.MapStreamer
                     }
                     else
                     {
+#if DEBUG
                         Debug.LogError("failed to create resources from state, using fallback material");
+#endif
                         material = Instantiate(_fallbackMaterial);
                     }
                 }
                 else
                 {
+#if DEBUG
                     Debug.LogError("missing state, using fallback material");
+#endif
                     material = Instantiate(_fallbackMaterial);
                 }
             }

@@ -1342,7 +1342,11 @@ namespace Saab.Foundation.Unity.MapStreamer
                 if (buildInfo.Builder.Build(nodeHandle, activeStateNode))
                     buildInfo.NodeHandle.builder = buildInfo.Builder;
                 else
+                {
+#if DEBUG
                     Debug.LogError("build failed");
+#endif
+                }
             }
         }
         
