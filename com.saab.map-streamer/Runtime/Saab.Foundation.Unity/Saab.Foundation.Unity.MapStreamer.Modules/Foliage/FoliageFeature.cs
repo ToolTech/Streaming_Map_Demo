@@ -90,7 +90,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         {
             _placement = computeShader;
             _density = density;
-            _pointCloud = new ComputeBuffer(BufferSize, sizeof(float) * 8, ComputeBufferType.Append);
+            _pointCloud = new ComputeBuffer(BufferSize <= 0 ? 1 : BufferSize, sizeof(float) * 8, ComputeBufferType.Append);
             _mappingBuffer = new ComputeBuffer(map.Length, sizeof(int));
             _mappingBuffer.SetData(map);
         }
