@@ -1374,6 +1374,10 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             _renderTimer.Restart();
 
+            // Check if global world camera is present -----------------------
+            if (SceneManagerCamera == null)
+                return;
+
             RenderInternal();
             
             // -------------------------------------------------------------
@@ -1383,10 +1387,6 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         private void RenderInternal()
         {
-            // Check if global world camera is present -----------------------
-            if (SceneManagerCamera == null)
-                return;
-
             // Check if local unity camera is present ------------------------
             var unityCamera = SceneManagerCamera.Camera;
             if (unityCamera == null)
