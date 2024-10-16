@@ -271,13 +271,19 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             return textureArray;
         }
+
+        private readonly Plane[] _frustrumPlanes = new Plane[6];
         private void GenerateFrustumPlane(UnityEngine.Camera camera)
         {
-            var planes = GeometryUtility.CalculateFrustumPlanes(camera);
+            GeometryUtility.CalculateFrustumPlanes(camera, _frustrumPlanes);
 
             for (int i = 0; i < 6; i++)
             {
-                _frustum[i] = new Vector4(planes[i].normal.x, planes[i].normal.y, planes[i].normal.z, planes[i].distance);
+                Vector3 normal = _frustrumPlanes[i].normal;
+                _frustum[i].x = normal.x;
+                _frustum[i].y = normal.y;
+                _frustum[i].z = normal.z;
+                _frustum[i].w = _frustrumPlanes[i].distance;
             }
         }
         private void SceneManager_OnRemoveTerrain(GameObject go)
@@ -332,17 +338,19 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             var tex = nodeHandle.texture;
             var texSize = new Vector2(tex.width, tex.height);
 
+            var fullNodeSize = pixelSize * texSize;
+            var nodeSide = Mathf.Max(fullNodeSize.x, fullNodeSize.y);
+
+            if (nodeSide > 2048)
+                return;
+
             ComputeShader.SetVector("terrainResolution", texSize);
             ComputeShader.SetVector("terrainSize", mesh.bounds.size);
             ComputeShader.SetVector("NodeOffset", nodeOffset);
             ComputeShader.SetVector("Resolution", pixelSize);
             ComputeShader.SetMatrix("ObjToWorld", go.transform.localToWorldMatrix);
 
-            var fullNodeSize = pixelSize * texSize;
-            var nodeSide = Mathf.Max(fullNodeSize.x, fullNodeSize.y);
-
-            if (nodeSide > 2048)
-                return;
+            
 
             var meshCenter = nodeHandle.node.BoundaryCenter;
 

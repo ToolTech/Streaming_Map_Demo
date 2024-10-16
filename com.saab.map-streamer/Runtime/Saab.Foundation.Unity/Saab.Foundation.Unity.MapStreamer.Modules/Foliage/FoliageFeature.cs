@@ -74,6 +74,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         
         private Vector2 _resolution;
         private readonly ComputeShader _placement;
+        private readonly int _kernelCull;
+        private readonly int _kernelClear;
+        private readonly int _kernelPlacement;
         private readonly float _density;
         private readonly float _scale = 10000;
 
@@ -89,8 +92,13 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public FoliageFeature(int BufferSize, float density, int[] map, ComputeShader computeShader)
         {
             _placement = computeShader;
+            _kernelCull = _placement.FindKernel("CSCull");
+            _kernelClear = _placement.FindKernel("CSClear");
+            _kernelPlacement = _placement.FindKernel("CSPlacement");
             _density = density;
             _pointCloud = new ComputeBuffer(BufferSize <= 0 ? 1 : BufferSize, sizeof(float) * 8, ComputeBufferType.Append);
+            // we only need to set this once
+            _placement.SetBuffer(_kernelCull, PlacementParameterID.OutputBuffer, _pointCloud);
             _mappingBuffer = new ComputeBuffer(map.Length, sizeof(int));
             _mappingBuffer.SetData(map);
         }
@@ -184,11 +192,10 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         // needed to clear old valid tree data from gpu memory, if skipped when frustum culling old trees might get valid/visable
         private void ClearFeature(FeatureData data)
         {
-            var kernal = _placement.FindKernel("CSClear");
-            _placement.SetBuffer(kernal, "TerrainPoints", data.TerrainPoints);
-            _placement.SetInt("BufferCount", data.TerrainPoints.count);
+            _placement.SetBuffer(_kernelClear, PlacementParameterID.TerrainPoints, data.TerrainPoints);
+            _placement.SetInt(PlacementParameterID.BufferCount, data.TerrainPoints.count);
             if (data.TerrainPoints.count > 0)
-                _placement.Dispatch(kernal, Mathf.CeilToInt(data.TerrainPoints.count / 128f), 1, 1);
+                _placement.Dispatch(_kernelClear, Mathf.CeilToInt(data.TerrainPoints.count / 128f), 1, 1);
             data.Dispose();
         }
 
@@ -254,22 +261,21 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         private void FeaturePlacement(FeatureData node)
         {
-            var kernelPlacement = _placement.FindKernel("CSPlacement");
-            _placement.SetTexture(kernelPlacement, "SplatMap", node.FeatureMap);
-            _placement.SetTexture(kernelPlacement, "Texture", node.Texture);
-            _placement.SetTexture(kernelPlacement, "HeightMap", node.HeightMap);
-            _placement.SetTexture(kernelPlacement, "HeightSurface", node.surfaceHeight);
+            _placement.SetTexture(_kernelPlacement, PlacementParameterID.SplatMap, node.FeatureMap);
+            _placement.SetTexture(_kernelPlacement, PlacementParameterID.Texture, node.Texture);
+            _placement.SetTexture(_kernelPlacement, PlacementParameterID.HeightMap, node.HeightMap);
+            _placement.SetTexture(_kernelPlacement, PlacementParameterID.HeightSurface, node.surfaceHeight);
 
-            _placement.SetVector("heightResolution", new Vector2(node.surfaceHeight.width, node.surfaceHeight.height));
-            _placement.SetBuffer(kernelPlacement, "TerrainPoints", node.TerrainPoints);
-            _placement.SetBuffer(kernelPlacement, "PixelToWorld", node.PlacementMatrix);
-            _placement.SetBuffer(kernelPlacement, "FeatureMap", _mappingBuffer);
+            _placement.SetVector(PlacementParameterID.heightResolution, new Vector2(node.surfaceHeight.width, node.surfaceHeight.height));
+            _placement.SetBuffer(_kernelPlacement, PlacementParameterID.TerrainPoints, node.TerrainPoints);
+            _placement.SetBuffer(_kernelPlacement, PlacementParameterID.PixelToWorld, node.PlacementMatrix);
+            _placement.SetBuffer(_kernelPlacement, PlacementParameterID.FeatureMap, _mappingBuffer);
 
-            int threadsX = Mathf.CeilToInt((node.FeatureMap.width) / (float)4);
-            int threadsY = Mathf.CeilToInt((node.FeatureMap.height) / (float)4);
+            int threadsX = Mathf.CeilToInt(node.FeatureMap.width / 4f);
+            int threadsY = Mathf.CeilToInt(node.FeatureMap.height / 4f);
 
             node.TerrainPoints.SetCounterValue(0);
-            _placement.Dispatch(kernelPlacement, threadsX < 1 ? 1 : threadsX, threadsY < 1 ? 1 : threadsY, 1);
+            _placement.Dispatch(_kernelPlacement, threadsX < 1 ? 1 : threadsX, threadsY < 1 ? 1 : threadsY, 1);
         }
 
         public Matrix4x4 GetClipToWorld(Camera camera)
@@ -281,21 +287,41 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             return Matrix4x4.Inverse(p * camera.worldToCameraMatrix) * Matrix4x4.TRS(new Vector3(0, 0, -p[2, 2]), UnityEngine.Quaternion.identity, Vector3.one);
         }
 
+        private static class PlacementParameterID
+        {
+            public static readonly int DepthTexture = Shader.PropertyToID("DepthTexture");
+            public static readonly int WorldToScreen = Shader.PropertyToID("WorldToScreen");
+            public static readonly int maxHeight = Shader.PropertyToID("maxHeight");
+            public static readonly int OutputBuffer = Shader.PropertyToID("OutputBuffer");
+            public static readonly int CameraPosition = Shader.PropertyToID("CameraPosition");
+            public static readonly int CameraRightVector = Shader.PropertyToID("CameraRightVector");
+            public static readonly int frustumPlanes = Shader.PropertyToID("frustumPlanes");
+            public static readonly int InputBuffer = Shader.PropertyToID("InputBuffer");
+            public static readonly int ObjToWorld = Shader.PropertyToID("ObjToWorld");
+            public static readonly int TerrainPoints = Shader.PropertyToID("TerrainPoints");
+            public static readonly int BufferCount = Shader.PropertyToID("BufferCount");
+            public static readonly int SplatMap = Shader.PropertyToID("SplatMap");
+            public static readonly int Texture = Shader.PropertyToID("Texture");
+            public static readonly int HeightMap = Shader.PropertyToID("HeightMap");
+            public static readonly int HeightSurface = Shader.PropertyToID("HeightSurface");
+            public static readonly int heightResolution = Shader.PropertyToID("heightResolution");
+            public static readonly int PixelToWorld = Shader.PropertyToID("PixelToWorld");
+            public static readonly int FeatureMap = Shader.PropertyToID("FeatureMap");
+        }
+
+
         public ComputeBuffer Cull(Vector4[] frustum, Camera camera, float maxHeight, RenderTexture Depth)
         {
             _pointCloud.SetCounterValue(0);     // only once every frame
-            var kernelCull = _placement.FindKernel("CSCull");
-
-            //var clipToWorld = GetClipToWorld(camera);
+            
             Matrix4x4 world2Screen = camera.projectionMatrix * camera.worldToCameraMatrix;
 
-            _placement.SetTexture(kernelCull, "DepthTexture", Depth);
-            _placement.SetMatrix("WorldToScreen", world2Screen);
-            _placement.SetFloat("maxHeight", maxHeight);
-            _placement.SetBuffer(kernelCull, "OutputBuffer", _pointCloud);
-            _placement.SetVector("CameraPosition", camera.transform.position);
-            _placement.SetVector("CameraRightVector", camera.transform.right);
-            _placement.SetVectorArray("frustumPlanes", frustum);
+            _placement.SetTexture(_kernelCull, PlacementParameterID.DepthTexture, Depth);
+            _placement.SetMatrix(PlacementParameterID.WorldToScreen, world2Screen);
+            _placement.SetFloat(PlacementParameterID.maxHeight, maxHeight);
+            _placement.SetVector(PlacementParameterID.CameraPosition, camera.transform.position);
+            _placement.SetVector(PlacementParameterID.CameraRightVector, camera.transform.right);
+            _placement.SetVectorArray(PlacementParameterID.frustumPlanes, frustum);
 
             var count = 0;
             var points = 0;
@@ -307,10 +333,15 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                     continue;
 
                 count++;
-                points += item.TerrainPoints.count;
-                _placement.SetBuffer(kernelCull, "InputBuffer", item.TerrainPoints);
-                _placement.SetMatrix("ObjToWorld", item.Object.transform.localToWorldMatrix);
-                _placement.Dispatch(kernelCull, Mathf.CeilToInt(item.TerrainPoints.count / 128f) < 1 ? 1 : Mathf.CeilToInt(item.TerrainPoints.count / 128f), 1, 1);
+
+                int itemPoints = item.TerrainPoints.count;
+                points += itemPoints;
+                int groups = Mathf.CeilToInt(itemPoints / 128f);
+
+                _placement.SetBuffer(_kernelCull, PlacementParameterID.InputBuffer, item.TerrainPoints);
+                _placement.SetMatrix(PlacementParameterID.ObjToWorld, item.Object.transform.localToWorldMatrix);
+
+                _placement.Dispatch(_kernelCull, groups < 1 ? 1 : groups, 1, 1);
             }
 
             return _pointCloud;

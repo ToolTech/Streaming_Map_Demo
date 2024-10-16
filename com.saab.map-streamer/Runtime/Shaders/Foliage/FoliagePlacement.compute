@@ -506,32 +506,35 @@ bool IsHidden(float3 pos, float height, float distance, float bias = 10)
 void CSCull(uint3 id : SV_DispatchThreadID)
 {
 	FoliagePoint data = InputBuffer[id.x];
-	float4 pos = mul(ObjToWorld, float4(data.Position.xyz, 1));
-
+	
 	// handle points with no value. (allocated points in buffer is by default float3(0,0,0)) 
-	if (length(data.Position.xyz) == 0)
-		return;
+    if (dot(data.Position, data.Position) == 0)
+        return;
+	
+	float3 pos = mul(ObjToWorld, float4(data.Position.xyz, 1)).xyz;
 
-	float seed = data.Random;
-	float distance = length(pos.xyz - CameraPosition);
+    float3 toCamera = pos - CameraPosition;
+	float distance = length(toCamera);
 
 	if (distance > frustumPlanes[5].w)
 		return;
 
 	// ****** falloff ******
-	else if (distance > frustumPlanes[5].w * 0.50)
+	if (distance > frustumPlanes[5].w * 0.50)
 	{
+        float seed = data.Random;
+	
 		float percentage = (distance - (frustumPlanes[5].w * 0.50)) / (frustumPlanes[5].w * 0.5);
 		if (percentage > seed)
 			return;
 	}
 
-	if (IsInFrustum((pos.xyz - CameraPosition), -maxHeight * 0.8))
+	if (IsInFrustum(toCamera, -maxHeight * 0.8))
 	{
-        data.Position = pos.xyz;
+        data.Position = pos;
 		
 		// ******** occlussion culling ******** 
-        if (Occlusion && IsHidden(pos.xyz, data.Height, distance, 0))
+        if (Occlusion && IsHidden(pos, data.Height, distance, 0))
             return;
 
 		OutputBuffer.Append(data);
