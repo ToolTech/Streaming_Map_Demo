@@ -67,6 +67,9 @@ using System.Collections;
 using UnityEngine.Networking;
 using System.Linq;
 
+using ProfilerMarker = global::Unity.Profiling.ProfilerMarker;
+using ProfilerCategory = global::Unity.Profiling.ProfilerCategory;
+
 namespace Saab.Foundation.Unity.MapStreamer
 {
     // The SceneManager behaviour takes a unity camera and follows that to populate the current scene with GameObjects in a scenegraph hierarchy
@@ -200,7 +203,12 @@ namespace Saab.Foundation.Unity.MapStreamer
         //private UnityPluginInitializer _plugin_initializer;
         //#pragma warning restore 414
 
-#endregion
+        #endregion
+
+
+        private static readonly ProfilerMarker _profilerMarkerRender = new ProfilerMarker(ProfilerCategory.Render, "SM-Render");
+        private static readonly ProfilerMarker _profilerMarkerCull = new ProfilerMarker(ProfilerCategory.Render, "SM-Cull");
+        private static readonly ProfilerMarker _profilerMarkerTraverse = new ProfilerMarker(ProfilerCategory.Render, "SM-Traverse");
 
         struct NodeLoadInfo
         {
@@ -1222,7 +1230,9 @@ namespace Saab.Foundation.Unity.MapStreamer
             // We must be called in edit lock
 
             // Process changes of the scenegraph
+            _profilerMarkerTraverse.Begin();
             ProcessPendingLoaders();
+            _profilerMarkerTraverse.End();
         }
 
         private void ProcessPendingUpdatesPostTraversal()
@@ -1378,7 +1388,11 @@ namespace Saab.Foundation.Unity.MapStreamer
             if (SceneManagerCamera == null)
                 return;
 
+            _profilerMarkerRender.Begin();
+
             RenderInternal();
+
+            _profilerMarkerRender.End();
             
             // -------------------------------------------------------------
             SceneManagerCamera.PostTraverse(false);
@@ -1434,7 +1448,9 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
 
             // We are now locked in Render
+            _profilerMarkerCull.Begin();
             RenderInternal(unityCamera);
+            _profilerMarkerCull.End();
 
             if (!NodeLock.ChangeToEditLock())
             {

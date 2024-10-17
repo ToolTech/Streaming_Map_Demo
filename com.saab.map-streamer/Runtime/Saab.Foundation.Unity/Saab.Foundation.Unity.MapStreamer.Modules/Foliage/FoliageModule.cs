@@ -25,6 +25,9 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 
+using ProfilerMarker = global::Unity.Profiling.ProfilerMarker;
+using ProfilerCategory = global::Unity.Profiling.ProfilerCategory;
+
 namespace Saab.Foundation.Unity.MapStreamer.Modules
 {
 
@@ -308,6 +311,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             AddJob(go);
         }
 
+        private readonly Coordinate _coordConverter = new Coordinate();
+
         private void AddJob(GameObject go)
         {
             if (Disabled || !go.activeInHierarchy)
@@ -355,9 +360,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             var meshCenter = nodeHandle.node.BoundaryCenter;
 
             MapControl.SystemMap.GlobalToWorld(meshCenter, out GizmoSDK.Coordinate.CartPos cartPos);
-            var coordConverter = new Coordinate();
-            coordConverter.SetCartPos(cartPos);
-            coordConverter.GetUTMPos(out var utmPos);
+            
+            _coordConverter.SetCartPos(cartPos);
+            _coordConverter.GetUTMPos(out var utmPos);
 
             var topLeftCorner = nodeHandle.featureInfo * new Vec3D(0, 0, 1);
 
@@ -528,7 +533,18 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             return desiredDistance;
         }
 
+        private static readonly ProfilerMarker _profilerMarker = new ProfilerMarker(ProfilerCategory.Render, "Foliage-Render");
+
         private void SceneManager_OnPostTraverse(bool locked)
+        {
+            _profilerMarker.Begin();
+            
+            Render();
+
+            _profilerMarker.End();
+        }
+
+        private void Render()
         {
             if (Disabled || !_hasDepthTexture)
                 return;
@@ -538,7 +554,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             else
                 UnsafeUtility.SetLeakDetectionMode(NativeLeakDetectionMode.Disabled);
 
-            
+
 
             var cam = SceneManager.SceneManagerCamera.Camera;
             GenerateFrustumPlane(cam);
@@ -590,6 +606,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             }
 
             DebugPrintCount = false;
+
+            
         }
     }
 }

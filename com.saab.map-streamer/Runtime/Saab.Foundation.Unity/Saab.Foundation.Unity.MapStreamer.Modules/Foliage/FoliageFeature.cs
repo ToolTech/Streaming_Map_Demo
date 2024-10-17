@@ -19,6 +19,9 @@ using System;
 using GizmoSDK.GizmoBase;
 using System.Linq;
 
+using ProfilerMarker = global::Unity.Profiling.ProfilerMarker;
+using ProfilerCategory = global::Unity.Profiling.ProfilerCategory;
+
 namespace Saab.Foundation.Unity.MapStreamer.Modules
 {
     public struct FoliagePoint
@@ -29,7 +32,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         float Random;
     }
 
-    public class FeatureData : IDisposable
+    public struct FeatureData : IDisposable
     {
         public GameObject Object { get; private set; }
         public ComputeBuffer PlacementMatrix { get; private set; }
@@ -44,6 +47,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public FeatureData(GameObject gameObject, Matrix3D matrix, float density, uint maxSide, float scale = 1000)
         {
             Object = gameObject;
+            
             var stepsize = (1 / density) * 10;
 
             PlacementMatrix = new ComputeBuffer(9, sizeof(float), ComputeBufferType.Default);
@@ -55,6 +59,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             NodeOffset = new Vector2((float)(matrix.v13 + matrix.v11) % scale, (float)(matrix.v23 + matrix.v22) % scale);
             PlacementMatrix.SetData(data);
+
+            HeightMap = null;
+            surfaceHeight = null;
+            Texture = null;
+            TerrainPoints = null;
+            FeatureMap = null;
         }
 
         public void Dispose()
@@ -63,7 +73,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             PlacementMatrix?.Release();
             HeightMap?.Release();
         }
-    }
+        }
 
     public class FoliageFeature : IDisposable
     {
@@ -86,7 +96,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         public int FoliageCount
         {
-            get { return _items.Count(); }
+            get { return _items.Count; }
         }
 
         public FoliageFeature(int BufferSize, float density, int[] map, ComputeShader computeShader)
@@ -97,43 +107,35 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _kernelPlacement = _placement.FindKernel("CSPlacement");
             _density = density;
             _pointCloud = new ComputeBuffer(BufferSize <= 0 ? 1 : BufferSize, sizeof(float) * 8, ComputeBufferType.Append);
+
             // we only need to set this once
             _placement.SetBuffer(_kernelCull, PlacementParameterID.OutputBuffer, _pointCloud);
             _mappingBuffer = new ComputeBuffer(map.Length, sizeof(int));
             _mappingBuffer.SetData(map);
+            _placement.SetBuffer(_kernelPlacement, PlacementParameterID.FeatureMap, _mappingBuffer);
         }
 
-        public FeatureData AddFoliage(GameObject go, NodeHandle node, RenderTexture heightMap = null, Texture surfaceHeight = null)
+        public bool AddFoliage(GameObject go, NodeHandle node, RenderTexture heightMap, Texture surfaceHeight = null)
         {
-            Texture2D featureMap = node.feature;
-            Texture2D texture = node.texture;
-            Texture height = node.surfaceHeight;
+            if (heightMap == null)
+                return false;
 
+            Texture2D featureMap = node.feature;
             if (featureMap == null)
-            {
-                //Debug.LogWarning($"node:{go.name}, no feature Map exist");
-                return null;
-            }
+                return false;
+
+            Texture height = node.surfaceHeight ?? surfaceHeight;
             if (height == null)
-            {
-                if (surfaceHeight)
-                    height = surfaceHeight;
-                else
-                    return null;
-            }
-            if(heightMap == null)
-            {
-                //Debug.LogWarning($"node:{go.name}, no terrain height exist");
-                return null;
-            }
+                return false;
+
+            var size = FindBufferSize(featureMap);
+            if (size >= ushort.MaxValue * 128)
+                return false;
 
             _resolution = new Vector2((float)node.featureInfo.v11, (float)node.featureInfo.v22);
             var maxside = Mathf.Max(featureMap.width, featureMap.height);
 
-            var size = FindBufferSize(featureMap);
-            if (size >= ushort.MaxValue * 128)
-                return null;
-
+            Texture2D texture = node.texture;
             var data = new FeatureData(go, node.featureInfo, _density, (uint)maxside, _scale)
             {
                 FeatureMap = featureMap,
@@ -148,11 +150,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             _items.Add(data);
             _itemLookup.Add(go);
-            //Debug.LogWarning($"added FeatureData");
 
-            //_mappingBuffer.Release();
-
-            return data;
+            return true;
         }
         public void RemoveFoliage(GameObject gameObj)
         {
@@ -190,12 +189,13 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         }
 
         // needed to clear old valid tree data from gpu memory, if skipped when frustum culling old trees might get valid/visable
-        private void ClearFeature(FeatureData data)
+        private void ClearFeature(in FeatureData data)
         {
             _placement.SetBuffer(_kernelClear, PlacementParameterID.TerrainPoints, data.TerrainPoints);
             _placement.SetInt(PlacementParameterID.BufferCount, data.TerrainPoints.count);
             if (data.TerrainPoints.count > 0)
                 _placement.Dispatch(_kernelClear, Mathf.CeilToInt(data.TerrainPoints.count / 128f), 1, 1);
+
             data.Dispose();
         }
 
@@ -207,34 +207,34 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             return Mathf.CeilToInt(maxSize) < 1 ? 1 : Mathf.CeilToInt(maxSize);
 
-            // ################## find minimum memory needed for buffer ##################
-
-            /*
-            var bufferKernel = _placement.FindKernel("CSFindBufferSize");
-            var result = new uint[1];
-
-            var sizeBuffer = new ComputeBuffer(1, sizeof(uint), ComputeBufferType.Default);
-            sizeBuffer.SetData(result);
-
-            _placement.SetBuffer(bufferKernel, "BufferSize", sizeBuffer);
-            _placement.SetTexture(bufferKernel, "SplatMap", node.FeatureMap);
-            _placement.SetBuffer(bufferKernel, "FeatureMap", _mappingBuffer);
-
-            int threadsX = Mathf.CeilToInt((node.FeatureMap.width) / (float)8);
-            int threadsY = Mathf.CeilToInt((node.FeatureMap.height) / (float)8);
-
-            _placement.Dispatch(bufferKernel, threadsX, threadsY, 1);
-
-            sizeBuffer.GetData(result);
-            var percentage = result[0] / (float)(node.FeatureMap.width * node.FeatureMap.height);
-
-            //var maxMem = maxSize * sizeof(float) * 8;
-            //var savedMem = maxSize * (1 - percentage) * sizeof(float) * 8;
-            //Debug.Log($"worst case {maxMem} Bytes saved memory {savedMem} Bytes");
-
-            sizeBuffer.Release();
-            return Mathf.CeilToInt(maxSize * percentage) < 1 ? 1 : Mathf.CeilToInt(maxSize * percentage);
-            */
+            //// ################## find minimum memory needed for buffer ##################
+            //
+            //
+            //var bufferKernel = _placement.FindKernel("CSFindBufferSize");
+            //var result = new uint[1];
+            //
+            //var sizeBuffer = new ComputeBuffer(1, sizeof(uint), ComputeBufferType.Default);
+            //sizeBuffer.SetData(result);
+            //
+            //_placement.SetBuffer(bufferKernel, "BufferSize", sizeBuffer);
+            //_placement.SetTexture(bufferKernel, "SplatMap", node.feature);
+            //_placement.SetBuffer(bufferKernel, "FeatureMap", _mappingBuffer);
+            //
+            //int threadsX = Mathf.CeilToInt((node.feature.width) / (float)8);
+            //int threadsY = Mathf.CeilToInt((node.feature.height) / (float)8);
+            //
+            //_placement.Dispatch(bufferKernel, threadsX, threadsY, 1);
+            //
+            //sizeBuffer.GetData(result);
+            //var percentage = result[0] / (float)(node.feature.width * node.feature.height);
+            //
+            ////var maxMem = maxSize * sizeof(float) * 8;
+            ////var savedMem = maxSize * (1 - percentage) * sizeof(float) * 8;
+            ////Debug.Log($"worst case {maxMem} Bytes saved memory {savedMem} Bytes");
+            //
+            //sizeBuffer.Release();
+            //return Mathf.CeilToInt(maxSize * percentage) < 1 ? 1 : Mathf.CeilToInt(maxSize * percentage);
+            
         }
         // used for debuging the min and max height of the node
         private void GetMinMax(string node, Texture2D heightmap)
@@ -269,7 +269,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _placement.SetVector(PlacementParameterID.heightResolution, new Vector2(node.surfaceHeight.width, node.surfaceHeight.height));
             _placement.SetBuffer(_kernelPlacement, PlacementParameterID.TerrainPoints, node.TerrainPoints);
             _placement.SetBuffer(_kernelPlacement, PlacementParameterID.PixelToWorld, node.PlacementMatrix);
-            _placement.SetBuffer(_kernelPlacement, PlacementParameterID.FeatureMap, _mappingBuffer);
+            
 
             int threadsX = Mathf.CeilToInt(node.FeatureMap.width / 4f);
             int threadsY = Mathf.CeilToInt(node.FeatureMap.height / 4f);
@@ -309,9 +309,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             public static readonly int FeatureMap = Shader.PropertyToID("FeatureMap");
         }
 
+        private static readonly ProfilerMarker _profilerMarker = new ProfilerMarker(ProfilerCategory.Render, "Foliage-Cull");
 
         public ComputeBuffer Cull(Vector4[] frustum, Camera camera, float maxHeight, RenderTexture Depth)
         {
+            _profilerMarker.Begin();
+
             _pointCloud.SetCounterValue(0);     // only once every frame
             
             Matrix4x4 world2Screen = camera.projectionMatrix * camera.worldToCameraMatrix;
@@ -326,10 +329,13 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             var count = 0;
             var points = 0;
 
-            foreach (var item in _items)
+            for (var i = 0; i < _items.Count; ++i)
             {
+                var item = _items[i];
+                var go = item.Object;
+
                 // don't cull disabled objects
-                if (!item.Object.activeInHierarchy)
+                if (!go.activeInHierarchy)
                     continue;
 
                 count++;
@@ -339,11 +345,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 int groups = Mathf.CeilToInt(itemPoints / 128f);
 
                 _placement.SetBuffer(_kernelCull, PlacementParameterID.InputBuffer, item.TerrainPoints);
-                _placement.SetMatrix(PlacementParameterID.ObjToWorld, item.Object.transform.localToWorldMatrix);
+                _placement.SetMatrix(PlacementParameterID.ObjToWorld, go.transform.localToWorldMatrix);
 
                 _placement.Dispatch(_kernelCull, groups < 1 ? 1 : groups, 1, 1);
             }
 
+            _profilerMarker.End();
             return _pointCloud;
         }
     }
