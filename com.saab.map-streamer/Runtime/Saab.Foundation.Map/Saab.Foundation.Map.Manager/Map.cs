@@ -874,6 +874,10 @@ namespace Saab.Foundation.Map
 
                     _currentMap = value;
 
+                    // reset to defaults
+                    _converter.PrefUTMZone = -1;
+                    _converter.PrefUTMHemisphere = 0;
+
                     if (value != null && value.IsValid() && value.HasDbInfo())
                     {
                         var projection = _currentMap.GetDbInfo(GZ_DB_INFO_PROJECTION);
@@ -889,6 +893,10 @@ namespace Saab.Foundation.Map
                             _metaData = new CoordinateSystemMetaData(utmOrigin.Zone, utmOrigin.North);
 
                             _coordSystem = new CoordinateSystem(Datum.WGS84_ELLIPSOID, FlatGaussProjection.UTM, CoordinateType.UTM);
+
+                            // we need to set utm zone converter settings according to map settings
+                            _converter.PrefUTMZone = utmOrigin.Zone;
+                            _converter.PrefUTMHemisphere = utmOrigin.North ? 1 : -1;
                         }
                         else if (projection == GZ_DB_INFO_PROJECTION_FLAT)   // To run a 3D world without world coordinates
                         {
