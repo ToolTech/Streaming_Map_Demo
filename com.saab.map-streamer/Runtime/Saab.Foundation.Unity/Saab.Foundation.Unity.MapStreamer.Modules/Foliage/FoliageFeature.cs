@@ -107,12 +107,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _kernelPlacement = _placement.FindKernel("CSPlacement");
             _density = density;
             _pointCloud = new ComputeBuffer(BufferSize <= 0 ? 1 : BufferSize, sizeof(float) * 8, ComputeBufferType.Append);
-
-            // we only need to set this once
-            _placement.SetBuffer(_kernelCull, PlacementParameterID.OutputBuffer, _pointCloud);
             _mappingBuffer = new ComputeBuffer(map.Length, sizeof(int));
-            _mappingBuffer.SetData(map);
-            _placement.SetBuffer(_kernelPlacement, PlacementParameterID.FeatureMap, _mappingBuffer);
+            _mappingBuffer.SetData(map);  
         }
 
         public bool AddFoliage(GameObject go, NodeHandle node, RenderTexture heightMap, Texture surfaceHeight = null)
@@ -269,7 +265,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _placement.SetVector(PlacementParameterID.heightResolution, new Vector2(node.surfaceHeight.width, node.surfaceHeight.height));
             _placement.SetBuffer(_kernelPlacement, PlacementParameterID.TerrainPoints, node.TerrainPoints);
             _placement.SetBuffer(_kernelPlacement, PlacementParameterID.PixelToWorld, node.PlacementMatrix);
-            
+
+            // we need to set this everytime
+            _placement.SetBuffer(_kernelPlacement, PlacementParameterID.FeatureMap, _mappingBuffer);
 
             int threadsX = Mathf.CeilToInt(node.FeatureMap.width / 4f);
             int threadsY = Mathf.CeilToInt(node.FeatureMap.height / 4f);
@@ -325,6 +323,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _placement.SetVector(PlacementParameterID.CameraPosition, camera.transform.position);
             _placement.SetVector(PlacementParameterID.CameraRightVector, camera.transform.right);
             _placement.SetVectorArray(PlacementParameterID.frustumPlanes, frustum);
+
+            // we need to set this everytime
+            _placement.SetBuffer(_kernelCull, PlacementParameterID.OutputBuffer, _pointCloud);       
 
             var count = 0;
             var points = 0;

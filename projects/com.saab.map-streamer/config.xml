@@ -2,8 +2,7 @@
 <!-- Generic Configuration for Unity -->
 <Unity>
     <GfxCaps>
-        <!-- <CurrentCaps info="Which graphics capabilities to use">48</CurrentCaps> -->
-		<CurrentCaps info="Which graphics capabilities to use">0</CurrentCaps>
+		<CurrentCaps info="Which graphics capabilities to use">48</CurrentCaps>
 		<Foliage>
          <!-- ****** disable by setting drawdistance or density to 0.0 ****** -->
           <Trees>
@@ -22,7 +21,6 @@
     <SceneManager>
 		<SceneCleanupTime>10</SceneCleanupTime> <!-- seconds -->
 		<DynamicLoaders>4</DynamicLoaders>
-		<MapUrl>C:\Maps\3D_work\map_static.gzd</MapUrl>
-		<!-- <MapUrl>http://gizmosdk.blob.core.windows.net/maps/stock/map.gzd</MapUrl> -->
+		<MapUrl>http://gizmosdk.blob.core.windows.net/maps/stock/map.gzd</MapUrl>
     </SceneManager>
 </Unity>

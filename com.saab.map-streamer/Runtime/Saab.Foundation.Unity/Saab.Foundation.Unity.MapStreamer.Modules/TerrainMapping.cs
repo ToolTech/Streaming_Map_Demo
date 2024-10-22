@@ -291,6 +291,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         {
             var values = Enum.GetValues(typeof(MapFeature));
             List<MapFeature> foundFlags = new List<MapFeature>();
+
             foreach (var value in values)
             {
                 var flag = (MapFeature)value;

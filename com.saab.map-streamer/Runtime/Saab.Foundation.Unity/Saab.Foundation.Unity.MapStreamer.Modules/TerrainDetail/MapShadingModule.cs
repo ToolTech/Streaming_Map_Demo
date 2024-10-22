@@ -18,52 +18,153 @@ using Saab.Utility.GfxCaps;
 using System.Linq;
 using System.Collections.Generic;
 using System;
-using UnityEngine.SceneManagement;
-using System.Runtime.CompilerServices;
+using Saab.Foundation.Unity.MapStreamer.Utils;
 
 namespace Saab.Foundation.Unity.MapStreamer.Modules
 {
+    public struct TerrainData : IDisposable
+    {
+        public Material Material;
+        public ComputeBuffer NormalBuffer;
+        public GameObject Object;
+
+        public void GenerateNormal(Mesh mesh, ComputeShader normalComputeShader)
+        {
+            // Extract vertex positions and indices from the mesh
+            Vector3[] vertices = mesh.vertices;
+            int[] triangles = mesh.triangles;
+
+            // Create and initialize compute buffers
+            var vertexBuffer = new ComputeBuffer(vertices.Length, sizeof(float) * 3);
+            var indexBuffer = new ComputeBuffer(triangles.Length / 3, sizeof(int) * 3);
+            NormalBuffer = new ComputeBuffer(vertices.Length, sizeof(float) * 3);
+
+            vertexBuffer.SetData(vertices);
+            indexBuffer.SetData(triangles);
+
+            // Set compute shader parameters
+            normalComputeShader.SetBuffer(0, "vertexPositions", vertexBuffer);
+            normalComputeShader.SetBuffer(0, "triangleIndices", indexBuffer);
+            normalComputeShader.SetBuffer(0, "vertexNormals", NormalBuffer);
+            normalComputeShader.SetInt("numVertices", vertices.Length);
+            normalComputeShader.SetInt("triangleIndicesLength", triangles.Length);
+
+            // Dispatch the compute shader
+            int threadGroups = Mathf.CeilToInt(vertices.Length / 64.0f);
+            normalComputeShader.Dispatch(0, threadGroups, 1, 1);
+
+            vertexBuffer.Release();
+            indexBuffer.Release();
+        }
+
+        public TerrainData(Material material, GameObject go)
+        {
+            Object = go;
+            Material = material;
+            NormalBuffer = null;
+        }
+
+        public void Dispose()
+        {
+            NormalBuffer?.Release();
+        }
+    }
+
     public class MapShadingModule : MonoBehaviour
     {
         public SceneManager SceneManager;
 
+        public bool EnableDetailedTextures
+        {
+            get
+            {
+                return _enableDetailedTextures;
+            }
+            set
+            {
+                _enableDetailedTextures = value;
+            }
+        }
+        public float HueShiftInclusion
+        {
+            get
+            {
+                return _hueShiftInclusion;
+            }
+            set
+            {
+                _hueShiftInclusion = value;
+            }
+        }
+        public bool GenerateNormals
+        {
+            get
+            {
+                return _generateNormals;
+            }
+            set
+            {
+                _generateNormals = value;
+            }
+        }
+        public TerrainDetailTextureAssetSet DetailTextureSet
+        {
+            get
+            {
+                return _detailTextureSet;
+            }
+            set
+            {
+                _detailTextureSet = value;
+            }
+        }
+        public ComputeShader NormalComputeShader
+        {
+            get
+            {
+                return _normalComputeShader;
+            }
+            set
+            {
+                _normalComputeShader = value;
+            }
+        }
+
         [Header("Main Settings")]
-        public bool EnableDetailedTextures = true;
-
+        [SerializeField] private bool _enableDetailedTextures = true;
         [Range(0, 1)]
-        public float SmoothnessModifier;
-
-        [Range(0, 1)]
-        public float RoughnessFallback;
-
-        [Range(0, 1)]
-        public float HueShiftInclusion = 1;
-
-        [Range(0, 1)]
-        public float SecondaryNormalIntensity = 0.4f;
-
-        [Range(0, 1)]
-        public float TertiaryNormalIntensity = 0.4f;
+        [SerializeField] private float _hueShiftInclusion = 0.4f;
+        [SerializeField] private Color _targetHue = new Color(70f / 256f, 140f / 256f, 70f / 256f);
 
         [Header("Module Settings")]
-        public TerrainDetailTextureAssetSet DetailTextureSet;
+        [SerializeField] private TerrainDetailTextureAssetSet _detailTextureSet;
 
         private ComputeBuffer _mappingBuffer;
-
         private Texture2DArray _textureArray;
         private Texture2DArray _normalMapArray;
-        private Texture2DArray _heightMapArray;
-        private Texture2DArray _roughnessMapArray;
 
-        private readonly Dictionary<GameObject, Material> _materials = new Dictionary<GameObject, Material>();
+        [Header("Normal Generation")]
+        [SerializeField] private bool _generateNormals = false;
+        [SerializeField] private ComputeShader _normalComputeShader;
+
+        private readonly Dictionary<GameObject, TerrainData> _terrainData = new Dictionary<GameObject, TerrainData>();
 
         private void Awake()
         {
             if (SceneManager == null)
                 return;
 
-            EnableDetailedTextures = GfxCaps.CurrentCaps.HasFlag(Capability.UseTerrainDetailTextures);
+            _enableDetailedTextures = GfxCaps.CurrentCaps.HasFlag(Capability.UseTerrainDetailTextures);
             InitializeModule();
+            RefreshSettings();
+        }
+
+        private static class MaterialParameterID
+        {
+            public static readonly int NormalBuffer = Shader.PropertyToID("_NormalBuffer");
+            public static readonly int FeatureMap = Shader.PropertyToID("_FeatureMap");
+            public static readonly int Textures = Shader.PropertyToID("_Textures");
+            public static readonly int NormalMaps = Shader.PropertyToID("_NormalMaps");
         }
 
         private void OnDestroy()
@@ -74,7 +175,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         public void InitializeModule()
         {
-            if (SceneManager && EnableDetailedTextures)
+            if (SceneManager && _enableDetailedTextures)
             {
                 InitMapModules();
                 InitDetailTexturing();
@@ -89,69 +190,55 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         private void InitDetailTexturing()
         {
-            if (!EnableDetailedTextures || !DetailTextureSet)
+            if (!_enableDetailedTextures || !_detailTextureSet)
                 return;
-            
+
+            // TODO: look if we can do this on build instead in runtime (decrease load time)
+
             var mapping = TerrainMapping.MapFeatureData();
+            var mapResult = new int[256];
 
             if (!_textureArray)
             {
-                if (DetailTextureSet.Textures == null || DetailTextureSet.Textures.Count < 1)
+                if (_detailTextureSet.Textures == null || _detailTextureSet.Textures.Count < 1)
                     return;
 
-                int width = DetailTextureSet.Textures[0].Asset.Albedo.width;
-                int height = DetailTextureSet.Textures[0].Asset.Albedo.height;
+                int width = _detailTextureSet.Textures[0].Asset.Albedo.width;
+                int height = _detailTextureSet.Textures[0].Asset.Albedo.height;
 
                 List<int> resolved = new List<int>();
-                for (int i = 0; i < DetailTextureSet.Textures.Count; i++)
+                for (int i = 0; i < _detailTextureSet.Textures.Count; i++)
                 {
-                    var textureAsset = DetailTextureSet.Textures[i];
-                    var flagIndices = TerrainMapping.ExtractFlagsAsIndices(textureAsset.Mapping).ToList();
+                    var textureAsset = _detailTextureSet.Textures[i];
 
-                    //Remove all indices which deal with unclassified data since we will not have textures for these.
-                    flagIndices.RemoveAll(fi => fi == 0);
+                    var map = TerrainMapping.FeatureTruthTable(mapping, textureAsset.Mapping);
 
-                    for (int mapIndex = 0; mapIndex < mapping.Length; mapIndex++)
+                    for (int j = 0; j < map.Length; j++)
                     {
-                        if (resolved.Contains(mapIndex))
-                            continue;
-
-                        if (flagIndices.Contains(mapping[mapIndex]))
-                        {
-                            mapping[mapIndex] = i + 1;
-                            resolved.Add(mapIndex);
-                        }
+                        var index = map[j];
+                        if (index == 1)
+                            mapResult[j] = i + 1;
                     }
                 }
 
-                //Exclude features which have no texture.
-                for (int i = 0; i < mapping.Length; i++)
-                {
-                    if (!resolved.Contains(i))
-                        mapping[i] = 0;
-                }
+#if UNITY_ANDROID
+            var format = TextureFormat.ETC2_RGBA8;
+            Debug.Log("foliage Use ETC2");
+#else
+                var format = TextureFormat.DXT5;
+#endif
 
-                int depth = DetailTextureSet.Textures.Count;
+                List<Texture2D> albedo = _detailTextureSet.Textures.Select(t => t.Asset.Albedo).ToList();
+                List<Texture2D> normal = _detailTextureSet.Textures.Select(t => t.Asset.Normal).ToList();
 
-                _textureArray = new Texture2DArray(width, height, depth, TextureFormat.DXT1, true);
-                _normalMapArray = new Texture2DArray(width, height, depth, TextureFormat.DXT5, true);
-                _heightMapArray = new Texture2DArray(width, height, depth, TextureFormat.DXT1, true);
-                _roughnessMapArray = new Texture2DArray(width, height, depth, TextureFormat.DXT1, true);
-
-                for (int i = 0; i < DetailTextureSet.Textures.Count; i++)
-                {
-                    var textureAsset = DetailTextureSet.Textures[i];
-                    Graphics.CopyTexture(textureAsset.Asset.Albedo, 0, _textureArray, i);
-                    Graphics.CopyTexture(textureAsset.Asset.Normal, 0, _normalMapArray, i);
-                    Graphics.CopyTexture(textureAsset.Asset.Displacement, 0, _heightMapArray, i);
-                    Graphics.CopyTexture(textureAsset.Asset.Roughness, 0, _roughnessMapArray, i);
-                }
+                _textureArray = TextureUtility.Create2DArray(albedo, format);
+                _normalMapArray = TextureUtility.Create2DArray(normal, format); ;
             }
 
             if (_mappingBuffer == null)
             {
-                _mappingBuffer = new ComputeBuffer(mapping.Length, sizeof(int));
-                _mappingBuffer.SetData(mapping);
+                _mappingBuffer = new ComputeBuffer(mapResult.Length, sizeof(int));
+                _mappingBuffer.SetData(mapResult);
             }
         }
 
@@ -163,11 +250,10 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             if (!nodehandle.feature || !nodehandle.texture)
                 return;
 
-            var mask = nodehandle.node.IntersectMask;
-            if (!mask.HasFlag(GizmoSDK.Gizmo3D.IntersectMaskValue.GROUND))
+            if (!go.TryGetComponent<MeshRenderer>(out var meshRenderer))
                 return;
 
-            if (!go.TryGetComponent<MeshRenderer>(out var meshRenderer))
+            if (!go.TryGetComponent<MeshFilter>(out var meshFilter))
                 return;
 
             var material = meshRenderer.sharedMaterial;
@@ -175,31 +261,34 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             // todo: validate that this material uses correct shader
             if (!material)
                 return;
-                
-            var splatDimensions = new Vector2(nodehandle.texture.width, nodehandle.texture.height);
 
-            material.SetTexture(Shader.PropertyToID("_FeatureMap"), nodehandle.feature);
-            material.SetVector(Shader.PropertyToID("_FeatureMap_ST"), new Vector4(2, 2, 0, 0));
-            material.SetVector(Shader.PropertyToID("_SplatMapDimensions"), splatDimensions);
-            material.SetFloat(Shader.PropertyToID("_DetailTextureFadeStart"), 50);
-            material.SetFloat(Shader.PropertyToID("_DetailTextureFadeZoneLength"), 100);
+            var data = new TerrainData(material, go);
+            material.SetKeyword(new UnityEngine.Rendering.LocalKeyword(material.shader, "NORMAL_TEXTURES_ON"), _generateNormals);
 
+            if (_generateNormals)
+            {
+                data.GenerateNormal(meshFilter.mesh, _normalComputeShader);
+                material.SetBuffer(MaterialParameterID.NormalBuffer, data.NormalBuffer);
+            }
 
-            material.SetTexture(Shader.PropertyToID("_Textures"), _textureArray);
-            material.SetTexture(Shader.PropertyToID("_NormalMaps"), _normalMapArray);
-            material.SetTexture(Shader.PropertyToID("_HeightMaps"), _heightMapArray);
-            material.SetTexture(Shader.PropertyToID("_RoughnessMaps"), _roughnessMapArray);
-            
+            material.SetTexture(MaterialParameterID.FeatureMap, nodehandle.feature);
+            material.SetTexture(MaterialParameterID.Textures, _textureArray);
+            material.SetTexture(MaterialParameterID.NormalMaps, _normalMapArray);
+
             material.SetBuffer("_MappingBuffer", _mappingBuffer);
+            material.SetInt("_WaterIndex", 60);
 
-            _materials.Add(go, material);
-            
-            RefreshSettings(material);
+            _terrainData.Add(go, data);
         }
 
         private void SceneManager_OnRemoveTerrain(GameObject go)
         {
-            _materials.Remove(go);
+            RemoveTerrain(go);
+        }
+
+        private void RemoveTerrain(GameObject go)
+        {
+            _terrainData.Remove(go);
         }
 
         private void OnValidate()
@@ -209,18 +298,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         public void RefreshSettings()
         {
-            foreach (var kvp in _materials)
-                RefreshSettings(kvp.Value);
-        }
-
-        private void RefreshSettings(Material material)
-        {
-            material.SetFloat("_Smoothness", SmoothnessModifier);
-            material.SetFloat("_RoughnessFallback", RoughnessFallback);
-            material.SetFloat("_HueShiftInclusion", HueShiftInclusion);
-            material.SetFloat("_SecondaryNormalIntensity", SecondaryNormalIntensity);
-            material.SetFloat("_TertiaryNormalIntensity", TertiaryNormalIntensity);
-            material.SetKeyword(new UnityEngine.Rendering.LocalKeyword(material.shader, "DETAIL_TEXTURES_ON"), EnableDetailedTextures);
+            Shader.SetGlobalColor("_TargetTerrainColor", _targetHue);
+            Shader.SetGlobalFloat("_HueShift", _hueShiftInclusion);
         }
     }
 }

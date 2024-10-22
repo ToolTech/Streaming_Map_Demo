@@ -417,8 +417,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0283285cec50a434eac1ca6d49af4bb6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Speed: 1000
-  ShiftMultiplier: 3
+  Speed: 100
+  ShiftMultiplier: 5
   RotSpeed: 20
   X: 0
   Y: 80
@@ -454,13 +454,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SceneManager: {fileID: 44396059}
-  EnableDetailedTextures: 1
-  SmoothnessModifier: 0
-  RoughnessFallback: 0
-  HueShiftInclusion: 1
-  SecondaryNormalIntensity: 0.4
-  TertiaryNormalIntensity: 0.4
-  DetailTextureSet: {fileID: 11400000, guid: 123682dc7f3baf442b16516cbb951b61, type: 2}
+  _enableDetailedTextures: 1
+  _hueShiftInclusion: 0.4
+  _targetHue: {r: 0.2546725, g: 0.5566038, b: 0.2546725, a: 1}
+  _detailTextureSet: {fileID: 11400000, guid: 123682dc7f3baf442b16516cbb951b61, type: 2}
+  _generateNormals: 1
+  _normalComputeShader: {fileID: 7200000, guid: 0e24b78a0e19e3745900ce3fc73a93c1, type: 3}
 --- !u!4 &1692271384
 Transform:
   m_ObjectHideFlags: 0
@@ -497,7 +496,7 @@ MonoBehaviour:
   Disabled: 0
   DebugNoDraw: 0
   NativeLeakDetection: 0
-  Occlusion: 1
+  Occlusion: 0
   Features:
   - SettingsType: 0
     mapFeature: 2048
@@ -506,7 +505,7 @@ MonoBehaviour:
     BufferSize: 2000000
     ScreenCoverage: 0.005
     Density: 0.15
-    BoundaryRadius: 1200
+    NodeMaxWidth: 2048
     Shadows: 1
     Crossboard: 1
     DrawDistance: 0
@@ -517,7 +516,7 @@ MonoBehaviour:
     BufferSize: 2000000
     ScreenCoverage: 0.005
     Density: 1
-    BoundaryRadius: 400
+    NodeMaxWidth: 500
     Shadows: 0
     Crossboard: 0
     DrawDistance: 0

@@ -119,11 +119,8 @@ Shader "Custom/EnhancedTerrain"
 #endif
 
 				i.featureUV = v.uv;
-
-
 				i.normal = UnityObjectToWorldNormal(v.normal);
 				i.tangent = float4(UnityObjectToWorldDir(v.tangent), v.tangent.w);
-
 				i.worldPos = mul(unity_ObjectToWorld, v.position);
 
 				return i;

@@ -40,10 +40,11 @@ using GizmoSDK.GizmoBase;
 using Saab.Foundation.Map;
 using Saab.Unity.Extensions;
 using Saab.Utility.Unity.NodeUtils;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
-
 using Quaternion = UnityEngine.Quaternion;
+using Random = UnityEngine.Random;
 
 
 
@@ -184,6 +185,14 @@ namespace Saab.Foundation.Unity.MapStreamer
             _inputLocked = lockOtherInput;
         }
 
+        private void UpdateShaderPos()
+        {
+            var pos = GlobalPosition;
+            var cameraHeight = (float)Math.Clamp(pos.y, -float.MaxValue, float.MaxValue);
+            var worldOffset = new Vector3((float)(pos.x % float.MaxValue), cameraHeight, -(float)(pos.z % float.MaxValue));
+            Shader.SetGlobalVector("_WorldOffset", worldOffset);
+        }
+
         private void Move(AutoMovement movement)
         {
             MoveForward(movement.forward);
@@ -199,6 +208,8 @@ namespace Saab.Foundation.Unity.MapStreamer
         // Update is called once per frame
         void Update()
         {
+            UpdateShaderPos();
+
             if (Input.GetButtonDown("Fire1") && Input.GetKey(KeyCode.LeftShift) && !_inputLocked)
             {
                 Map.MapPos mapPos;
