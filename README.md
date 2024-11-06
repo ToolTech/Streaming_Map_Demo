@@ -60,6 +60,8 @@ _[A screenshot showing how feature/height data can be used to present trees with
 - TBD
 
 ## 4.0
+- new TerrainShader (with embedded support)
+- Various performance/memory fixes for Foliage
 - GizmoSDK 2.12.185.1
 - Improved functionality for builders
 - Added support for map assets (instancing)
