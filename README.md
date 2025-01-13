@@ -54,27 +54,3 @@ The demo shows an example of SBD maps (Streaming Binary Data) that are quad or o
 ![Screenshot](https://gizmosdk.blob.core.windows.net/maps/stock/thumb.png)
 _[A screenshot showing how feature/height data can be used to present trees with accurate position and height]_  
 
-# ChangeLog
-
-## 4.1
-- TBD
-
-## 4.0
-- new TerrainShader (with embedded support)
-- Various performance/memory fixes for Foliage
-- GizmoSDK 2.12.185.1
-- Improved functionality for builders
-- Added support for map assets (instancing)
-- Resources are now released explicitly
-- Removed instrumentation code
-- Lots of generic fixes and improvements
-
-## 1.2
-- Updated gizmo to 2.12.143
-- Replaced old vertex/index Buffers with GraphicsBuffer to avoid copying data from gpu to cpu.
-
-## 1.1
-- Added a new FeatureMap that should be shared independent on loaded map.
-- New module (SkyModule) that handles skybox and more correct ambient light.
-- Updated gizmo to 2.13.132.
-- Fixed/improved occlusion culling for foliage.

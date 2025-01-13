@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Manages camera updates with large coordinates
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.185
+// Product		: Gizmo3D 2.12.201
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
