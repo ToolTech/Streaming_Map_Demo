@@ -284,33 +284,26 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 wrapMode = TextureWrapMode.Clamp
             };
 
-            RenderTexture temporaryRenderTexture = new RenderTexture(textureResolution, textureResolution, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default)
-            {
-                useMipMap = true,
-                antiAliasing = 1
-            };
+            RenderTexture temporaryRenderTexture = RenderTexture.GetTemporary(textureResolution, textureResolution, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default, 1);
 
             for (int i = 0; i < textureCount; i++)
             {
                 Graphics.Blit(texture[i].FeatureTexture, temporaryRenderTexture);
                 RenderTexture.active = temporaryRenderTexture;
 
-                //Debug.LogFormat(LogType.Error, LogOption.NoStacktrace, null, "creating 2d texture: {0} x {0}", textureResolution);
                 Texture2D temporaryTexture = new Texture2D(textureResolution, textureResolution, TextureFormat.ARGB32, true);
 
                 temporaryTexture.ReadPixels(new Rect(0, 0, temporaryTexture.width, temporaryTexture.height), 0, 0);
                 RenderTexture.active = null;
                 temporaryTexture.Apply(true);
                 temporaryTexture.Compress(true);
-
-                //TexToFile(temporaryGrassTexture, Application.dataPath + "/../grassTextureArraySaved_" + i + ".png");
-
                 Graphics.CopyTexture(temporaryTexture, 0, textureArray, i);
-                Destroy(temporaryTexture);
+                DestroyImmediate(temporaryTexture);
             }
             textureArray.Apply(false, true);
 
-            Destroy(temporaryRenderTexture);
+            RenderTexture.ReleaseTemporary(temporaryRenderTexture);
+            DestroyImmediate(temporaryRenderTexture);
 
             return textureArray;
         }

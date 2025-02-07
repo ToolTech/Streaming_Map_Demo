@@ -270,6 +270,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             }
             textureArray.Apply(false, true);
 
+            temporaryRenderTexture.Release();
             DestroyImmediate(temporaryRenderTexture);
 
             return textureArray;
@@ -307,7 +308,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         {
             if (isAsset)
                 return;
-            
+
             AddJob(go);
         }
 
@@ -335,7 +336,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             var pixelSize = new Vector2((float)featureInfo.v11, (float)featureInfo.v22);
             float scale = 1000;
-            
+
             var nodeOffset = new Vector2(
                 (float)(featureInfo.v13 + featureInfo.v11) % scale,
                 (float)(featureInfo.v23 + featureInfo.v22) % scale);
@@ -355,12 +356,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             ComputeShader.SetVector("Resolution", pixelSize);
             ComputeShader.SetMatrix("ObjToWorld", go.transform.localToWorldMatrix);
 
-            
+
 
             var meshCenter = nodeHandle.node.BoundaryCenter;
 
             MapControl.SystemMap.GlobalToWorld(meshCenter, out GizmoSDK.Coordinate.CartPos cartPos);
-            
+
             _coordConverter.SetCartPos(cartPos);
             _coordConverter.GetUTMPos(out var utmPos);
 
@@ -385,6 +386,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             if (nodeHandle.surfaceHeight == null)
                 surface = GenerateSurfaceHeight(tex);
 
+            bool requireCleanup = true;
+
             foreach (var set in Features)
             {
                 if (!set.Enabled)
@@ -397,7 +400,16 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 {
                     set.FoliageFeature.AddFoliage(go, nodeHandle, heightmap, surface);
                 }
+
+                requireCleanup = false;
             }
+
+            if (requireCleanup)
+            {
+                heightmap?.Release();
+                surface?.Release();
+            }
+
         }
 
         private void OnDestroy()
@@ -411,6 +423,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             _heightMap?.Release();
             _surfaceheightMap?.Release();
+            _depthMap?.Release();
         }
 
         private RenderTexture GenerateSurfaceHeight(UnityEngine.Texture texture)
@@ -461,12 +474,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             ComputeShader.SetInt("uvCount", vertexBuffer.count);
 
             // ************* find node corners ************* //
-   
+
             //var nodeTexCenter = mesh.bounds.center + new Vector3((float)offset.x + mesh.bounds.extents.x, (float)offset.y, (float)offset.z + mesh.bounds.extents.z);
             //var nodeExtents = new Vector3((texSize.x - 2) * pixelSize.x / 2, mesh.bounds.size.y, texSize.y * pixelSize.y / 2);
             //var nodeTexTopLeft = nodeTexTopLeft + nodeExtents;
-            var nodeTexTopLeft =  mesh.bounds.center - new Vector3((float)offset.x + (texSize.x * pixelSize.x), (float)offset.y, (float)offset.z) ;
-            ComputeShader.SetVector("MeshBoundsMax", nodeTexTopLeft );
+            var nodeTexTopLeft = mesh.bounds.center - new Vector3((float)offset.x + (texSize.x * pixelSize.x), (float)offset.y, (float)offset.z);
+            ComputeShader.SetVector("MeshBoundsMax", nodeTexTopLeft);
 
             // ************* Generate Height Map  ************* //
 
@@ -538,7 +551,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private void SceneManager_OnPostTraverse(bool locked)
         {
             _profilerMarker.Begin();
-            
+
             Render();
 
             _profilerMarker.End();
@@ -607,7 +620,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             DebugPrintCount = false;
 
-            
+
         }
     }
 }

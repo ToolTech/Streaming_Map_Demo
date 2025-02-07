@@ -47,7 +47,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public FeatureData(GameObject gameObject, Matrix3D matrix, float density, uint maxSide, float scale = 1000)
         {
             Object = gameObject;
-            
+
             var stepsize = (1 / density) * 10;
 
             PlacementMatrix = new ComputeBuffer(9, sizeof(float), ComputeBufferType.Default);
@@ -69,11 +69,13 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         public void Dispose()
         {
+            if (surfaceHeight is RenderTexture rt)
+                rt?.Release();    
             TerrainPoints?.Release();
             PlacementMatrix?.Release();
             HeightMap?.Release();
         }
-        }
+    }
 
     public class FoliageFeature : IDisposable
     {
@@ -81,7 +83,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private readonly List<FeatureData> _items = new List<FeatureData>(128);
         // if a go exists in the render list, it exists in this lookup, used to avoid searching the list
         private readonly HashSet<GameObject> _itemLookup = new HashSet<GameObject>();
-        
+
         private Vector2 _resolution;
         private readonly ComputeShader _placement;
         private readonly int _kernelCull;
@@ -108,7 +110,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _density = density;
             _pointCloud = new ComputeBuffer(BufferSize <= 0 ? 1 : BufferSize, sizeof(float) * 8, ComputeBufferType.Append);
             _mappingBuffer = new ComputeBuffer(map.Length, sizeof(int));
-            _mappingBuffer.SetData(map);  
+            _mappingBuffer.SetData(map);
         }
 
         public bool AddFoliage(GameObject go, NodeHandle node, RenderTexture heightMap, Texture surfaceHeight = null)
@@ -173,7 +175,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         }
         public void Dispose()
         {
-            //Debug.LogWarning($"Begin Dispose FoliageFeature");
             _pointCloud?.Release();
             _mappingBuffer?.Release();
 
@@ -230,7 +231,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             //
             //sizeBuffer.Release();
             //return Mathf.CeilToInt(maxSize * percentage) < 1 ? 1 : Mathf.CeilToInt(maxSize * percentage);
-            
+
         }
         // used for debuging the min and max height of the node
         private void GetMinMax(string node, Texture2D heightmap)
@@ -314,7 +315,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _profilerMarker.Begin();
 
             _pointCloud.SetCounterValue(0);     // only once every frame
-            
+
             Matrix4x4 world2Screen = camera.projectionMatrix * camera.worldToCameraMatrix;
 
             _placement.SetTexture(_kernelCull, PlacementParameterID.DepthTexture, Depth);
@@ -325,7 +326,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _placement.SetVectorArray(PlacementParameterID.frustumPlanes, frustum);
 
             // we need to set this everytime
-            _placement.SetBuffer(_kernelCull, PlacementParameterID.OutputBuffer, _pointCloud);       
+            _placement.SetBuffer(_kernelCull, PlacementParameterID.OutputBuffer, _pointCloud);
 
             var count = 0;
             var points = 0;
