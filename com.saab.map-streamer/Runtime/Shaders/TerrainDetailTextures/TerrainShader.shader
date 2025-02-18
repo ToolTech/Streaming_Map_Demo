@@ -125,7 +125,6 @@ Shader "Custom/TerrainShader"
 				0.211456, -0.522591, 0.311135
 			);
 
-			// Convert YIQ to RGB
 			float3x3 YIQ_RGB = float3x3(
 				1.0, 0.9563, 0.6210,
 				1.0, -0.2721, -0.6474,
@@ -142,28 +141,30 @@ Shader "Custom/TerrainShader"
 			float saturation = length(float2(YIQ.y, YIQ.z));
 			float targetSaturation = length(float2(targetYIQ.y, targetYIQ.z));
 
-			// Compute differences
-			float hueDiff = targetHue - hue;
-			float satDiff = targetSaturation - saturation;
-
-			// Correct hue wrap-around if Q is negative
-			if (YIQ.z < 0)
+			// Avoid shifting hue when saturation is too low (grayscale colors)
+			if (saturation > 0.001 && YIQ.z < 0)
 			{
-				if (hueDiff > 3.14159)
-					hueDiff -= 2 * 3.14159;
-				else if (hueDiff < -3.14159)
-					hueDiff += 2 * 3.14159;
+				// Compute hue and saturation differences
+				float hueDiff = targetHue - hue;
+				float satDiff = targetSaturation - saturation;
 
-				// Apply gradual hue shift and saturation adjustment
-				if(hueShift != 0)
-				{
-					hue += hueShift * sign(hueDiff) * min(abs(hueDiff), abs(hueShift));
-					saturation += 0.1 * satDiff;  // 0.1 is a scaling factor for gradual change
+				// Correct for wrap-around
+				if (hueDiff > PI) hueDiff -= 2.0 * PI;
+				else if (hueDiff < -PI) hueDiff += 2.0 * PI;
 
-					// Ensure hue wraps around properly and saturation is clamped
-					hue = fmod(hue + 2 * 3.14159, 2 * 3.14159);
-					saturation = clamp(saturation, 0.0, 1.0); // Assuming saturation normalized between 0 and 1		
-				}		
+				// Apply hue shift smoothly
+				hue += hueShift * hueDiff / (abs(hueDiff) + 1e-5); // Prevent division by zero
+				saturation = lerp(saturation, targetSaturation, 0.1); // Smooth transition
+
+				// Ensure hue wraps around properly and saturation is clamped
+				hue = fmod(hue + 2.0 * PI, 2.0 * PI);
+				saturation = clamp(saturation, 0.0, 1.0);
+			}
+			else
+			{
+				// If saturation is too low, avoid shifting and keep I/Q minimal
+				hue = 0.0;
+				saturation = 0.0;
 			}
 
 			// Recompute I and Q based on the new hue and adjusted saturation
@@ -173,7 +174,7 @@ Shader "Custom/TerrainShader"
 
 			// Convert back to RGB
 			float3 shiftYIQ = float3(Y, I, Q);
-			return mul(YIQ_RGB, shiftYIQ);				
+			return mul(YIQ_RGB, shiftYIQ);
 		}
 
 		float3 TransformNormal(v2f i, float3 normal)
@@ -200,7 +201,8 @@ Shader "Custom/TerrainShader"
 		StructuredBuffer<float3> _NormalBuffer;
 
 		int _WaterIndex;
-		float2 _Wind;
+		float3 _Ambient;
+		float3 _WindVector;
 
         UNITY_DECLARE_TEX2DARRAY(_Textures);
 		UNITY_DECLARE_TEX2DARRAY(_NormalMaps);
@@ -235,10 +237,10 @@ Shader "Custom/TerrainShader"
 
 				float2 textureScrolling = 0;
 
-				//if(feature == _WaterIndex)
-					//do Water stuff...
-
 				float3 satellite = tex2D(_MainTex, i.uv);
+
+				float3 color = HueShiftColor(satellite.rgb, _HueShift, _TargetTerrainColor.rgb);
+				
 
 				int mappingIndex = _MappingBuffer[feature];
 				if(mappingIndex == 0)
@@ -250,18 +252,42 @@ Shader "Custom/TerrainShader"
 					mappingIndex -= 1;
 				}
 
+				if(feature == _WaterIndex)
+				{
+					textureScrolling = _Time.y * _WindVector.xy * _WindVector.z * 0.0015 + 0.1;
+				}
+
 				fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_Textures, float3(abs(0.005 * worldPos.xz + textureScrolling ) % 1, mappingIndex));
+				float3 finalColor = lerp(satellite.rgb, color.rgb, saturate(col.g * 2));
 
 				fixed3 normalDetail = UnpackScaleNormal(UNITY_SAMPLE_TEX2DARRAY(_NormalMaps, float3(abs(_Detail * worldPos.xz + textureScrolling) % 1, mappingIndex)), _DetailBumpScale);
 				fixed3 normalMain = UnpackScaleNormal(UNITY_SAMPLE_TEX2DARRAY(_NormalMaps, float3(abs(_Detail * 0.73 * worldPos.xz + textureScrolling) % 1, mappingIndex)), _BumpScale);
 
 				float3 normalBlend = BlendNormals(normalMain, normalDetail);
+
+				if(feature == _WaterIndex)
+				{
+					finalColor = satellite.rgb; 
+
+					// -------- enhanced Water stuff... --------
+					// color = HueShiftColor(satellite.rgb, _HueShift, float3(0.45,0.79,0.95));
+
+					// float3 lightblue = satellite.b * float3(0.45,0.79,0.95);
+					// float3 darkblue = satellite.b * float3(0.05,0.36,0.6);
+					// float3 waterColor = lerp(darkblue.rgb, lightblue.rgb, saturate(col.g * (_SinTime.z * 0.3 + 0.70) * 3));
+					
+					// finalColor = lerp(waterColor, satellite.rgb, 0.5);
+
+					// _BumpScale = 3;
+					// _DetailBumpScale = 0.75;
+
+					// normalBlend = normalMain;
+				}
+
+
 				float3 finalnormal =TransformNormal(i, normalize(normalBlend));
 
 				fixed3 worldViewDir = normalize(UnityWorldSpaceViewDir(i.worldPos));
-
-				float3 color = HueShiftColor(satellite.rgb, _HueShift, _TargetTerrainColor.rgb);
-				float3 finalColor = lerp(satellite.rgb, color.rgb, saturate(col.g * 2));
 
 				// ************ Set Deferred Buffer ************
 				
@@ -271,12 +297,21 @@ Shader "Custom/TerrainShader"
 					SurfaceOutputStandardSpecular o;
 				#endif
 
-				o.Albedo = finalColor.rgb;
+				float test = color.r > 1 ||  color.g > 1 || color.b > 1;
+				float test2 = color.r < 0 ||  color.g < 0 || color.b < 0;
+
+				o.Albedo = finalColor;
 				o.Emission = 0.0f;
 				o.Alpha = col.a;
 				o.Occlusion = 1.0f;
 				o.Smoothness = 0.0f;
 				o.Specular = 0.0f;
+				if(feature == _WaterIndex)
+				{
+					// -------- enhanced Water stuff... --------
+					// o.Specular = _Ambient;
+					// o.Smoothness = 0.9;
+				}			
 				o.Normal = finalnormal;
 
 				// Setup lighting environment
