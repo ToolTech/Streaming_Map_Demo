@@ -118,6 +118,9 @@ Shader "Custom/TerrainShader"
 
 		float3 HueShiftColor(float3 col, float hueShift, float3 targetColor)
 		{
+			if(length(targetColor) <= 0.01 || length(targetColor) >= 1.7)
+				return col;
+
 			// Convert RGB to YIQ for both source and target colors
 			float3x3 RGB_YIQ = float3x3(
 				0.299, 0.587, 0.114,
