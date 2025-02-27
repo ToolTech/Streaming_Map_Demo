@@ -40,6 +40,7 @@ using UnityEngine;
 
 // GizmoSDK
 using GizmoSDK.Gizmo3D;
+using Unity.Profiling;
 
 namespace Saab.Foundation.Unity.MapStreamer
 {
@@ -91,6 +92,8 @@ namespace Saab.Foundation.Unity.MapStreamer
         private bool _forceFallbackMaterial;
 
 
+        private static readonly ProfilerMarker _profilerBuild = new ProfilerMarker(ProfilerCategory.Render, "SM-Geometry-Build");
+
         public override bool CanBuild(Node node, TraversalState traversalState, IntersectMaskValue intersectMask)
         {
             return (intersectMask & _mask) != IntersectMaskValue.NOTHING && node is Geometry;
@@ -98,6 +101,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         public override bool Build(NodeHandle nodeHandle, NodeHandle activeStateNode)
         {
+            _profilerBuild.Begin();
             var geo = (Geometry)nodeHandle.node;
             
             var go = nodeHandle.gameObject;
@@ -156,6 +160,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             meshFilter.sharedMesh = mesh;
             meshRenderer.sharedMaterial = material;
             meshRenderer.enabled = true;
+            _profilerBuild.End();
 
             return true;
         }

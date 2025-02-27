@@ -250,7 +250,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             RenderTexture temporaryRenderTexture = new RenderTexture(textureResolution, textureResolution, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default)
             {
                 useMipMap = true,
-                antiAliasing = 1
+                antiAliasing = 1,
+                name = "foliagemodule - temporaryRenderTexture - 2dArray"
             };
 
             for (int i = 0; i < textureCount; i++)
@@ -432,6 +433,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             _surfaceheightMap = new RenderTexture(texture.width, texture.height, 24, RenderTextureFormat.RFloat);
             _surfaceheightMap.enableRandomWrite = true;
+            _surfaceheightMap.name = "foliagemodule - surfaceheightMap";
             _surfaceheightMap.Create();
 
             var kernel = ComputeShader.FindKernel("CSSurfaceHeightMap");
@@ -485,8 +487,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             var kernelHeight = ComputeShader.FindKernel("CSHeightMap");
 
+            if (_heightMap != null)
+                _heightMap.Release();
+
             _heightMap = new RenderTexture((int)texSize.x, (int)texSize.y, 24, RenderTextureFormat.RFloat);
             _heightMap.enableRandomWrite = true;
+            _heightMap.name = "foliagemodule - HeightMap";
             _heightMap.Create();
 
             var triangleCount = Mathf.CeilToInt(indicesCount / 3f);
@@ -520,6 +526,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             if (_depthMap == null)
             {
                 _depthMap = new RenderTexture(downscale, downscale, 24, RenderTextureFormat.RFloat);
+                _depthMap.name = "foliagemodule - depthmap";
                 _depthMap.enableRandomWrite = true;
                 _depthMap.Create();
             }

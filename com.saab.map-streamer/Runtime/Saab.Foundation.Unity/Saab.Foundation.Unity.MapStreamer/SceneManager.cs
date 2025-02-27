@@ -209,6 +209,8 @@ namespace Saab.Foundation.Unity.MapStreamer
         private static readonly ProfilerMarker _profilerMarkerRender = new ProfilerMarker(ProfilerCategory.Render, "SM-Render");
         private static readonly ProfilerMarker _profilerMarkerCull = new ProfilerMarker(ProfilerCategory.Render, "SM-Cull");
         private static readonly ProfilerMarker _profilerMarkerTraverse = new ProfilerMarker(ProfilerCategory.Render, "SM-Traverse");
+        private static readonly ProfilerMarker _profilerFree = new ProfilerMarker(ProfilerCategory.Render, "SM-Free");
+
 
         struct NodeLoadInfo
         {
@@ -1578,6 +1580,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         private void FreeFromPendingQueue(int count)
         {
+            _profilerFree.Begin();
             while (_pendingFrees.Count > 0 && count > 0)
             {
                 var free = _pendingFrees.Pop();
@@ -1590,6 +1593,7 @@ namespace Saab.Foundation.Unity.MapStreamer
         
                 --count;
             }
+            _profilerFree.End();
         }
 
         private void PreAllocateNodeHandle(int count, TimeSpan timeBudget)
