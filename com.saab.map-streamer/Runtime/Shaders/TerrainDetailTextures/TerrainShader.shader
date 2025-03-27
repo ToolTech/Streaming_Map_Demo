@@ -6,6 +6,7 @@ Shader "Custom/TerrainShader"
 		[NoScaleOffset] _MainTex("Satellite / Coarse texture", 2D) = "white" {}
 
 		_BumpScale("Main Bump scale", float) = 10
+		_WaterSmoothness("Water Smoothness", float) = 0.96
 		_DetailBumpScale("Detail Bump scale", float) = 10
 		_Detail("Texture Detail (tieling)", float) = 0.07
     }
@@ -199,6 +200,7 @@ Shader "Custom/TerrainShader"
 
 		float _BumpScale, _DetailBumpScale, _Detail;
 		float _HueShift;
+		float _WaterSmoothness;
 
 		StructuredBuffer<int> _MappingBuffer;
 		StructuredBuffer<float3> _NormalBuffer;
@@ -257,41 +259,62 @@ Shader "Custom/TerrainShader"
 
 				if(feature == _WaterIndex)
 				{
-					textureScrolling = _Time.y * _WindVector.xy * _WindVector.z * 0.0015 + 0.1;
+					textureScrolling = _Time.y * _WindVector.xy * _WindVector.z * 0.005 + 0.1;
 				}
 
 				fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_Textures, float3(abs(0.005 * worldPos.xz + textureScrolling ) % 1, mappingIndex));
 				float3 finalColor = lerp(satellite.rgb, color.rgb, saturate(col.g * 2));
 
-				fixed3 normalDetail = UnpackScaleNormal(UNITY_SAMPLE_TEX2DARRAY(_NormalMaps, float3(abs(_Detail * worldPos.xz + textureScrolling) % 1, mappingIndex)), _DetailBumpScale);
-				fixed3 normalMain = UnpackScaleNormal(UNITY_SAMPLE_TEX2DARRAY(_NormalMaps, float3(abs(_Detail * 0.73 * worldPos.xz + textureScrolling) % 1, mappingIndex)), _BumpScale);
+				float scale = 1 - (length(i.worldPos) / _ProjectionParams.z);
+				
+				if(feature == _WaterIndex)
+				{
+					//-------- enhanced Water stuff... --------
+					color = HueShiftColor(satellite.rgb, _HueShift, float3(0.45,0.79,0.95));
 
+					float brightness = (0.299 * satellite.r + 0.587 * satellite.g + 0.114 * satellite.b) * 0.5 + 0.5;
+
+					float3 lightblue = brightness * float3(0.14, 0.42, 0.46);
+					float3 darkblue = brightness * float3(0.05 ,0.26, 0.45);
+					float3 waterColor = lerp(darkblue.rgb, lightblue.rgb, saturate(col.g * (_SinTime.z * 0.3 + 0.70) * 3));
+					
+					//finalColor = waterColor;
+					finalColor =  lerp(waterColor, satellite.rgb, 0.96);
+
+					_Detail = _Detail * 0.75;
+					_BumpScale *= 0.5;
+					_DetailBumpScale *= 0.5;
+				}
+
+				fixed3 normalDetail = UnpackScaleNormal(UNITY_SAMPLE_TEX2DARRAY(_NormalMaps, float3(abs(_Detail * worldPos.xz * 0.134  + textureScrolling) % 1, mappingIndex)), _DetailBumpScale);
+				fixed3 normalMain = UnpackScaleNormal(UNITY_SAMPLE_TEX2DARRAY(_NormalMaps, float3(abs(_Detail * worldPos.xz + textureScrolling * 0.0015 ) % 1, mappingIndex)), _BumpScale);
+				
 				float3 normalBlend = BlendNormals(normalMain, normalDetail);
 
 				if(feature == _WaterIndex)
 				{
-					finalColor = satellite.rgb; 
-
-					// -------- enhanced Water stuff... --------
-					// color = HueShiftColor(satellite.rgb, _HueShift, float3(0.45,0.79,0.95));
-
-					// float3 lightblue = satellite.b * float3(0.45,0.79,0.95);
-					// float3 darkblue = satellite.b * float3(0.05,0.36,0.6);
-					// float3 waterColor = lerp(darkblue.rgb, lightblue.rgb, saturate(col.g * (_SinTime.z * 0.3 + 0.70) * 3));
-					
-					// finalColor = lerp(waterColor, satellite.rgb, 0.5);
-
-					// _BumpScale = 3;
-					// _DetailBumpScale = 0.75;
-
-					// normalBlend = normalMain;
+					fixed3 normalExtra = UnpackScaleNormal(UNITY_SAMPLE_TEX2DARRAY(_NormalMaps, float3(abs(_Detail * worldPos.xz * 0.005 + textureScrolling * 2) % 1, mappingIndex)), 0.02);
+					normalBlend =BlendNormals(normalBlend, normalExtra);
 				}
 
-
-				float3 finalnormal =TransformNormal(i, normalize(normalBlend));
-
+				float3 finalnormal = TransformNormal(i, normalize(normalBlend));
 				fixed3 worldViewDir = normalize(UnityWorldSpaceViewDir(i.worldPos));
 
+				float3 viewDir = normalize(_WorldSpaceCameraPos - i.worldPos);
+				float fresnel = pow(1.0 - saturate(dot(viewDir, finalnormal)), 5.0);
+				fresnel = lerp(0, 0.1, fresnel); // Limits range of effect
+				//o.Specular += fresnel * _FresnelStrength;
+
+
+				float3 sunDir = normalize(_WorldSpaceLightPos0.xyz);
+				float sunHeight = saturate(sunDir.y); // 0 = horizon, 1 = directly overhead
+				float sunFade = smoothstep(0.05, 0.15, sunHeight); // Fades in above horizon
+				sunFade = clamp(0.01, 1, sunFade);
+				float3 halfVector = normalize(sunDir + viewDir);
+
+				float spec = pow(saturate(dot(finalnormal, halfVector)), 900); // Try 400–1000
+				float glint = spec * sunFade * 1; // Try 1.0–3.0
+	
 				// ************ Set Deferred Buffer ************
 				
 				#ifdef UNITY_COMPILER_HLSL
@@ -300,11 +323,8 @@ Shader "Custom/TerrainShader"
 					SurfaceOutputStandardSpecular o;
 				#endif
 
-				float test = color.r > 1 ||  color.g > 1 || color.b > 1;
-				float test2 = color.r < 0 ||  color.g < 0 || color.b < 0;
-
 				o.Albedo = finalColor;
-				o.Emission = 0.0f;
+				o.Emission = 0;
 				o.Alpha = col.a;
 				o.Occlusion = 1.0f;
 				o.Smoothness = 0.0f;
@@ -312,8 +332,13 @@ Shader "Custom/TerrainShader"
 				if(feature == _WaterIndex)
 				{
 					// -------- enhanced Water stuff... --------
-					// o.Specular = _Ambient;
-					// o.Smoothness = 0.9;
+					o.Specular = float3(0.02, 0.02, 0.02) + fresnel; // Realistic base reflectance for water
+					o.Smoothness = _WaterSmoothness;
+
+					o.Specular *= sunFade;
+					o.Smoothness *= sunFade;
+
+					o.Emission = glint;
 				}			
 				o.Normal = finalnormal;
 

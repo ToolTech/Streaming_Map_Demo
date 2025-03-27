@@ -20,6 +20,7 @@ MonoBehaviour:
   MeshMaterial: {fileID: 0}
   MaxMin: {x: 1, y: 6}
   Offset: {x: 0, y: 0.01}
+  Cull: 0.04
   Weight: 0.1
   Feature: 657408
   Biome: 0

@@ -41,6 +41,7 @@ using UnityEngine;
 // GizmoSDK
 using GizmoSDK.Gizmo3D;
 using Unity.Profiling;
+using System.Collections.Generic;
 
 namespace Saab.Foundation.Unity.MapStreamer
 {
@@ -50,6 +51,7 @@ namespace Saab.Foundation.Unity.MapStreamer
         private BuildPriority _mode = BuildPriority.Immediate;
 
         protected TextureManager _textureManager;
+        protected MaterialManager _materialManager;
 
         public abstract PoolObjectFeature Feature { get; }
 
@@ -65,6 +67,11 @@ namespace Saab.Foundation.Unity.MapStreamer
         public void SetTextureManager(TextureManager textureManager)
         {
             _textureManager = textureManager;
+        }
+
+        public void SetMaterialManager(MaterialManager materialManager)
+        {
+            _materialManager = materialManager;
         }
 
         public virtual void Reset()
@@ -129,6 +136,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             Material material;
             if (_forceFallbackMaterial)
             {
+                 // Todo: reuse material if texture match
                 material = Instantiate(_fallbackMaterial);
             }
             else
@@ -145,6 +153,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 #if DEBUG
                         Debug.LogError("failed to create resources from state, using fallback material");
 #endif
+                        // Todo: reuse material if texture match
                         material = Instantiate(_fallbackMaterial);
                     }
                 }
@@ -153,6 +162,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 #if DEBUG
                     Debug.LogError("missing state, using fallback material");
 #endif
+                    // Todo: reuse material if texture match
                     material = Instantiate(_fallbackMaterial);
                 }
             }
@@ -182,7 +192,8 @@ namespace Saab.Foundation.Unity.MapStreamer
                 // release material & mesh resources
                 if (gameObject.TryGetComponent<MeshRenderer>(out var renderer))
                 {
-                    Destroy(renderer.sharedMaterial);
+                    _materialManager.Free(renderer.sharedMaterial);
+                    //Destroy(renderer.sharedMaterial);
                     renderer.sharedMaterial = null;
                     renderer.enabled = false;
                 }
@@ -217,10 +228,16 @@ namespace Saab.Foundation.Unity.MapStreamer
             if (!stateNode.texture)
                 return Instantiate(_fallbackMaterial);
 
-            var material = Instantiate(_material);
+            var id = stateNode.texture.GetInstanceID();
+            Material material = null;
 
-            material.mainTexture = stateNode.texture;
-
+            if (!_materialManager.TryGet(id, out material))
+            {
+                material = Instantiate(_material);
+                material.mainTexture = stateNode.texture;
+                _materialManager.TryAdd(id, material);
+            }
+    
             return material;
         }
     }

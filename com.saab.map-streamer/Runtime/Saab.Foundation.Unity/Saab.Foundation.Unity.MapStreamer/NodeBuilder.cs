@@ -90,6 +90,12 @@ namespace Saab.Foundation.Unity.MapStreamer
         void SetTextureManager(TextureManager textureManager);
 
         /// <summary>
+        /// Assigns the Material manager instance that the builder should use when working with Materials
+        /// </summary>
+        /// <param name="materialManager">Assigned MaterialManager instance</param>
+        void SetMaterialManager(MaterialManager materialManager);
+
+        /// <summary>
         /// Invoked as a result of reset, builder should clear any state
         /// </summary>
         void Reset();

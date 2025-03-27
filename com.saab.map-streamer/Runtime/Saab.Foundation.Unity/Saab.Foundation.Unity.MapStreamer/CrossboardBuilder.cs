@@ -203,6 +203,12 @@ namespace Saab.Foundation.Unity.MapStreamer
             _textureManager = textureManager;
         }
 
+        public void SetMaterialManager(MaterialManager textureManager)
+        {
+            // nop
+        }
+
+
         public void Reset()
         {
             // NOP

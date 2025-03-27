@@ -60,6 +60,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public Material MeshMaterial;
         public Vector2 MaxMin;
         public Vector2 Offset;
+
+        [Range(0.1f, 1f)]
+        public float CullAreaWidth = 0.25f;
         [Range(0f,1f)]
         public float Weight = 1;
         public MapFeature Feature;

@@ -15,10 +15,10 @@
 // Export Control:		NOT EXPORT CONTROLLED
 //
 //
-// File			: NodeGeometryHelper.cs
+// File			: AssetInstanceBuilder.cs
 // Module		:
 // Description	: Helper class for vertice updates
-// Author		: Anders Modén
+// Author		: Anders ModÃ©n
 // Product		: Gizmo3D 2.12.185
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
@@ -106,6 +106,11 @@ namespace Saab.Foundation.Unity.MapStreamer
         }
 
         public void SetTextureManager(TextureManager textureManager)
+        {
+            // nop
+        }
+
+        public void SetMaterialManager(MaterialManager textureManager)
         {
             // nop
         }

@@ -30,6 +30,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         Vector3 Color;
         float Height;
         float Random;
+        float Visibility;
     }
 
     public struct FeatureData : IDisposable
@@ -94,7 +95,14 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         // *********** buffers ***********
         private ComputeBuffer _mappingBuffer;
+        private Vector2 _fov;
         private readonly ComputeBuffer _pointCloud;
+
+        private readonly ComputeBuffer _pointCloudCulled;
+        private readonly ComputeBuffer _angleDepth;
+        private readonly int _KernelPreCull;
+        private readonly int _kernelPostCull;
+        private const float _depthBufferScale = 2.5f;
 
         public int FoliageCount
         {
@@ -107,8 +115,16 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _kernelCull = _placement.FindKernel("CSCull");
             _kernelClear = _placement.FindKernel("CSClear");
             _kernelPlacement = _placement.FindKernel("CSPlacement");
+            _kernelPostCull = _placement.FindKernel("CSPostCull");
+            _KernelPreCull = _placement.FindKernel("CSPreCull");
+
+
+            _placement.SetFloat(PlacementParameterID.AngleResolutionScale, _depthBufferScale);
+            _angleDepth = new ComputeBuffer(Mathf.CeilToInt(180 * _depthBufferScale * 180 * _depthBufferScale), sizeof(uint));
+
             _density = density;
             _pointCloud = new ComputeBuffer(BufferSize <= 0 ? 1 : BufferSize, sizeof(float) * 8, ComputeBufferType.Append);
+            _pointCloudCulled = new ComputeBuffer(BufferSize <= 0 ? 1 : BufferSize, sizeof(float) * 8, ComputeBufferType.Append);
             _mappingBuffer = new ComputeBuffer(map.Length, sizeof(int));
             _mappingBuffer.SetData(map);
         }
@@ -142,7 +158,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 HeightMap = heightMap
             };
 
-            data.TerrainPoints = new ComputeBuffer(size < 1 ? 1 : size, sizeof(float) * 8, ComputeBufferType.Append);
+            data.TerrainPoints = new ComputeBuffer(size < 1 ? 1 : size, sizeof(float) * 9, ComputeBufferType.Append);
 
             FeaturePlacement(data);
 
@@ -176,7 +192,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public void Dispose()
         {
             _pointCloud?.Release();
+            _pointCloudCulled?.Release();
             _mappingBuffer?.Release();
+            _angleDepth?.Release();
 
             for (var i = 0; i < _items.Count; ++i)
             {
@@ -294,6 +312,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             public static readonly int OutputBuffer = Shader.PropertyToID("OutputBuffer");
             public static readonly int CameraPosition = Shader.PropertyToID("CameraPosition");
             public static readonly int CameraRightVector = Shader.PropertyToID("CameraRightVector");
+            public static readonly int CameraForwardVector = Shader.PropertyToID("CameraForwardVector");
             public static readonly int frustumPlanes = Shader.PropertyToID("frustumPlanes");
             public static readonly int InputBuffer = Shader.PropertyToID("InputBuffer");
             public static readonly int ObjToWorld = Shader.PropertyToID("ObjToWorld");
@@ -306,11 +325,49 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             public static readonly int heightResolution = Shader.PropertyToID("heightResolution");
             public static readonly int PixelToWorld = Shader.PropertyToID("PixelToWorld");
             public static readonly int FeatureMap = Shader.PropertyToID("FeatureMap");
+            public static readonly int FoliageData = Shader.PropertyToID("FoliageData");
+            public static readonly int AngleDepth = Shader.PropertyToID("AngleDepth");
+            public static readonly int FoliageCount = Shader.PropertyToID("FoliageCount");
+            public static readonly int ScreenCoverage = Shader.PropertyToID("ScreenCoverage");
+            public static readonly int AngleResolutionScale = Shader.PropertyToID("AngleResolutionScale");
+        }
+
+        private void PostCull()
+        {            
+           _placement.SetBuffer(_kernelPostCull, PlacementParameterID.AngleDepth, _angleDepth);
+           int groups = Mathf.CeilToInt(_angleDepth.count / 256f);
+           _placement.Dispatch(_kernelPostCull, groups < 1 ? 1 : groups, 1, 1);
+        }
+
+        private void PreCull()
+        {
+            for (var i = 0; i < _items.Count; ++i)
+            {
+                var item = _items[i];
+                var go = item.Object;
+
+                // don't cull disabled objects
+                if (!go.activeInHierarchy)
+                    continue;
+
+                int itemPoints = item.TerrainPoints.count;
+                int groups = Mathf.CeilToInt(itemPoints / 128f);
+
+                _placement.SetBuffer(_KernelPreCull, PlacementParameterID.AngleDepth, _angleDepth);
+                _placement.SetBuffer(_KernelPreCull, PlacementParameterID.InputBuffer, item.TerrainPoints);
+                _placement.SetMatrix(PlacementParameterID.ObjToWorld, go.transform.localToWorldMatrix);
+
+                _placement.Dispatch(_KernelPreCull, groups < 1 ? 1 : groups, 1, 1);
+            }
+
+            // ********* DEBUG CODE *********
+            //var dimensions = new Vector2Int(Mathf.CeilToInt(180 * _depthBufferScale), Mathf.CeilToInt(180 * _depthBufferScale));
+            //DebugUtils.BufferToRenderTexture(_angleDepth, dimensions, _fov);
         }
 
         private static readonly ProfilerMarker _profilerMarker = new ProfilerMarker(ProfilerCategory.Render, "Foliage-Cull");
 
-        public ComputeBuffer Cull(Vector4[] frustum, Camera camera, float maxHeight, RenderTexture Depth)
+        public ComputeBuffer Cull(Vector4[] frustum, Camera camera, float maxHeight, RenderTexture Depth, FeatureSet set)
         {
             _profilerMarker.Begin();
 
@@ -319,17 +376,32 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             Matrix4x4 world2Screen = camera.projectionMatrix * camera.worldToCameraMatrix;
 
             _placement.SetTexture(_kernelCull, PlacementParameterID.DepthTexture, Depth);
+            _placement.SetTexture(_KernelPreCull, PlacementParameterID.DepthTexture, Depth);
+
             _placement.SetMatrix(PlacementParameterID.WorldToScreen, world2Screen);
             _placement.SetFloat(PlacementParameterID.maxHeight, maxHeight);
             _placement.SetVector(PlacementParameterID.CameraPosition, camera.transform.position);
             _placement.SetVector(PlacementParameterID.CameraRightVector, camera.transform.right);
+            _placement.SetVector(PlacementParameterID.CameraForwardVector, camera.transform.forward);          
             _placement.SetVectorArray(PlacementParameterID.frustumPlanes, frustum);
+
+            float verticalView = camera.fieldOfView;
+            float horizontalView = Camera.VerticalToHorizontalFieldOfView(verticalView, camera.aspect);
+            float fovTolerance = 3f;
+            _fov = new Vector2(horizontalView + fovTolerance, verticalView + fovTolerance);
+            _placement.SetVector("Fov", _fov);
 
             // we need to set this everytime
             _placement.SetBuffer(_kernelCull, PlacementParameterID.OutputBuffer, _pointCloud);
+            _placement.SetBuffer(_kernelCull, PlacementParameterID.FoliageData, set.FoliageData);
+            _placement.SetBuffer(_KernelPreCull, PlacementParameterID.FoliageData, set.FoliageData);
+            _placement.SetInt(PlacementParameterID.FoliageCount, set.FoliageData.count);
+            _placement.SetFloat(PlacementParameterID.ScreenCoverage, set.ScreenCoverage);
 
             var count = 0;
             var points = 0;
+
+            PreCull();
 
             for (var i = 0; i < _items.Count; ++i)
             {
@@ -346,13 +418,17 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 points += itemPoints;
                 int groups = Mathf.CeilToInt(itemPoints / 128f);
 
+                _placement.SetBuffer(_kernelCull, PlacementParameterID.AngleDepth, _angleDepth);
                 _placement.SetBuffer(_kernelCull, PlacementParameterID.InputBuffer, item.TerrainPoints);
                 _placement.SetMatrix(PlacementParameterID.ObjToWorld, go.transform.localToWorldMatrix);
 
                 _placement.Dispatch(_kernelCull, groups < 1 ? 1 : groups, 1, 1);
             }
 
+            PostCull();
+
             _profilerMarker.End();
+
             return _pointCloud;
         }
     }

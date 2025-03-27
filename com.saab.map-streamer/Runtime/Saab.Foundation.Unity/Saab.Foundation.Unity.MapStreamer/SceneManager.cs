@@ -297,7 +297,10 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         // Used by builders to share and manage texture resources
         private readonly TextureManager _textureManager = new TextureManager();
-        
+
+        // Used by builders to share and manage Material resources
+        private readonly MaterialManager _materialManager = new MaterialManager();
+
         // Pools of pre allocated and recycled node objects, used to avoid runtime allocations and instead recycle game objects
         private readonly Stack<NodeHandle>[] _free = new Stack<NodeHandle>[byte.MaxValue];
 
@@ -923,6 +926,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                 _native_scene?.RemoveAllNodes();
 
                 _textureManager.Clear();
+                _materialManager.Clear();
 
                 // clear all pending asset loads
                 _deferredAssetLoads.Clear();
@@ -985,7 +989,8 @@ namespace Saab.Foundation.Unity.MapStreamer
                     _poolPrefabs[idx] = CreateAllocatorPrefabForBuilder(builder);
                 }
 
-                builder.SetTextureManager(_textureManager);    
+                builder.SetTextureManager(_textureManager);
+                builder.SetMaterialManager(_materialManager);
             }
 
             var pools = _free.Where(p => p != null).ToArray();
