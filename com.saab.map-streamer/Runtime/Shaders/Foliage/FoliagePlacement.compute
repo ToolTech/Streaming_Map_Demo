@@ -515,7 +515,7 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
                     res.Color = color;
                     res.Random = Random2D(rand);
                     res.Height = surfaceHeight;
-                    res.Visibility = 0;
+                    res.Visibility = 1;
                     
                     TerrainPoints.Append(res);
                 }
