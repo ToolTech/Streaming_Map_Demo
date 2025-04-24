@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - hueshift breaking at white/black
 - Wrong foliage placement between Lods
+- ETC2 maps crash
 
 ## 4.0
 
