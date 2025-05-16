@@ -11,6 +11,10 @@ described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/
 
 - Updated to GizmoSDK 2.12.230.1
 
+### Fixed
+
+- Fix restore NuGets in local scripts
+
 ## 4.1
 
 ### Added
