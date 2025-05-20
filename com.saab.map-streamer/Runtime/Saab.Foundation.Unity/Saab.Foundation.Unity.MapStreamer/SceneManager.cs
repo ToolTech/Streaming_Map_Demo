@@ -596,8 +596,8 @@ namespace Saab.Foundation.Unity.MapStreamer
                         NodeUtils.AddGameObjectReferenceUnsafe(childPtr, gameObject);
 
                         childNodeHandle.inNodeUtilsRegistry = true;
-                        child.AddActionInterface(_actionReceiver, FixGzEnumBug(NodeActionEvent.IS_TRAVERSABLE)); 
-                        child.AddActionInterface(_actionReceiver, FixGzEnumBug(NodeActionEvent.IS_NOT_TRAVERSABLE));
+                        child.AddActionInterface(_actionReceiver, NodeActionEvent.IS_TRAVERSABLE); 
+                        child.AddActionInterface(_actionReceiver, NodeActionEvent.IS_NOT_TRAVERSABLE);
                     }
 
                     gameObject.transform.SetParent(parent, false);
@@ -1147,8 +1147,8 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             // Locked in edit or render (render) by caller
 
-            if ((action == FixGzEnumBug(NodeActionEvent.IS_TRAVERSABLE)) || 
-                (action == FixGzEnumBug(NodeActionEvent.IS_NOT_TRAVERSABLE)))
+            if ((action == NodeActionEvent.IS_TRAVERSABLE) || 
+                (action == NodeActionEvent.IS_NOT_TRAVERSABLE))
             {
                 pendingActivations.Add(new ActivationInfo(action, trigger as Node));
             }
@@ -1326,9 +1326,9 @@ namespace Saab.Foundation.Unity.MapStreamer
                 {
                     foreach (GameObject obj in list)
                     {
-                        if (activationInfo.state == FixGzEnumBug(NodeActionEvent.IS_TRAVERSABLE))
+                        if (activationInfo.state == NodeActionEvent.IS_TRAVERSABLE)
                             obj.SetActive(true);
-                        else if (activationInfo.state == FixGzEnumBug(NodeActionEvent.IS_NOT_TRAVERSABLE))
+                        else if (activationInfo.state == NodeActionEvent.IS_NOT_TRAVERSABLE)
                             obj.SetActive(false);
                     }
                 }
@@ -1693,11 +1693,6 @@ namespace Saab.Foundation.Unity.MapStreamer
             nodeHandle.Recycle(_textureManager);
 
             OnEnterPool?.Invoke(go);
-        }
-
-        public static NodeActionEvent FixGzEnumBug(NodeActionEvent e)
-        {
-            return e + 2;
         }
     }
 

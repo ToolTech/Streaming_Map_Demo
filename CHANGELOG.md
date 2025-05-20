@@ -5,6 +5,12 @@ All notable changes to this project shall be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/CHANGELOG.md_Windows_%26_Apps).
 
+## 4.3
+
+### Changed
+
+- Updated to GizmoSDK 2.12.254.1
+
 ## 4.2
 
 ### Changed
