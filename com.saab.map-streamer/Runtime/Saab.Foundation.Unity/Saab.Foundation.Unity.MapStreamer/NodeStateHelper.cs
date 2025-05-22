@@ -248,6 +248,10 @@ namespace Saab.Foundation.Unity.MapStreamer
                     return false;
 
                 result = new Texture2D((int)width, (int)height, textureFormat, mipChain);
+                if (!result)
+                    return false;
+                
+                result.name = "SM - NodeTexture";
 
 #if false
                 unsafe

@@ -1,51 +1,73 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to this project shall be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/CHANGELOG.md_Windows_%26_Apps).
 
-## [Unreleased]
-
-### Added
+## 4.3
 
 ### Changed
 
-### Deprecated
+- Updated to GizmoSDK 2.12.254.1
 
-### Removed
+## 4.2
 
-### Fixed
+### Changed
 
-### Security
-
----
-
-## [4.2]
+- Updated to GizmoSDK 2.12.230.1
 
 ### Fixed
-* WHO	241209	TBD	(4.2)
 
----
+- Fix restore NuGets in local scripts
 
-## [4.0]
+## 4.1
+
+### Added
+- Shared materials
+- Simple water shading
+
+### Changed
+- Improved foliage culling
+- Better random function in shader
+
+### Fixed
+- hueshift breaking at white/black
+- Wrong foliage placement between Lods
+- ETC2 maps crash
+
+## 4.0
 
 ### Added
 - new TerrainShader (with embedded support)
-- Various performance/memory fixes for Foliage
-- GizmoSDK 2.12.185.1
-- Improved functionality for builders
 - Added support for map assets (instancing)
-- Resources are now released explicitly
+
+### Removed
 - Removed instrumentation code
+
+### Changed
+- GizmoSDK 2.12.185.1
+- Resources are now released explicitly
+
+### Fixed
+- Various performance/memory fixes for Foliage
+- Improved functionality for builders
 - Lots of generic fixes and improvements
 
-## [1.2]
-* AMO   230101 Updated gizmo to 2.12.143
-* ALBNI 230101 Replaced old vertex/index Buffers with GraphicsBuffer to avoid copying data from gpu to cpu.
+## 1.2
 
-## [1.1]
-* ALBNI 220101  Added a new FeatureMap that should be shared independent on loaded map.
-* ALBNI 220101  New module (SkyModule) that handles skybox and more correct ambient light.
-* AMO 220101    Updated gizmo to 2.13.132.
-* AALBNI 220101  Fixed/improved occlusion culling for foliage.
+### Changed
+- Updated gizmo to 2.12.143
+- Replaced old vertex/index Buffers with GraphicsBuffer to avoid copying data from gpu to cpu.
+
+## 1.1
+
+### Added
+- Added a new FeatureMap that should be shared independent on loaded map.
+- New module (SkyModule) that handles skybox and more correct ambient light.
+
+### Changed
+- Updated gizmo to 2.13.132.
+
+### Fixed
+- Fixed/improved occlusion culling for foliage.

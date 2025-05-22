@@ -15,10 +15,10 @@
 // Export Control:		NOT EXPORT CONTROLLED
 //
 //
-// File			: TextureManager.cs
+// File			: MaterialManager.cs
 // Module		:
-// Description	: Helper for texture and state uploads
-// Author		: Anders Modén
+// Description	: Helper for Material and state uploads
+// Author		: Anders ModÃ©n
 // Product		: Gizmo3D 2.12.185
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
@@ -30,7 +30,7 @@
 //
 // Who	Date	Description
 //
-// ZJP	240902	Created file                                        (2.12.179)
+// Albni 250326	Created file                                        
 //
 //******************************************************************************
 
@@ -45,21 +45,20 @@ using UnityEngine;
 
 namespace Saab.Foundation.Unity.MapStreamer
 {
-    public class TextureManager
+    public class MaterialManager
     {
-        private struct TextureCacheItem
+        private struct MaterialCacheItem
         {
-            public Texture Texture;
-            public TextureImageInfo Info;
+            public Material Material;
             public int RefCount;
         }
 
-        private readonly Dictionary<IntPtr, TextureCacheItem> _textureCache = new Dictionary<IntPtr, TextureCacheItem>();
-        private readonly Dictionary<Texture, IntPtr> _lookup = new Dictionary<Texture, IntPtr>();
+        private readonly Dictionary<int, MaterialCacheItem> _MaterialCache = new Dictionary<int, MaterialCacheItem>();
+        private readonly Dictionary<Material, int> _lookup = new Dictionary<Material, int>();
 
-        public bool TryAdd(IntPtr key, Texture value, TextureImageInfo info)
+        public bool TryAdd(int key, Material value)
         {
-            if (_textureCache.TryAdd(key, new TextureCacheItem() { Texture = value, Info = info, RefCount = 1 }))
+            if (_MaterialCache.TryAdd(key, new MaterialCacheItem() { Material = value, RefCount = 1 }))
             {
                 // add a reverse lookup to support the free operation
                 _lookup.Add(value, key);
@@ -70,44 +69,42 @@ namespace Saab.Foundation.Unity.MapStreamer
             return false;
         }
 
-        public bool TryGet(IntPtr key, out Texture value, out TextureImageInfo info)
+        public bool TryGet(int key, out Material value)
         {
-            if (_textureCache.TryGetValue(key, out TextureCacheItem item))
+            if (_MaterialCache.TryGetValue(key, out MaterialCacheItem item))
             {
                 // item existed in the cache, increase the ref count and return the resource
                 item.RefCount++;
-                _textureCache[key] = item;
-                
-                value = item.Texture;
-                info = item.Info;
+                _MaterialCache[key] = item;
+
+                value = item.Material;
                 return true;
             }
 
             // failed to find the given resource
             value = null;
-            info = null;
             return false;
         }
 
-        public bool Free(Texture texture)
+        public bool Free(Material Material)
         {
-            if (_lookup.TryGetValue(texture, out IntPtr key))
+            if (_lookup.TryGetValue(Material, out int key))
             {
-                TextureCacheItem item = _textureCache[key];
+                MaterialCacheItem item = _MaterialCache[key];
                 item.RefCount--;
 
                 // check if this was the last reference
                 if (item.RefCount > 0)
                 {
                     // simply update the ref counter
-                    _textureCache[key] = item;
+                    _MaterialCache[key] = item;
                     return true;
                 }
 
-                // this was the last reference for the texture, we should release it
-                _lookup.Remove(texture);
-                _textureCache.Remove(key);
-                GameObject.Destroy(texture);
+                // this was the last reference for the Material, we should release it
+                _lookup.Remove(Material);
+                _MaterialCache.Remove(key);
+                GameObject.Destroy(Material);
                 return true;
             }
 
@@ -119,9 +116,9 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             foreach (var kvp in _lookup)
                 GameObject.Destroy(kvp.Key);
-            
+
             _lookup.Clear();
-            _textureCache.Clear();
+            _MaterialCache.Clear();
         }
     }
 }

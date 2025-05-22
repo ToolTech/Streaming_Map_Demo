@@ -64,25 +64,61 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             foliage.Weight = EditorGUILayout.Slider(foliage.Weight, 0.1f, 1f);
             EditorGUILayout.EndHorizontal();
 
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label("Cull", style);
+            foliage.CullAreaWidth = EditorGUILayout.Slider(foliage.CullAreaWidth, 0.01f, 1f);
+            EditorGUILayout.EndHorizontal();
+
             if (foliage.MainTexture != null)
             {
                 EditorGUILayout.BeginVertical();
                 int PreviewSize = 400;
-                int HeightPos = 300;
+                int HeightPos = 340;
                 EditorGUILayout.Space(450, true);
                 EditorGUI.DrawRect(new Rect(3, HeightPos, PreviewSize, PreviewSize), Color.white);
 
                 if (foliage.TextureMode == TextureMode.Atlas)
+                {
                     GUI.DrawTextureWithTexCoords(new Rect(3, HeightPos, PreviewSize, PreviewSize), foliage.MainTexture, new Rect(0, 0, 0.5f, 0.5f));
-                else if (foliage.TextureMode == TextureMode.Single)
-                    GUI.DrawTextureWithTexCoords(new Rect(3, HeightPos, PreviewSize, PreviewSize), foliage.MainTexture, new Rect(0, 0, 1, 1));
+                    EditorGUI.DrawRect(new Rect(3, HeightPos - 5 + PreviewSize * (1 - foliage.Offset.y) + 4, PreviewSize, 2), new Color(1, 0, 0, 0.5f));
 
-                EditorGUI.DrawRect(new Rect(3, HeightPos - 5 + PreviewSize * (1 - foliage.Offset.y) + 4, PreviewSize, 2), new Color(1, 0, 0, 0.5f));
+                    var width = PreviewSize * foliage.CullAreaWidth;
+                    var height = width;
+
+                    var offset = PreviewSize * (foliage.Offset.y);
+                    var rect = new Rect(3 + PreviewSize / 2f - width / 2f, HeightPos + offset, width, PreviewSize);
+                    //DrawRect(rect, 2, Color.blue);
+                    rect.y -= offset;
+                    rect.height -= offset;
+                    DrawRect(rect, 2, Color.green);
+
+                }
+                else if (foliage.TextureMode == TextureMode.Single)
+                {
+                    GUI.DrawTextureWithTexCoords(new Rect(3, HeightPos, PreviewSize, PreviewSize), foliage.MainTexture, new Rect(0, 0, 1, 1));
+                }
+
+                //EditorGUI.DrawRect(new Rect(3, HeightPos - 5 + PreviewSize * (1 - foliage.Offset.y) + 4, PreviewSize, 2), new Color(1, 0, 0, 0.5f));
                 EditorGUILayout.EndVertical();
             }
             EditorUtility.SetDirty(foliage);
 
             //DrawDefaultInspector();
+        }
+
+        private static void DrawRect(Rect rect, float strokeWidth, Color color)
+        {
+            // Draw the top border.
+            EditorGUI.DrawRect(new Rect(rect.x, rect.y, rect.width, strokeWidth), color);
+
+            // Draw the bottom border.
+            EditorGUI.DrawRect(new Rect(rect.x, rect.y + rect.height - strokeWidth, rect.width, strokeWidth), color);
+
+            // Draw the left border.
+            EditorGUI.DrawRect(new Rect(rect.x, rect.y, strokeWidth, rect.height), color);
+
+            // Draw the right border.
+            EditorGUI.DrawRect(new Rect(rect.x + rect.width - strokeWidth, rect.y, strokeWidth, rect.height), color);
         }
 
         private static Texture2D TextureField(string name, Texture2D texture)

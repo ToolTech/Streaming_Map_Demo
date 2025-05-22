@@ -209,6 +209,8 @@ namespace Saab.Foundation.Unity.MapStreamer
         private static readonly ProfilerMarker _profilerMarkerRender = new ProfilerMarker(ProfilerCategory.Render, "SM-Render");
         private static readonly ProfilerMarker _profilerMarkerCull = new ProfilerMarker(ProfilerCategory.Render, "SM-Cull");
         private static readonly ProfilerMarker _profilerMarkerTraverse = new ProfilerMarker(ProfilerCategory.Render, "SM-Traverse");
+        private static readonly ProfilerMarker _profilerFree = new ProfilerMarker(ProfilerCategory.Render, "SM-Free");
+
 
         struct NodeLoadInfo
         {
@@ -295,7 +297,10 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         // Used by builders to share and manage texture resources
         private readonly TextureManager _textureManager = new TextureManager();
-        
+
+        // Used by builders to share and manage Material resources
+        private readonly MaterialManager _materialManager = new MaterialManager();
+
         // Pools of pre allocated and recycled node objects, used to avoid runtime allocations and instead recycle game objects
         private readonly Stack<NodeHandle>[] _free = new Stack<NodeHandle>[byte.MaxValue];
 
@@ -921,6 +926,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                 _native_scene?.RemoveAllNodes();
 
                 _textureManager.Clear();
+                _materialManager.Clear();
 
                 // clear all pending asset loads
                 _deferredAssetLoads.Clear();
@@ -983,7 +989,8 @@ namespace Saab.Foundation.Unity.MapStreamer
                     _poolPrefabs[idx] = CreateAllocatorPrefabForBuilder(builder);
                 }
 
-                builder.SetTextureManager(_textureManager);    
+                builder.SetTextureManager(_textureManager);
+                builder.SetMaterialManager(_materialManager);
             }
 
             var pools = _free.Where(p => p != null).ToArray();
@@ -1140,7 +1147,8 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             // Locked in edit or render (render) by caller
 
-            if ((action == NodeActionEvent.IS_TRAVERSABLE) || (action == NodeActionEvent.IS_NOT_TRAVERSABLE))
+            if ((action == NodeActionEvent.IS_TRAVERSABLE) || 
+                (action == NodeActionEvent.IS_NOT_TRAVERSABLE))
             {
                 pendingActivations.Add(new ActivationInfo(action, trigger as Node));
             }
@@ -1578,6 +1586,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         private void FreeFromPendingQueue(int count)
         {
+            _profilerFree.Begin();
             while (_pendingFrees.Count > 0 && count > 0)
             {
                 var free = _pendingFrees.Pop();
@@ -1590,6 +1599,7 @@ namespace Saab.Foundation.Unity.MapStreamer
         
                 --count;
             }
+            _profilerFree.End();
         }
 
         private void PreAllocateNodeHandle(int count, TimeSpan timeBudget)
@@ -1684,8 +1694,6 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             OnEnterPool?.Invoke(go);
         }
-
-
     }
 
     [Flags]

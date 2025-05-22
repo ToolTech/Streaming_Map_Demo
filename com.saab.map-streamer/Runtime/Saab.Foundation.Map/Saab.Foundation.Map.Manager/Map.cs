@@ -68,7 +68,8 @@ namespace Saab.Foundation.Map
         WAIT_FOR_DATA           = 1<<1,
         ISECT_LOD_QUALITY       = 1<<2,
         FRUSTRUM_CULL           = 1<<3,    
-        UPDATE_DATA             = 1<<4,        
+        UPDATE_DATA             = 1<<4,
+        CONSTRAIN_SURFACE       = 1<<5,
 
         DEFAULT = FRUSTRUM_CULL,
     }
@@ -599,7 +600,7 @@ namespace Saab.Foundation.Map
                 isect.IntersectMask=GetMask(groundClamp);
 
                 if (isect.Intersect(_currentMap, IntersectQuery.NEAREST_POINT | IntersectQuery.ABC_TRI |
-                                                    (flags.HasFlag(ClampFlags.ALIGN_NORMAL_TO_SURFACE) ? IntersectQuery.NORMAL : 0) | //IntersectQuery.NORMAL |
+                                                    (flags.HasFlag(ClampFlags.ALIGN_NORMAL_TO_SURFACE) ? IntersectQuery.NORMAL : 0) |
                                                     (flags.HasFlag(ClampFlags.WAIT_FOR_DATA) ? IntersectQuery.WAIT_FOR_DYNAMIC_DATA : 0) |
                                                     (flags.HasFlag(ClampFlags.UPDATE_DATA) ? IntersectQuery.UPDATE_DYNAMIC_DATA : 0)
                                                     , LodFactor, true, origo))
@@ -789,27 +790,45 @@ namespace Saab.Foundation.Map
         {
             _converter.SetLatPos(pos);
 
-            if (!WorldToGlobal(ref result.position, ref result.local_orientation))
-                return false;
-
-            ToLocal(result);
-
-            return UpdatePosition(result, groundClamp, flags);
+            return SetPositionInternal(result, groundClamp, flags);
         }
 
         public bool SetPosition(MapPos result, CartPos pos, GroundClampType groundClamp = GroundClampType.NONE, ClampFlags flags = ClampFlags.DEFAULT)
         {
             _converter.SetCartPos(pos);
 
+            return SetPositionInternal(result, groundClamp, flags);
+        }
+
+        private bool SetPositionInternal(MapPos result, GroundClampType groundClamp, ClampFlags flags)
+        {
             if (!WorldToGlobal(ref result.position, ref result.local_orientation))
                 return false;
 
-            // Check possibly local 3D under a roiNode
+            // optimized path when not handling surface constraint
+            if (!flags.HasFlag(ClampFlags.CONSTRAIN_SURFACE))
+            {
+                ToLocal(result);
+
+                return UpdatePosition(result, groundClamp, flags);
+            }
+
+            // store unclamped position
+            Vec3D oldPos = result.position;
 
             ToLocal(result);
 
+            if (!UpdatePosition(result, groundClamp, flags))
+                return false;
 
-            return UpdatePosition(result, groundClamp, flags);
+            // get vector between unclamped and clamped position
+            var delta = (Vec3)(oldPos - result.position);
+
+            // if clamped position was below unclamped position we discard the clamped position
+            if (Vec3.Dot(delta, result.normal) > 0)
+                result.position = oldPos;
+
+            return true;
         }
              
 

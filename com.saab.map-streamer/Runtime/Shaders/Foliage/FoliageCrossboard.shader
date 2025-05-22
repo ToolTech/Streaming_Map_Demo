@@ -22,7 +22,7 @@ Shader "Custom/Foliage/Billboard"
 		_CutoffMax("Alpha cutoff close", Range(0, 1)) = 0.2
 		_CutoffMin("Alpha cutoff far", Range(0, 1)) = 0.2
 		_Threshold("Alpha cutoff distance", float) = 1000
-		_Wind("Wind (x,y speed)", Vector ) = ( 0, 0, 0, 0)
+		//_Wind("Wind (x,y speed)", Vector ) = ( 0, 0, 0, 0)
 		[MaterialToggle] _isToggled("Up Normals", Float) = 1
 	}
 
@@ -50,6 +50,7 @@ Shader "Custom/Foliage/Billboard"
 				float3	tex0	: TEXCOORD0;
 				float3	normal	: NORMAL;
 				float3	color	: TEXCOORD1;
+				float	alpha	: TEXCOORD3;
 			};
 
 			struct FoliagePoint
@@ -58,6 +59,7 @@ Shader "Custom/Foliage/Billboard"
 				float3 Color;
 				float Height;
 				float Random;
+				float Visibility;
 			};
 
 			struct FoliageShaderData
@@ -78,7 +80,7 @@ Shader "Custom/Foliage/Billboard"
 			float _CutoffMin;
 			float _Threshold;
 			float _isToggled;
-			float3 _Wind;
+			float3 _WindVector;
 
 			sampler2D _PerlinNoise;
 
@@ -106,19 +108,23 @@ Shader "Custom/Foliage/Billboard"
 			{
 				fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_MainTexArray, i.tex0);
 
-				float3 CamToPixelDir = normalize(i.wp - _WorldSpaceCameraPos);
-				float3 CamToCenter = (i.center - _WorldSpaceCameraPos);
-				float CenterProjection = dot(CamToPixelDir, CamToCenter);
-				float3 RightAnglePoint = _WorldSpaceCameraPos + CamToPixelDir * CenterProjection;
-				float CenterDistance = distance(i.center, RightAnglePoint);
+				float3 camToPixelDir = normalize(i.wp - _WorldSpaceCameraPos);
+				float3 camToCenter = (i.center - _WorldSpaceCameraPos);
+				float centerProjection = dot(camToPixelDir, camToCenter);
+				float3 rightAnglePoint = _WorldSpaceCameraPos + camToPixelDir * centerProjection;
+				// float centerDistance = distance(i.center, rightAnglePoint);
+				float3 centerOffset = i.center - rightAnglePoint;
+				float centerDistanceSquared = dot(centerOffset, centerOffset);
 
-				if (CenterDistance > i.radius)
-					return normalize(RightAnglePoint - i.center);
+				float radiusSquared = i.radius * i.radius;
 
-				float RightAngleDistance = sqrt(i.radius * i.radius - CenterDistance * CenterDistance);
-				float3 ProjectedPoint = RightAnglePoint - CamToPixelDir * (RightAngleDistance * (10 * col.r));
+				if (centerDistanceSquared > radiusSquared)
+					return normalize(rightAnglePoint - i.center);
 
-				return normalize(ProjectedPoint - i.center);
+				float rightAngleDistance = sqrt(radiusSquared - centerDistanceSquared);
+				float3 projectedPoint = rightAnglePoint - camToPixelDir * (rightAngleDistance * (10 * col.r));
+
+				return normalize(projectedPoint - i.center);
 			}
 
 			float CutoffDistance(float distance)
@@ -207,6 +213,7 @@ Shader "Custom/Foliage/Billboard"
 
 					fixed threshold = thresholdMatrix[i.pos.x % 4][i.pos.y % 4] / 17;
 					float power = 3;
+					clip(i.alpha - threshold);
 
 					if(1 - abs(i.normal.y) < 0.01)
 					{

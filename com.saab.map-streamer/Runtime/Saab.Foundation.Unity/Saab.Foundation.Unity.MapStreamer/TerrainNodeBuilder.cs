@@ -15,10 +15,10 @@
 // Export Control:		NOT EXPORT CONTROLLED
 //
 //
-// File			: NodeGeometryHelper.cs
+// File			: TerrainNodeBuilder.cs
 // Module		:
 // Description	: Helper class for vertice updates
-// Author		: Anders Modén
+// Author		: Anders ModÃ©n
 // Product		: Gizmo3D 2.12.185
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
@@ -35,6 +35,7 @@
 //******************************************************************************
 
 using GizmoSDK.Gizmo3D;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Saab.Foundation.Unity.MapStreamer
@@ -73,13 +74,23 @@ namespace Saab.Foundation.Unity.MapStreamer
             return true;
         }
 
+        private readonly Dictionary<int, Material> _materials = new Dictionary<int, Material>();
+
         protected override Material CreateMaterialFromState(NodeHandle stateNode)
         {
             // use fallback if no texture is available
             if (!stateNode.texture)
                 return Instantiate(_fallbackMaterial);
 
-            var material = Instantiate(_material);
+            var id = stateNode.texture.GetInstanceID();
+            if (!_materials.TryGetValue(id, out var material))
+            {
+                material = Instantiate(_material);
+                _materials.Add(id, material);
+            }
+
+            // Todo: reuse material if texture match
+            //var material = Instantiate(_material);
 
             // main texture
             material.mainTexture = stateNode.texture;

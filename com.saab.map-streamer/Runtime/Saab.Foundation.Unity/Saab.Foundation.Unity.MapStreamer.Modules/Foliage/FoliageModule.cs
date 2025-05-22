@@ -55,21 +55,10 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public FoliageFeature FoliageFeature;
         public ComputeBuffer InderectBuffer;
         public ComputeBuffer FoliageData;
-        private float _maxHeight;
 
-        public float MaxHeight
-        {
-            set { _maxHeight = value; }
-            get
-            {
-                return _maxHeight;
-            }
-        }
+        public float MaxHeight { get; set; }
 
-        public Material FoliageMaterial
-        {
-            get; set;
-        }
+        public Material FoliageMaterial { get; set; }
 
         public void Dispose()
         {
@@ -84,7 +73,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public SceneManager SceneManager;
         public ComputeShader ComputeShader;
         public Shader FoliageShader;
-        public Vector3 Wind;
 
         //_PerlinNoise
         public Texture2D PerlinNoise;
@@ -95,6 +83,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public bool DebugNoDraw = false;
         public bool NativeLeakDetection = false;
         public bool Occlusion = true;
+        public Material DownsampleMaterial;
 
         [Header("Foliage Draw")]
         public List<FeatureSet> Features = new List<FeatureSet>();
@@ -113,6 +102,40 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private Queue<FoliageJob> _futurePool = new Queue<FoliageJob>();
         private Dictionary<SettingsFeatureType, SettingsFeature> _settingsCache = new Dictionary<SettingsFeatureType, SettingsFeature>();
 
+        private static class PlacementParameterID
+        {
+            public static readonly int FoliageData = Shader.PropertyToID("_foliageData");
+            public static readonly int TerrainResolution = Shader.PropertyToID("terrainResolution");
+            public static readonly int TerrainSize = Shader.PropertyToID("terrainSize");
+            public static readonly int NodeOffset = Shader.PropertyToID("NodeOffset");
+            public static readonly int Resolution = Shader.PropertyToID("Resolution");
+            public static readonly int ObjToWorld = Shader.PropertyToID("ObjToWorld");
+            public static readonly int IndexCount = Shader.PropertyToID("indexCount");
+            public static readonly int UvCount = Shader.PropertyToID("uvCount");
+            public static readonly int FrameCount = Shader.PropertyToID("FrameCount");
+            public static readonly int Occlusion = Shader.PropertyToID("Occlusion");
+            public static readonly int DownscaleFactor = Shader.PropertyToID("DownscaleFactor");
+            public static readonly int HeightMap = Shader.PropertyToID("HeightMap");
+            public static readonly int IndexBuffer = Shader.PropertyToID("IndexBuffer");
+            public static readonly int VertexBuffer = Shader.PropertyToID("VertexBuffer");
+            public static readonly int MeshBoundsMax = Shader.PropertyToID("MeshBoundsMax");
+            public static readonly int VertexBufferStride = Shader.PropertyToID("VertexBufferStride");
+            public static readonly int TexcoordOffset = Shader.PropertyToID("TexcoordOffset");
+            public static readonly int PositionOffset = Shader.PropertyToID("PositionOffset");
+            public static readonly int SurfaceHeightMap = Shader.PropertyToID("SurfaceHeightMap");
+            public static readonly int Texture = Shader.PropertyToID("Texture");
+            public static readonly int Density = Shader.PropertyToID("Density");
+
+            // Material
+            public static readonly int IsToggled = Shader.PropertyToID("_isToggled");
+            public static readonly int PerlinNoise = Shader.PropertyToID("_PerlinNoise");
+            public static readonly int FoliageCount = Shader.PropertyToID("_foliageCount");
+            public static readonly int MainTexArray = Shader.PropertyToID("_MainTexArray");
+            public static readonly int PointBuffer = Shader.PropertyToID("_PointBuffer");
+
+            public static readonly string CROSSBOARD_ON = "CROSSBOARD_ON";
+
+        }
         public int GetFoliageCount
         {
             get
@@ -152,17 +175,17 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 featureSet.FoliageMaterial = new Material(FoliageShader);
 
                 //TODO: use to create a random noise
-                featureSet.FoliageMaterial.SetTexture("_PerlinNoise", PerlinNoise);
+                featureSet.FoliageMaterial.SetTexture(PlacementParameterID.PerlinNoise, PerlinNoise);
 
                 if (featureSet.Crossboard)
                 {
-                    featureSet.FoliageMaterial.SetFloat("_isToggled", 0);
-                    featureSet.FoliageMaterial.EnableKeyword("CROSSBOARD_ON");
+                    featureSet.FoliageMaterial.SetFloat(PlacementParameterID.IsToggled, 0);
+                    featureSet.FoliageMaterial.EnableKeyword(PlacementParameterID.CROSSBOARD_ON);
                 }
                 else
                 {
-                    featureSet.FoliageMaterial.SetFloat("_isToggled", 1);
-                    featureSet.FoliageMaterial.DisableKeyword("CROSSBOARD_ON");
+                    featureSet.FoliageMaterial.SetFloat(PlacementParameterID.IsToggled, 1);
+                    featureSet.FoliageMaterial.DisableKeyword(PlacementParameterID.CROSSBOARD_ON);
                 }
                 featureSet.MaxHeight = featureSet.FoliageSet.GetMaxHeight;
 
@@ -198,8 +221,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             var foliageTypes = featureSet.FoliageSet.GetFoliageList;
             var mainTexs = Create2DArray(foliageTypes, format);
 
-            featureSet.FoliageMaterial.SetInt("_foliageCount", foliageTypes.Count);
-            featureSet.FoliageMaterial.SetTexture("_MainTexArray", mainTexs);
+            featureSet.FoliageMaterial.SetInt(PlacementParameterID.FoliageCount, foliageTypes.Count);
+            featureSet.FoliageMaterial.SetTexture(PlacementParameterID.MainTexArray, mainTexs);
 
             var data = new FoliageShaderData[foliageTypes.Count];
             for (int i = 0; i < foliageTypes.Count; i++)
@@ -221,7 +244,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             featureSet.FoliageData = new ComputeBuffer(foliageTypes.Count, sizeof(float) * 5, ComputeBufferType.Default);
             featureSet.FoliageData.SetData(data);
-            featureSet.FoliageMaterial.SetBuffer("_foliageData", featureSet.FoliageData);
+            featureSet.FoliageMaterial.SetBuffer(PlacementParameterID.FoliageData, featureSet.FoliageData);
         }
         private static uint NextPowerOfTwo(uint v)
         {
@@ -250,7 +273,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             RenderTexture temporaryRenderTexture = new RenderTexture(textureResolution, textureResolution, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default)
             {
                 useMipMap = true,
-                antiAliasing = 1
+                antiAliasing = 1,
+                name = "foliagemodule - temporaryRenderTexture - 2dArray"
             };
 
             for (int i = 0; i < textureCount; i++)
@@ -270,6 +294,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             }
             textureArray.Apply(false, true);
 
+            temporaryRenderTexture.Release();
             DestroyImmediate(temporaryRenderTexture);
 
             return textureArray;
@@ -307,7 +332,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         {
             if (isAsset)
                 return;
-            
+
             AddJob(go);
         }
 
@@ -335,7 +360,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             var pixelSize = new Vector2((float)featureInfo.v11, (float)featureInfo.v22);
             float scale = 1000;
-            
+
             var nodeOffset = new Vector2(
                 (float)(featureInfo.v13 + featureInfo.v11) % scale,
                 (float)(featureInfo.v23 + featureInfo.v22) % scale);
@@ -349,18 +374,16 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             if (nodeSide > 2048)
                 return;
 
-            ComputeShader.SetVector("terrainResolution", texSize);
-            ComputeShader.SetVector("terrainSize", mesh.bounds.size);
-            ComputeShader.SetVector("NodeOffset", nodeOffset);
-            ComputeShader.SetVector("Resolution", pixelSize);
-            ComputeShader.SetMatrix("ObjToWorld", go.transform.localToWorldMatrix);
-
-            
+            ComputeShader.SetVector(PlacementParameterID.TerrainResolution, texSize);
+            ComputeShader.SetVector(PlacementParameterID.TerrainSize, mesh.bounds.size);
+            ComputeShader.SetVector(PlacementParameterID.NodeOffset, nodeOffset);
+            ComputeShader.SetVector(PlacementParameterID.Resolution, pixelSize);
+            ComputeShader.SetMatrix(PlacementParameterID.ObjToWorld, go.transform.localToWorldMatrix);
 
             var meshCenter = nodeHandle.node.BoundaryCenter;
 
             MapControl.SystemMap.GlobalToWorld(meshCenter, out GizmoSDK.Coordinate.CartPos cartPos);
-            
+
             _coordConverter.SetCartPos(cartPos);
             _coordConverter.GetUTMPos(out var utmPos);
 
@@ -385,18 +408,28 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             if (nodeHandle.surfaceHeight == null)
                 surface = GenerateSurfaceHeight(tex);
 
+            bool requireCleanup = true;
+
             foreach (var set in Features)
             {
                 if (!set.Enabled)
                     continue;
 
                 var setting = GetSettings(set.SettingsType);
-                ComputeShader.SetFloat("Density", set.Density * setting.Density);
+                ComputeShader.SetFloat(PlacementParameterID.Density, set.Density * setting.Density);
 
                 if (nodeSide < set.NodeMaxWidth)
                 {
                     set.FoliageFeature.AddFoliage(go, nodeHandle, heightmap, surface);
                 }
+
+                requireCleanup = false;
+            }
+
+            if (requireCleanup)
+            {
+                heightmap?.Release();
+                surface?.Release();
             }
         }
 
@@ -411,6 +444,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             _heightMap?.Release();
             _surfaceheightMap?.Release();
+            _depthMap?.Release();
         }
 
         private RenderTexture GenerateSurfaceHeight(UnityEngine.Texture texture)
@@ -419,11 +453,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             _surfaceheightMap = new RenderTexture(texture.width, texture.height, 24, RenderTextureFormat.RFloat);
             _surfaceheightMap.enableRandomWrite = true;
+            _surfaceheightMap.name = "foliagemodule - surfaceheightMap";
             _surfaceheightMap.Create();
 
             var kernel = ComputeShader.FindKernel("CSSurfaceHeightMap");
-            ComputeShader.SetTexture(kernel, "Texture", texture);
-            ComputeShader.SetTexture(kernel, "SurfaceHeightMap", _surfaceheightMap);
+            ComputeShader.SetTexture(kernel, PlacementParameterID.Texture, texture);
+            ComputeShader.SetTexture(kernel, PlacementParameterID.SurfaceHeightMap, _surfaceheightMap);
 
             var threadx = Mathf.CeilToInt(texture.width / 8f) < 1 ? 1 : Mathf.CeilToInt(texture.width / 8f);
             var thready = Mathf.CeilToInt(texture.height / 8f) < 1 ? 1 : Mathf.CeilToInt(texture.height / 8f);
@@ -436,7 +471,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private RenderTexture GenerateHeight(Vector2 texSize, Vector2 pixelSize, Mesh mesh, Vec3D offset)
         {
 
-            ComputeShader.SetVector("Resolution", pixelSize);
+            ComputeShader.SetVector(PlacementParameterID.Resolution, pixelSize);
 
             // according to documentation vertexBufferTarget should not be able to be a structured but it works
             // if any future problems occur test doing the same as indexBuffer -> indexbufferGpuCopy
@@ -453,36 +488,40 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             var texOffset = mesh.GetVertexAttributeOffset(UnityEngine.Rendering.VertexAttribute.TexCoord0);
             var posOffset = mesh.GetVertexAttributeOffset(UnityEngine.Rendering.VertexAttribute.Position);
 
-            ComputeShader.SetInt("PositionOffset", posOffset / 4);
-            ComputeShader.SetInt("TexcoordOffset", texOffset / 4);
-            ComputeShader.SetInt("VertexBufferStride", stride / 4);
+            ComputeShader.SetInt(PlacementParameterID.PositionOffset, posOffset / 4);
+            ComputeShader.SetInt(PlacementParameterID.TexcoordOffset, texOffset / 4);
+            ComputeShader.SetInt(PlacementParameterID.VertexBufferStride, stride / 4);
 
             var indicesCount = mesh.GetIndexCount(0);
-            ComputeShader.SetInt("uvCount", vertexBuffer.count);
+            ComputeShader.SetInt(PlacementParameterID.UvCount, vertexBuffer.count);
 
             // ************* find node corners ************* //
-   
+
             //var nodeTexCenter = mesh.bounds.center + new Vector3((float)offset.x + mesh.bounds.extents.x, (float)offset.y, (float)offset.z + mesh.bounds.extents.z);
             //var nodeExtents = new Vector3((texSize.x - 2) * pixelSize.x / 2, mesh.bounds.size.y, texSize.y * pixelSize.y / 2);
             //var nodeTexTopLeft = nodeTexTopLeft + nodeExtents;
-            var nodeTexTopLeft =  mesh.bounds.center - new Vector3((float)offset.x + (texSize.x * pixelSize.x), (float)offset.y, (float)offset.z) ;
-            ComputeShader.SetVector("MeshBoundsMax", nodeTexTopLeft );
+            var nodeTexTopLeft = mesh.bounds.center - new Vector3((float)offset.x + (texSize.x * pixelSize.x), (float)offset.y, (float)offset.z);
+            ComputeShader.SetVector(PlacementParameterID.MeshBoundsMax, nodeTexTopLeft);
 
             // ************* Generate Height Map  ************* //
 
             var kernelHeight = ComputeShader.FindKernel("CSHeightMap");
 
+            if (_heightMap != null)
+                _heightMap.Release();
+
             _heightMap = new RenderTexture((int)texSize.x, (int)texSize.y, 24, RenderTextureFormat.RFloat);
             _heightMap.enableRandomWrite = true;
+            _heightMap.name = "foliagemodule - HeightMap";
             _heightMap.Create();
 
             var triangleCount = Mathf.CeilToInt(indicesCount / 3f);
 
-            ComputeShader.SetInt("indexCount", triangleCount);
+            ComputeShader.SetInt(PlacementParameterID.IndexCount, triangleCount);
 
-            ComputeShader.SetBuffer(kernelHeight, "VertexBuffer", vertexBuffer);
-            ComputeShader.SetBuffer(kernelHeight, "IndexBuffer", indexbufferGpuCopy);
-            ComputeShader.SetTexture(kernelHeight, "HeightMap", _heightMap);
+            ComputeShader.SetBuffer(kernelHeight, PlacementParameterID.VertexBuffer, vertexBuffer);
+            ComputeShader.SetBuffer(kernelHeight, PlacementParameterID.IndexBuffer, indexbufferGpuCopy);
+            ComputeShader.SetTexture(kernelHeight, PlacementParameterID.HeightMap, _heightMap);
 
             var threads = Mathf.CeilToInt(triangleCount / 4f) < 1 ? 1 : Mathf.CeilToInt(triangleCount / 4f);
             ComputeShader.Dispatch(kernelHeight, threads, 1, 1);
@@ -502,24 +541,19 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         private void DownscaleDepth(int downscale)
         {
-            var kernel = ComputeShader.FindKernel("CSDownscaleDepth");
-
             if (_depthMap == null)
             {
-                _depthMap = new RenderTexture(downscale, downscale, 24, RenderTextureFormat.RFloat);
+                _depthMap = new RenderTexture(Screen.width / downscale, Screen.height / downscale, 0, RenderTextureFormat.RFloat);
+                _depthMap.name = "foliagemodule - depthmap";
                 _depthMap.enableRandomWrite = true;
+                _depthMap.filterMode = FilterMode.Point;
+                _depthMap.useMipMap = false;
                 _depthMap.Create();
             }
 
-            var thread = Mathf.CeilToInt(downscale / 10f) < 1 ? 1 : Mathf.CeilToInt(downscale / 10f);
-
-            ComputeShader.SetInt("Scale", downscale);
-            ComputeShader.SetBool("Occlusion", Occlusion);
-            ComputeShader.SetVector("DownscaleSize", new Vector2(downscale, downscale));
-            ComputeShader.SetTextureFromGlobal(kernel, "DepthTexture", "_CameraDepthTexture");
-            ComputeShader.SetTexture(kernel, "DownscaledDepthTexture", _depthMap);
-
-            ComputeShader.Dispatch(kernel, thread, thread, 1);
+            Graphics.Blit(null, _depthMap, DownsampleMaterial);
+            DownsampleMaterial.mainTexture = _depthMap;
+            ComputeShader.SetInt(PlacementParameterID.DownscaleFactor, downscale);
         }
 
         float CalculateDesiredDistance(UnityEngine.Camera camera, float objectHeight, float coverage)
@@ -538,7 +572,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private void SceneManager_OnPostTraverse(bool locked)
         {
             _profilerMarker.Begin();
-            
+
             Render();
 
             _profilerMarker.End();
@@ -554,20 +588,19 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             else
                 UnsafeUtility.SetLeakDetectionMode(NativeLeakDetectionMode.Disabled);
 
-
-
             var cam = SceneManager.SceneManagerCamera.Camera;
             GenerateFrustumPlane(cam);
-
 
             if (cam.depthTextureMode != DepthTextureMode.Depth)
                 cam.depthTextureMode = cam.depthTextureMode | DepthTextureMode.Depth;
 
-            DownscaleDepth(20);
+            ComputeShader.SetBool(PlacementParameterID.Occlusion, Occlusion);
+            ComputeShader.SetInt(PlacementParameterID.FrameCount, UnityEngine.Time.frameCount);
+
+            DownscaleDepth(4);
 
             foreach (var set in Features)
             {
-
                 var settings = GetSettings(set.SettingsType);
                 if (!settings.Enabled || !set.Enabled)
                     continue;
@@ -578,16 +611,13 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                     continue;
                 }
 
-
-                set.FoliageMaterial.SetVector("_Wind", Wind);
-
                 var dist = CalculateDesiredDistance(cam, set.MaxHeight, set.ScreenCoverage);
                 set.DrawDistance = dist * settings.DrawDistance;
                 _frustum[5].w = set.DrawDistance;  // draw distance
 
                 // Render all points
-                var buffer = set.FoliageFeature.Cull(_frustum, cam, _maxHeight, _depthMap);
-                set.FoliageMaterial.SetBuffer("_PointBuffer", buffer);
+                var buffer = set.FoliageFeature.Cull(_frustum, cam, _maxHeight, _depthMap, set);
+                set.FoliageMaterial.SetBuffer(PlacementParameterID.PointBuffer, buffer);
 
                 // ------- Render -------
                 ComputeBuffer.CopyCount(buffer, set.InderectBuffer, 0);
@@ -607,7 +637,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             DebugPrintCount = false;
 
-            
+
         }
     }
 }

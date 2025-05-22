@@ -12,9 +12,6 @@ set SOLUTION_PATH=%~dp0vs17\Install_Gizmo\Install_Gizmo.sln
 echo Solution file path: %SOLUTION_PATH%
 set PLATFORM=x64
 
-REM Define the path to nuget.exe
-SET NUGET_PATH=%~dp0nuget.exe
-
 REM Define MSBuild path variable
 SET "MSBUILD_PATH="
 
@@ -23,7 +20,7 @@ SET "VSWHERE_PATH=C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhe
 
 REM Use FOR /F to capture the output of vswhere.exe directly into the MSBUILD_PATH variable
 FOR /F "usebackq tokens=*" %%F IN (`"%VSWHERE_PATH%" -latest -requires Microsoft.Component.MSBuild -property installationPath`) DO (
-    SET "MSBUILD_PATH=%%F\MSBuild\Current\Bin\msbuild.exe"
+    SET "MSBUILD_PATH=%%F\MSBuild\Current\Bin\amd64\msbuild.exe"
 )
 
 REM Check if MSBuild path was found and if so, print it
@@ -31,17 +28,12 @@ IF DEFINED MSBUILD_PATH (
     ECHO MSBUILD file path: %MSBUILD_PATH%
 ) ELSE (
     ECHO MSBuild was not found. Please make sure you have Visual Studio installed.
+    EXIT /B 1
 )
 
-REM Download NuGet dependencies using nuget.exe
+REM Restore NuGets
 echo Restoring NuGet packages for the solution: %SOLUTION_PATH%
-
-IF NOT EXIST %NUGET_PATH% (
-    ECHO Download nuget.exe to %NUGET_PATH%
-    curl -o %NUGET_PATH% https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
-)
-
-%NUGET_PATH% restore "%SOLUTION_PATH%"
+"%MSBUILD_PATH%" "%SOLUTION_PATH%" /t:Restore /p:RestorePackagesConfig=true
 
 REM Check if the NuGet restore was successful
 IF %ERRORLEVEL% EQU 0 (
