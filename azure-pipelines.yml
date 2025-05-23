@@ -1,9 +1,7 @@
 trigger:
-- master
-- develop 
-
-pool:
- name: TS-Windows
+  - master
+  - develop
+  - release/*
 
 variables:
   ArticleFull: '8866027201'
@@ -11,38 +9,76 @@ variables:
   Major: '4'
   Minor: '2'
 
-workspace:
-  clean: all
+resources:
+  repositories:
+    - repository: release_templates
+      type: git
+      name: release_templates
+      project: Common
+      ref: refs/tags/2.1.3
 
 # Build number format
 name: $(ArticleFull).$(Major).$(Minor).$(rev:r)
 
-steps:
-- checkout: self 
-  lfs: true
-  clean: true 
-  submodules: recursive
-  persistCredentials: true
+stages:
+  - stage: Build
+    jobs:
+      - job: Build
+        workspace:
+          clean: all
 
-- task: GitBuildInformation@0
-  displayName: 'Create build information for repository - branch master or PR to master'
-  condition: or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/master'))
-  inputs:
-    outputFile: 'BuildInfo'
-    branchFilterRegex: '^(origin\/master|origin\/release\/+)'
-    branchApprovedRegex: '^(origin\/master|origin\/release\/+)'
-  continueOnError: false
+        pool:
+          name: TS-Windows
 
-- task: set-version-variables@1
-  displayName: 'Set version variables according to BuildNumber'
-  inputs:
-    setProductVersionVariable: true
-    setMajorVariable: true
-    setMinorVariable: true
-    setBuildVariable: true
-    setRevisionVariable: true
-    failOnVersionSyntax: true
-    defineCustomizedVariable: false 
+        steps:
+          - checkout: self
+            lfs: true
+            clean: true
+            submodules: recursive
+            persistCredentials: true
 
-- script: echo Version = $(Build_ProductVersion)
-  displayName: 'Pipeline for setting component version and change history'
+          - task: set-version-variables@1
+            displayName: "Set version variables according to BuildNumber"
+            inputs:
+              setProductVersionVariable: true
+              setMajorVariable: true
+              setMinorVariable: true
+              setBuildVariable: true
+              setRevisionVariable: true
+              failOnVersionSyntax: true
+              defineCustomizedVariable: false
+
+          - script: echo Version = $(Build_ProductVersion)
+            displayName: "Pipeline for setting component version and change history"
+
+          # Copy CHANGELOG to Artifacts
+          - task: CopyFiles@2
+            displayName: Copy CHANGELOG to Artifacts
+            inputs:
+              Contents: CHANGELOG.md
+              TargetFolder: $(Build.ArtifactStagingDirectory)
+
+          # Publish Artifacts
+          - task: PublishBuildArtifacts@1
+            displayName: Publish Artifacts
+            inputs:
+              PathtoPublish: $(Build.ArtifactStagingDirectory)
+              ArtifactName: $(Build.BuildNumber)-$(Build.SourceBranchName)
+              publishLocation: FilePath
+              TargetPath: $(TSDropAreaPath)\BTA\$(Build.DefinitionName)
+
+  # Publish tasks after approval - if branch is master or release
+  - ${{ if or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')) }}:
+      # Publish release info to Wiki - https://devops.saab.se/TS/Common/_wiki/wikis/Common.wiki/1479
+      - stage: PublishWiki
+        displayName: Publish to Wiki
+        dependsOn: Build
+        jobs:
+          - template: update_wiki.yml@release_templates
+            parameters:
+              article: $(ArticleFull)
+              project: Common
+              wiki: Common
+              page: 1479
+              changelogpath: $(Build.BuildNumber)-$(Build.SourceBranchName)/CHANGELOG.md
+              publishEnvironment: PublishEnvironment
