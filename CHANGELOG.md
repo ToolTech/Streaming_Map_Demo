@@ -19,6 +19,7 @@ described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/
 
 ### Fixed
 
+- Tile border visual glitch due to wrong texture wrap mode
 - Fix restore NuGets in local scripts
 
 ## 4.1
