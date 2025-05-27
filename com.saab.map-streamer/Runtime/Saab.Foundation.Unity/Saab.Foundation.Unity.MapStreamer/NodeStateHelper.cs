@@ -247,7 +247,13 @@ namespace Saab.Foundation.Unity.MapStreamer
                 if (depth != 1)
                     return false;
 
-                result = new Texture2D((int)width, (int)height, textureFormat, mipChain);
+                result = new Texture2D((int)width, (int)height, textureFormat, mipChain)
+                {
+                    wrapModeU = GetUnityTextureWrapMode(gzTexture.WrapS),
+                    wrapModeV = GetUnityTextureWrapMode(gzTexture.WrapT),
+                    wrapModeW = GetUnityTextureWrapMode(gzTexture.WrapR),
+                };
+
                 if (!result)
                     return false;
                 
@@ -346,6 +352,23 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
 
             throw new NotSupportedException();
+        }
+
+        private static TextureWrapMode GetUnityTextureWrapMode(gzTexture.TextureWrapMode wrapMode)
+        {
+            switch (wrapMode)
+            {
+                case gzTexture.TextureWrapMode.CLAMP_TO_EDGE:
+                case gzTexture.TextureWrapMode.CLAMP_TO_BORDER:
+                case gzTexture.TextureWrapMode.CLAMP:
+                    return TextureWrapMode.Clamp;
+                case gzTexture.TextureWrapMode.REPEAT:
+                    return TextureWrapMode.Repeat;
+                case gzTexture.TextureWrapMode.MIRRORED_REPEAT:
+                    return TextureWrapMode.Mirror;
+                default:
+                    throw new NotSupportedException();
+            }
         }
 
         private static bool IsTextureFormatSupported(TextureFormat format)
