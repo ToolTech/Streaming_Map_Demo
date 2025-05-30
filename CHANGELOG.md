@@ -9,6 +9,7 @@ described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/
 
 ### Changed
 
+- Improved performance by recycling textures
 - Updated to GizmoSDK 2.12.230.1
 
 ### Fixed

@@ -247,17 +247,22 @@ namespace Saab.Foundation.Unity.MapStreamer
                 if (depth != 1)
                     return false;
 
-                result = new Texture2D((int)width, (int)height, textureFormat, mipChain)
-                {
-                    wrapModeU = GetUnityTextureWrapMode(gzTexture.WrapS),
-                    wrapModeV = GetUnityTextureWrapMode(gzTexture.WrapT),
-                    wrapModeW = GetUnityTextureWrapMode(gzTexture.WrapR),
-                };
+                // we try to reuse texture objects when streaming terrain, this improves performance
+                // by almost 2X, a small cache of only 256 MB should be enough since terrain textures
+                // are quite small but frequently changed
+                result = Texture2DCache.GetOrCreateTexture((int)width, (int)height, textureFormat, mipChain, out bool canBeRecycled);
+
+                result.wrapModeU = GetUnityTextureWrapMode(gzTexture.WrapS);
+                result.wrapModeV = GetUnityTextureWrapMode(gzTexture.WrapT);
+                result.wrapModeW = GetUnityTextureWrapMode(gzTexture.WrapR);
+                
 
                 if (!result)
                     return false;
-                
+
+#if DEBUG
                 result.name = "SM - NodeTexture";
+#endif
 
 #if false
                 unsafe
@@ -291,7 +296,9 @@ namespace Saab.Foundation.Unity.MapStreamer
                         break;
                 }
 
-                result.Apply(mipChain, true);
+                // if texture was a candidate for recycling, we keep the CPU side buffer
+                // so that we can update the texture when reused
+                result.Apply(mipChain, makeNoLongerReadable: !canBeRecycled);
 
                 if (info != null)
                 {
