@@ -22,6 +22,8 @@ described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/
 
 - Tile border visual glitch due to wrong texture wrap mode
 - Fix restore NuGets in local scripts
+- fixed Sun Glare
+- fixed texture Tiling
 
 ## 4.1
 
