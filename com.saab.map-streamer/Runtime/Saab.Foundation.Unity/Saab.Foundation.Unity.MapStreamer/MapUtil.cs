@@ -132,9 +132,9 @@ namespace Saab.Foundation.Unity.MapStreamer
             return true;
         }
 
-        public static bool UnityToWorld(Transform transform, out LatPos position)
+        public static bool UnityToWorld(Transform transform, out LatPos position, Vector3 offset = default)
         {
-            if (!UnityToMap(transform, out MapPos mp))
+            if (!UnityToMap(transform, out MapPos mp, offset))
             {
                 position = default;
                 return false;
@@ -143,9 +143,9 @@ namespace Saab.Foundation.Unity.MapStreamer
             return MapControl.SystemMap.GlobalToWorld(mp.GlobalPosition(), out position);
         }
 
-        public static bool UnityToWorld(Transform transform, out CartPos position)
+        public static bool UnityToWorld(Transform transform, out CartPos position, Vector3 offset = default)
         {
-            if (!UnityToMap(transform, out MapPos mp))
+            if (!UnityToMap(transform, out MapPos mp, offset))
             {
                 position = default;
                 return false;
@@ -154,7 +154,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             return MapControl.SystemMap.GlobalToWorld(mp.GlobalPosition(), out position);
         }
 
-        public static bool UnityToMap(Transform transform, out MapPos position)
+        public static bool UnityToMap(Transform transform, out MapPos position, Vector3 offset = default)
         {
             var node = transform.GetComponentInParent<NodeHandle>();
             if (!node)
@@ -167,7 +167,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             position.clampFlags = ClampFlags.NONE;
             position.node = node.node;
 
-            var nodeRelative = node.transform.InverseTransformPoint(transform.position);
+            var nodeRelative = node.transform.InverseTransformPoint(transform.position + offset);
             position.position = new GizmoSDK.GizmoBase.Vec3D(nodeRelative.x, nodeRelative.y, nodeRelative.z);
 
             return true;
