@@ -46,7 +46,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         public override bool CanBuild(Node node, TraversalState traversalState, IntersectMaskValue intersectMask)
         {
-            return (traversalState == TraversalState.None) && 
+            return (traversalState == TraversalState.None) &&
                 base.CanBuild(node, traversalState, intersectMask);
         }
 
@@ -96,14 +96,9 @@ namespace Saab.Foundation.Unity.MapStreamer
             material.mainTexture = stateNode.texture;
 
             // feature
-            if (stateNode.feature != null)
+            if (stateNode.feature)
             {
-                material.SetTexture("feature", stateNode.feature);
-                material.EnableKeyword("feature");
-            }
-            else
-            {
-                material.DisableKeyword("feature");
+                material.SetTexture("_FeatureMap", stateNode.feature);
             }
 
             return material;

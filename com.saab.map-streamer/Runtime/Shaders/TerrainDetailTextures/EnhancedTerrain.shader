@@ -38,7 +38,7 @@ Shader "Custom/EnhancedTerrain"
 	{
 		Pass
 		{
-			Tags{ "LightMode" = "Deferred" }
+			Tags{ "LightMode" = "Deferred" "Thermal" = "Terrain"}
 			CGPROGRAM
 
 			#pragma vertex VS

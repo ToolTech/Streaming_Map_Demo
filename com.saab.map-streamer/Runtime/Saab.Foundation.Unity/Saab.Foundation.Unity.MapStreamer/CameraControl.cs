@@ -188,8 +188,9 @@ namespace Saab.Foundation.Unity.MapStreamer
         private void UpdateShaderPos()
         {
             var pos = GlobalPosition;
+            float max = 5000; // Needs to match ShaderUtils.PositionTiling
             var cameraHeight = (float)Math.Clamp(pos.y, -float.MaxValue, float.MaxValue);
-            var worldOffset = new Vector3((float)(pos.x % float.MaxValue), cameraHeight, -(float)(pos.z % float.MaxValue));
+            var worldOffset = new Vector3((float)(pos.x % max), cameraHeight, -(float)(pos.z % max));
             Shader.SetGlobalVector("_WorldOffset", worldOffset);
         }
 

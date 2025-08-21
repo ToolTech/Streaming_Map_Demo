@@ -11,6 +11,9 @@ described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/
 
 - Updated to GizmoSDK 2.12.254.1
 
+### Fixed
+- fixed normal tiling and weird glare (with maps without feature data)
+
 ## 4.2
 
 ### Changed

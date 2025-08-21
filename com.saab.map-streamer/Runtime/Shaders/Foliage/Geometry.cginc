@@ -386,16 +386,16 @@ void Grass(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStream)
 		FS_INPUT pIn;
 
 		// right bottom
-        AppendVertex(pIn, f[0], center, height, float3(1.0f, 0.0f, type), normalize(front * side + right + up * 0.5), color, visibility);
+        AppendVertex(pIn, f[0], center, halfS, float3(1.0f, 0.0f, type), normalize(front * side + right + up * 0.5), color, visibility);
 		triStream.Append(pIn);
 		// right top
-        AppendVertex(pIn, f[1], center, height, float3(1.0f + (rand * 0.2f), 1.0f + (rand02 * 0.2f), type), normalize(up + right), color, visibility);
+        AppendVertex(pIn, f[1], center, halfS, float3(1.0f + (rand * 0.2f), 1.0f + (rand02 * 0.2f), type), normalize(up + right), color, visibility);
 		triStream.Append(pIn);
 		// left bottom
-        AppendVertex(pIn, f[2], center, height, float3(0.0f, 0.0f, type), normalize(front * side - right + up * 0.5), color, visibility);
+        AppendVertex(pIn, f[2], center, halfS, float3(0.0f, 0.0f, type), normalize(front * side - right + up * 0.5), color, visibility);
 		triStream.Append(pIn);
 		// left top
-        AppendVertex(pIn, f[3], center, height, float3(0.0f + (rand02 * 0.2f), 1.0f + (rand * 0.2f), type), normalize(up + right), color, visibility);
+        AppendVertex(pIn, f[3], center, halfS, float3(0.0f + (rand02 * 0.2f), 1.0f + (rand * 0.2f), type), normalize(up + right), color, visibility);
 		triStream.Append(pIn);
 
 		triStream.RestartStrip();

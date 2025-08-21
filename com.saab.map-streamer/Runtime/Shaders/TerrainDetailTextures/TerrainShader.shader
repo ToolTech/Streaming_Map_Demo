@@ -13,6 +13,21 @@
 * Export Control:             NOT EXPORT CONTROLLED
 */
 
+/* 
+* Copyright (C) SAAB AB
+*
+* All rights, including the copyright, to the computer program(s) 
+* herein belong to Saab AB. The program(s) may be used and/or
+* copied only with the written permission of Saab AB, or in
+* accordance with the terms and conditions stipulated in the
+* agreement/contract under which the program(s) have been
+* supplied. 
+* 
+* Information Class:          COMPANY RESTRICTED
+* Defence Secrecy:            UNCLASSIFIED
+* Export Control:             NOT EXPORT CONTROLLED
+*/
+
 Shader "Custom/TerrainShader"
 {
     Properties
@@ -33,6 +48,7 @@ Shader "Custom/TerrainShader"
 			"Queue" = "Geometry" 
 			"RenderType" = "Opaque"
 			"LightMode" = "Deferred"
+			"Thermal" = "Terrain"
 		}
 
 		Cull Back
@@ -263,7 +279,7 @@ Shader "Custom/TerrainShader"
 				if(mappingIndex == 0)
 				{
 					smoothness = 0;
-					_WaterIndex = -1;	// to make sure you don't hit when waterindex is not defined
+					_WaterIndex = -1;	// to make sure you don't trigger water when waterindex is not defined
 					// invalid pixel skip 
 				}
 				else
@@ -273,7 +289,7 @@ Shader "Custom/TerrainShader"
 
 				if(feature == _WaterIndex)
 				{
-					textureScrolling = -_Time.y * _WindVector.xy * _WindVector.z * 0.005 + 0.1;
+					textureScrolling = -_Time.y * _WindVector.xy * (_WindVector.z * 0.005 + 0.2);
 				}
 
 				fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_Textures, float3(abs(0.005 * worldPos.xz + textureScrolling ) % 1, mappingIndex));
@@ -302,6 +318,11 @@ Shader "Custom/TerrainShader"
 
 				fixed3 normalDetail = UnpackScaleNormal(UNITY_SAMPLE_TEX2DARRAY(_NormalMaps, float3(frac(_Detail * worldPos.xz * 0.25  + textureScrolling * 1), mappingIndex)), _DetailBumpScale);
 				fixed3 normalMain = UnpackScaleNormal(UNITY_SAMPLE_TEX2DARRAY(_NormalMaps, float3(frac(_Detail * worldPos.xz * 0.5 + textureScrolling * 3.14), mappingIndex)), _BumpScale);
+				
+				// if(abs(worldPos.xz).x <= 1)
+				// 	finalColor = float3(1,0,1);
+				// if(abs(worldPos.xz).y <= 1)
+				// 	finalColor = float3(1,0,1);
 
 				//float3 normalBlend = BlendNormals(normalMain, normalDetail);
 				float3 normalBlend = lerp(normalMain, normalDetail, 0.6);
@@ -319,13 +340,13 @@ Shader "Custom/TerrainShader"
 				float3 viewDir = normalize(_WorldSpaceCameraPos - i.worldPos);
 
 				float3 sunDir = normalize(_WorldSpaceLightPos0.xyz);
-				float sunHeight = saturate(sunDir.y); // 0 = horizon, 1 = directly overhead
-				float sunFade = smoothstep(0.05, 0.15, sunHeight); // Fades in above horizon
+				float sunHeight = saturate(sunDir.y);					// 0 = horizon, 1 = directly overhead
+				float sunFade = smoothstep(0.05, 0.15, sunHeight);		// Fades in above horizon
 				sunFade = clamp(0.01, 1, sunFade);
 				float3 halfVector = normalize(sunDir + viewDir);
 
-				float spec = pow(saturate(dot(finalnormal, halfVector)), 900); // Try 400–1000
-				float glint = spec * sunFade * 1; // Try 1.0–3.0
+				float spec = pow(saturate(dot(finalnormal, halfVector)), 1000); // Try 400ï¿½1000
+				float glint = spec * sunFade * 1; // Try 1.0ï¿½3.0
 	
 				// ************ Set Deferred Buffer ************
 				
@@ -344,9 +365,12 @@ Shader "Custom/TerrainShader"
 
 				if(feature == _WaterIndex)
 				{
+					float fresnel = pow(1.0 - saturate(dot(viewDir, finalnormal)), 5.0);
+					fresnel = lerp(0, 1, fresnel); // Limits range of effect
+
 					// -------- enhanced Water stuff... --------
 					o.Specular = float3(0.02, 0.02, 0.02); // Realistic base reflectance for water
-					o.Smoothness = _WaterSmoothness;
+					o.Smoothness = _WaterSmoothness * (1- fresnel);
 					o.Specular *= sunFade;
 					o.Smoothness *= sunFade;
 					o.Emission = glint;

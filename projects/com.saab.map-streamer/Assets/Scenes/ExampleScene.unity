@@ -458,8 +458,6 @@ MonoBehaviour:
   _hueShiftInclusion: 0.4
   _targetHue: {r: 0.2546725, g: 0.5566038, b: 0.2546725, a: 1}
   _detailTextureSet: {fileID: 11400000, guid: 123682dc7f3baf442b16516cbb951b61, type: 2}
-  _generateNormals: 1
-  _normalComputeShader: {fileID: 7200000, guid: 0e24b78a0e19e3745900ce3fc73a93c1, type: 3}
 --- !u!4 &1692271384
 Transform:
   m_ObjectHideFlags: 0

@@ -12,6 +12,7 @@ Shader "Custom/AssetShader"
 			"Queue" = "Geometry" 
 			"RenderType" = "Opaque"
 			"LightMode" = "Deferred"
+			"Thermal" = "Asset"
 		}
 
 		Cull Back
@@ -27,7 +28,6 @@ Shader "Custom/AssetShader"
 		#include "UnityPBSLighting.cginc"
 
 		#pragma exclude_renderers nomrt
-		#pragma multi_compile __ NORMAL_TEXTURES_ON
 
 		#pragma target 5.0
 		#pragma multi_compile_prepassfinal noshadowmask nodynlightmap nodirlightmap nolightmap noshadow 
@@ -65,9 +65,6 @@ Shader "Custom/AssetShader"
 				o.position = UnityObjectToClipPos(v.position);
 				o.uv = v.uv;
 				o.normal = UnityObjectToWorldNormal(v.normal);
-				#ifdef NORMAL_TEXTURES_ON
-					o.normal = _NormalBuffer[v.vertexID];
-				#endif
 				o.worldPos = mul(unity_ObjectToWorld, v.position);
                 return o;
             }

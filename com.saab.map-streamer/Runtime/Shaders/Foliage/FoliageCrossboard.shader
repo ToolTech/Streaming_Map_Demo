@@ -22,12 +22,12 @@ Shader "Custom/Foliage/Billboard"
 		_CutoffMax("Alpha cutoff close", Range(0, 1)) = 0.2
 		_CutoffMin("Alpha cutoff far", Range(0, 1)) = 0.2
 		_Threshold("Alpha cutoff distance", float) = 1000
-		//_Wind("Wind (x,y speed)", Vector ) = ( 0, 0, 0, 0)
 		[MaterialToggle] _isToggled("Up Normals", Float) = 1
 	}
 
 		SubShader
 		{
+			Tags { "Thermal"="Foliage" }
 			CGINCLUDE
 
 			#pragma multi_compile __ CROSSBOARD_ON
@@ -72,16 +72,17 @@ Shader "Custom/Foliage/Billboard"
 			// ---- Global ----
 			sampler2D _WindTexture;
 			float3 _WorldOffset;
+			float3 _WindVector;
+
 			// ----------------
 
-			uint _foliageCount;
+			int _foliageCount;
 			float _AdditiveSize;
 			float _CutoffMax;
 			float _CutoffMin;
 			float _Threshold;
 			float _isToggled;
-			float3 _WindVector;
-
+	
 			sampler2D _PerlinNoise;
 
 			UNITY_DECLARE_TEX2DARRAY(_MainTexArray);
@@ -236,7 +237,7 @@ Shader "Custom/Foliage/Billboard"
 					o.Emission = 0.0f;
 					o.Alpha = col.a;
 					o.Occlusion = 1.0f;
-					o.Smoothness = 0.0f;
+					o.Smoothness = 0.2f;
 					o.Specular = 0.0f;
 					o.Normal = finalNormal; // This is used only for ambient occlusion
 
