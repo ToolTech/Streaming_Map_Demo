@@ -289,7 +289,7 @@ Shader "Custom/TerrainShader"
 
 				if(feature == _WaterIndex)
 				{
-					textureScrolling = -_Time.y * _WindVector.xy * (_WindVector.z * 0.005 + 0.2);
+					textureScrolling = -_Time.y * _WindVector.xy * (_WindVector.z * 0.005);
 				}
 
 				fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_Textures, float3(abs(0.005 * worldPos.xz + textureScrolling ) % 1, mappingIndex));
