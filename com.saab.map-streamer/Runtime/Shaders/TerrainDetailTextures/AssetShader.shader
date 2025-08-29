@@ -85,11 +85,11 @@ Shader "Custom/AssetShader"
 				#endif
 
 				o.Albedo = satellite.rgb;
-				o.Emission = 0.0f;
+				o.Emission = 0.0;
 				o.Alpha = satellite.a;
-				o.Occlusion = 1.0f;
-				o.Smoothness = 0.0f;
-				o.Specular = 0.0f;
+				o.Occlusion = 1.0;
+				o.Smoothness = 0.0;
+				o.Specular = 0.0;
 				o.Normal = i.normal;
 
 				// Setup lighting environment

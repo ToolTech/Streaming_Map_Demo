@@ -13,21 +13,6 @@
 * Export Control:             NOT EXPORT CONTROLLED
 */
 
-/* 
-* Copyright (C) SAAB AB
-*
-* All rights, including the copyright, to the computer program(s) 
-* herein belong to Saab AB. The program(s) may be used and/or
-* copied only with the written permission of Saab AB, or in
-* accordance with the terms and conditions stipulated in the
-* agreement/contract under which the program(s) have been
-* supplied. 
-* 
-* Information Class:          COMPANY RESTRICTED
-* Defence Secrecy:            UNCLASSIFIED
-* Export Control:             NOT EXPORT CONTROLLED
-*/
-
 Shader "Custom/TerrainShader"
 {
     Properties
@@ -61,8 +46,8 @@ Shader "Custom/TerrainShader"
 		#include "UnityGBuffer.cginc"
 		#include "UnityStandardUtils.cginc"
 		#include "UnityPBSLighting.cginc"
-
-        #define PI 3.14159265358979323846264338327950
+		
+		static const float kPi = 3.1415926535897932384626433832795028841971;
 
 		#pragma exclude_renderers nomrt addshadow
 		#pragma require 2darray
@@ -182,15 +167,15 @@ Shader "Custom/TerrainShader"
 				float satDiff = targetSaturation - saturation;
 
 				// Correct for wrap-around
-				if (hueDiff > PI) hueDiff -= 2.0 * PI;
-				else if (hueDiff < -PI) hueDiff += 2.0 * PI;
+				if (hueDiff > kPi) hueDiff -= 2.0 * kPi;
+				else if (hueDiff < -kPi) hueDiff += 2.0 * kPi;
 
 				// Apply hue shift smoothly
 				hue += hueShift * hueDiff / (abs(hueDiff) + 1e-5); // Prevent division by zero
 				saturation = lerp(saturation, targetSaturation, 0.1); // Smooth transition
 
 				// Ensure hue wraps around properly and saturation is clamped
-				hue = fmod(hue + 2.0 * PI, 2.0 * PI);
+				hue = fmod(hue + 2.0 * kPi, 2.0 * kPi);
 				saturation = clamp(saturation, 0.0, 1.0);
 			}
 			else
@@ -345,8 +330,8 @@ Shader "Custom/TerrainShader"
 				sunFade = clamp(0.01, 1, sunFade);
 				float3 halfVector = normalize(sunDir + viewDir);
 
-				float spec = pow(saturate(dot(finalnormal, halfVector)), 1000); // Try 400�1000
-				float glint = spec * sunFade * 1; // Try 1.0�3.0
+				float spec = pow(saturate(dot(finalnormal, halfVector)), 1000); // Try 400-1000
+				float glint = spec * sunFade * 1; // Try 1.0-3.0
 	
 				// ************ Set Deferred Buffer ************
 				
@@ -359,9 +344,9 @@ Shader "Custom/TerrainShader"
 				o.Albedo = finalColor;
 				o.Emission = 0;
 				o.Alpha = col.a;
-				o.Occlusion = 1.0f;
+				o.Occlusion = 1.0;
 				o.Smoothness = smoothness;
-				o.Specular = 0.0f;
+				o.Specular = 0.0;
 
 				if(feature == _WaterIndex)
 				{

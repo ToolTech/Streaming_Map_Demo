@@ -110,9 +110,9 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             _profilerBuild.Begin();
             var geo = (Geometry)nodeHandle.node;
-
+            
             var go = nodeHandle.gameObject;
-
+            
             // MeshRenderer component
             if (!go.TryGetComponent<MeshRenderer>(out var meshRenderer))
                 meshRenderer = go.AddComponent<MeshRenderer>();
@@ -136,7 +136,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             Material material;
             if (_forceFallbackMaterial)
             {
-                // Todo: reuse material if texture match
+                 // Todo: reuse material if texture match
                 material = Instantiate(_fallbackMaterial);
             }
             else
@@ -237,7 +237,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                 material.mainTexture = stateNode.texture;
                 _materialManager.TryAdd(id, material);
             }
-
+    
             return material;
         }
     }
