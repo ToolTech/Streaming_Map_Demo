@@ -38,7 +38,7 @@ Shader "Custom/EnhancedTerrain"
 	{
 		Pass
 		{
-			Tags{ "LightMode" = "Deferred" }
+			Tags{ "LightMode" = "Deferred" "Thermal" = "Terrain"}
 			CGPROGRAM
 
 			#pragma vertex VS
@@ -285,10 +285,10 @@ Shader "Custom/EnhancedTerrain"
 				giInput.lightmapUV = 0.0;
 
 				o.Albedo = result.albedo.rgb;
-				o.Emission = 0.0f;
+				o.Emission = 0.0;
 				o.Alpha = result.albedo.a;
-				o.Occlusion = 1.0f;
-				o.Smoothness = 0.0f;
+				o.Occlusion = 1.0;
+				o.Smoothness = 0.0;
 				o.Specular = result.specular;
 
 				o.Normal = worldSpaceNormal;

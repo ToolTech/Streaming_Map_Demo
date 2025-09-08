@@ -12,6 +12,7 @@ Shader "Custom/AssetShader"
 			"Queue" = "Geometry" 
 			"RenderType" = "Opaque"
 			"LightMode" = "Deferred"
+			"Thermal" = "Asset"
 		}
 
 		Cull Back
@@ -27,7 +28,6 @@ Shader "Custom/AssetShader"
 		#include "UnityPBSLighting.cginc"
 
 		#pragma exclude_renderers nomrt
-		#pragma multi_compile __ NORMAL_TEXTURES_ON
 
 		#pragma target 5.0
 		#pragma multi_compile_prepassfinal noshadowmask nodynlightmap nodirlightmap nolightmap noshadow 
@@ -65,9 +65,6 @@ Shader "Custom/AssetShader"
 				o.position = UnityObjectToClipPos(v.position);
 				o.uv = v.uv;
 				o.normal = UnityObjectToWorldNormal(v.normal);
-				#ifdef NORMAL_TEXTURES_ON
-					o.normal = _NormalBuffer[v.vertexID];
-				#endif
 				o.worldPos = mul(unity_ObjectToWorld, v.position);
                 return o;
             }
@@ -88,11 +85,11 @@ Shader "Custom/AssetShader"
 				#endif
 
 				o.Albedo = satellite.rgb;
-				o.Emission = 0.0f;
+				o.Emission = 0.0;
 				o.Alpha = satellite.a;
-				o.Occlusion = 1.0f;
-				o.Smoothness = 0.0f;
-				o.Specular = 0.0f;
+				o.Occlusion = 1.0;
+				o.Smoothness = 0.0;
+				o.Specular = 0.0;
 				o.Normal = i.normal;
 
 				// Setup lighting environment

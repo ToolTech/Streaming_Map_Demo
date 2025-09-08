@@ -545,7 +545,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             {
                 _depthMap = new RenderTexture(Screen.width / downscale, Screen.height / downscale, 0, RenderTextureFormat.RFloat);
                 _depthMap.name = "foliagemodule - depthmap";
-                _depthMap.enableRandomWrite = true;
                 _depthMap.filterMode = FilterMode.Point;
                 _depthMap.useMipMap = false;
                 _depthMap.Create();

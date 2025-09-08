@@ -31,11 +31,11 @@ void CSMain(uint id : SV_DispatchThreadID)
     }
 
     // Initialize normal sum and adjacent triangle counter
-    float3 normalSum = float3(0.0f, 0.0f, 0.0f);
+    float3 normalSum = float3(0.0, 0.0, 0.0);
     int adjacentTriangles = 0;
     
     // Angle threshold to filter out steep angles (30 degrees in this example)
-    float angleThreshold = cos(radians(30.0f));
+    float angleThreshold = cos(radians(30.0));
 
     // Loop through all triangles to find those that use this vertex
     for (int i = 0; i < triangleIndicesLength; i++)
@@ -65,7 +65,7 @@ void CSMain(uint id : SV_DispatchThreadID)
         }
     }
 
-    float3 finalNormal = float3(1.0f, 0.0f, 0.0f);
+    float3 finalNormal = float3(1.0, 0.0, 0.0);
     
     // Normalize the final normal
     if (adjacentTriangles != 0)

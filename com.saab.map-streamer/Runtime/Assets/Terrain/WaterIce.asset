@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: WaterIce
   m_EditorClassIdentifier: 
   MatchingFeatures: 128
-  Albedo: {fileID: 2800000, guid: cadaefe98e7e39e45ab177f89cf9f054, type: 3}
-  Normal: {fileID: 2800000, guid: 2cda7ea2c16e328479f8016c3718dee2, type: 3}
+  Albedo: {fileID: 2800000, guid: 524720e5f7b068f419f22d8640065f68, type: 3}
+  Normal: {fileID: 2800000, guid: 4246e5dd66b1ee640a2b8d3923f0f1fb, type: 3}
   Displacement: {fileID: 2800000, guid: 2e09a13c6014c6d4db6a5a2519cdc883, type: 3}
   Roughness: {fileID: 2800000, guid: 70d7df2c2fe3c9d44bbe3f95bd1137f0, type: 3}

@@ -16,7 +16,7 @@ MonoBehaviour:
   - Asset: {fileID: 11400000, guid: 32b3b8382e9d7bc4a80bf2dcb81c9038, type: 2}
     Mapping: 1047660
   - Asset: {fileID: 11400000, guid: 5c7de1e372a51df45bb51fe18cbea052, type: 2}
-    Mapping: 128
+    Mapping: 1048704
   - Asset: {fileID: 11400000, guid: 8edc1370de3f8384780d2d029e3ea8d9, type: 2}
     Mapping: 19
   - Asset: {fileID: 11400000, guid: 1f6694de18ad00e4a8b2fec6068d4d23, type: 2}

@@ -11,15 +11,22 @@ described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/
 
 - Updated to GizmoSDK 2.12.254.1
 
+### Fixed
+- fixed normal tiling and weird glare (with maps without feature data)
+
 ## 4.2
 
 ### Changed
 
+- Improved performance by recycling textures
 - Updated to GizmoSDK 2.12.230.1
 
 ### Fixed
 
+- Tile border visual glitch due to wrong texture wrap mode
 - Fix restore NuGets in local scripts
+- fixed Sun Glare
+- fixed texture Tiling
 
 ## 4.1
 

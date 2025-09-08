@@ -18,16 +18,15 @@ Shader "Custom/Foliage/Billboard"
 	Properties
 	{
 		_MainTexArray("Tex2DArray (RGB)", 2DArray) = "white" {}
-		_AdditiveSize("Additive foliage Size", Range(0, 30)) = 0
 		_CutoffMax("Alpha cutoff close", Range(0, 1)) = 0.2
 		_CutoffMin("Alpha cutoff far", Range(0, 1)) = 0.2
 		_Threshold("Alpha cutoff distance", float) = 1000
-		//_Wind("Wind (x,y speed)", Vector ) = ( 0, 0, 0, 0)
 		[MaterialToggle] _isToggled("Up Normals", Float) = 1
 	}
 
 		SubShader
 		{
+			Tags { "Thermal"="Foliage" }
 			CGINCLUDE
 
 			#pragma multi_compile __ CROSSBOARD_ON
@@ -43,14 +42,14 @@ Shader "Custom/Foliage/Billboard"
 
 			struct FS_INPUT
 			{
-				float4	pos		: POSITION;
-				float3	wp		: TEXCOORD2;
-				float3  center	: POSITION1;
-				float	radius	: POSITION2;
-				float3	tex0	: TEXCOORD0;
-				float3	normal	: NORMAL;
-				float3	color	: TEXCOORD1;
-				float	alpha	: TEXCOORD3;
+				float4	pos			: POSITION;
+				float3	worldPos	: TEXCOORD2;
+				float3  center		: POSITION1;
+				float	radius		: POSITION2;
+				float3	arrayUV		: TEXCOORD0;
+				float3	normal		: NORMAL;
+				float3	color		: TEXCOORD1;
+				float	alpha		: TEXCOORD3;
 			};
 
 			struct FoliagePoint
@@ -72,16 +71,16 @@ Shader "Custom/Foliage/Billboard"
 			// ---- Global ----
 			sampler2D _WindTexture;
 			float3 _WorldOffset;
+			float3 _WindVector;
+
 			// ----------------
 
 			uint _foliageCount;
-			float _AdditiveSize;
 			float _CutoffMax;
 			float _CutoffMin;
 			float _Threshold;
 			float _isToggled;
-			float3 _WindVector;
-
+	
 			sampler2D _PerlinNoise;
 
 			UNITY_DECLARE_TEX2DARRAY(_MainTexArray);
@@ -106,9 +105,9 @@ Shader "Custom/Foliage/Billboard"
 
 			float3 SphereProjectedNormal(FS_INPUT i)
 			{
-				fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_MainTexArray, i.tex0);
+				fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_MainTexArray, i.arrayUV);
 
-				float3 camToPixelDir = normalize(i.wp - _WorldSpaceCameraPos);
+				float3 camToPixelDir = normalize(i.worldPos - _WorldSpaceCameraPos);
 				float3 camToCenter = (i.center - _WorldSpaceCameraPos);
 				float centerProjection = dot(camToPixelDir, camToCenter);
 				float3 rightAnglePoint = _WorldSpaceCameraPos + camToPixelDir * centerProjection;
@@ -176,17 +175,17 @@ Shader "Custom/Foliage/Billboard"
 				
 				void frag(FS_INPUT i, out half4 outGBuffer0 : SV_Target0, out half4 outGBuffer1 : SV_Target1, out half4 outGBuffer2 : SV_Target2, out half4 outEmission : SV_Target3)
 				{
-					fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_MainTexArray, i.tex0);
-					//half3 tnormal = UnpackNormal(tex2D(_NormalMap, i.tex0));
+					fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_MainTexArray, i.arrayUV);
+					//half3 tnormal = UnpackNormal(tex2D(_NormalMap, i.arrayUV));
 
-					float c = CutoffDistance(distance(i.wp, _WorldSpaceCameraPos));
+					float c = CutoffDistance(distance(i.worldPos, _WorldSpaceCameraPos));
 					clip(col.a - c);
 
 
-					fixed3 worldViewDir = normalize(UnityWorldSpaceViewDir(i.wp));
+					fixed3 worldViewDir = normalize(UnityWorldSpaceViewDir(i.worldPos));
 					float depth = i.pos.z / i.pos.w;
 					
-					float3 LookDir = normalize(_WorldSpaceCameraPos - i.wp);
+					float3 LookDir = normalize(_WorldSpaceCameraPos - i.worldPos);
 					//float blend = dot(i.normal, LookDir);
 
 					// *********** sphere normals ************* 
@@ -195,12 +194,12 @@ Shader "Custom/Foliage/Billboard"
 					
 					float3 finalNormal = sphereNormal;
 
-					col.rgb = col.rgb * 0.9f + i.color.rgb * 0.1f;
+					col.rgb = col.rgb * 0.9 + i.color.rgb * 0.1;
 	
 					if (_isToggled)
 					{
 						finalNormal = i.normal;
-						col.rgb = col.rgb * i.tex0.y + i.color.rgb * 0.4 * (1 - i.tex0.y);
+						col.rgb = col.rgb * i.arrayUV.y + i.color.rgb * 0.4 * (1 - i.arrayUV.y);
 					}
 
 					const half4x4 thresholdMatrix =
@@ -233,11 +232,11 @@ Shader "Custom/Foliage/Billboard"
 					#endif
 
 					o.Albedo = col.rgb;//normalize(finalNormal.xyz).rgb;
-					o.Emission = 0.0f;
+					o.Emission = 0.0;
 					o.Alpha = col.a;
-					o.Occlusion = 1.0f;
-					o.Smoothness = 0.0f;
-					o.Specular = 0.0f;
+					o.Occlusion = 1.0;
+					o.Smoothness = 0.2;
+					o.Specular = 0.0;
 					o.Normal = finalNormal; // This is used only for ambient occlusion
 
 					// Setup lighting environment
@@ -252,7 +251,7 @@ Shader "Custom/Foliage/Billboard"
 					UnityGIInput giInput;
 					UNITY_INITIALIZE_OUTPUT(UnityGIInput, giInput);
 					giInput.light = gi.light;
-					giInput.worldPos = i.wp;
+					giInput.worldPos = i.worldPos;
 					giInput.worldViewDir = worldViewDir;
 					giInput.atten = 1;
 					giInput.lightmapUV = 0.0;
@@ -314,8 +313,8 @@ Shader "Custom/Foliage/Billboard"
 				// Fragment Shader 
 				float4 frag(FS_INPUT i) : COLOR
 				{
-					fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_MainTexArray, i.tex0);
-					float c = CutoffDistance(distance(i.wp, _WorldSpaceCameraPos));
+					fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_MainTexArray, i.arrayUV);
+					float c = CutoffDistance(distance(i.worldPos, _WorldSpaceCameraPos));
 					clip(col.a - c);
 
 					return float4(0,0,0,0);

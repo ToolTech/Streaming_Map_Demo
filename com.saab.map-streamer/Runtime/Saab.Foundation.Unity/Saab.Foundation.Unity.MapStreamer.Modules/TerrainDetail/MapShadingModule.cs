@@ -85,6 +85,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 _enableDetailedTextures = value;
             }
         }
+
         public float HueShiftInclusion
         {
             get
@@ -96,17 +97,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 _hueShiftInclusion = value;
             }
         }
-        public bool GenerateNormals
-        {
-            get
-            {
-                return _generateNormals;
-            }
-            set
-            {
-                _generateNormals = value;
-            }
-        }
+
         public TerrainDetailTextureAssetSet DetailTextureSet
         {
             get
@@ -116,17 +107,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             set
             {
                 _detailTextureSet = value;
-            }
-        }
-        public ComputeShader NormalComputeShader
-        {
-            get
-            {
-                return _normalComputeShader;
-            }
-            set
-            {
-                _normalComputeShader = value;
             }
         }
 
@@ -142,10 +122,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private ComputeBuffer _mappingBuffer;
         private Texture2DArray _textureArray;
         private Texture2DArray _normalMapArray;
-
-        [Header("Normal Generation")]
-        [SerializeField] private bool _generateNormals = false;
-        [SerializeField] private ComputeShader _normalComputeShader;
 
         private readonly Dictionary<GameObject, TerrainData> _terrainData = new Dictionary<GameObject, TerrainData>();
 
@@ -185,7 +161,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private void InitMapModules()
         {
             SceneManager.OnNewTerrain += SceneManager_OnNewTerrain;
-            SceneManager.OnRemoveTerrain += SceneManager_OnRemoveTerrain;
         }
 
         private void InitDetailTexturing()
@@ -253,42 +228,15 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             if (!go.TryGetComponent<MeshRenderer>(out var meshRenderer))
                 return;
 
-            if (!go.TryGetComponent<MeshFilter>(out var meshFilter))
-                return;
-
             var material = meshRenderer.sharedMaterial;
 
-            // todo: validate that this material uses correct shader
-            if (!material)
-                return;
-
-            var data = new TerrainData(material, go);
-            material.SetKeyword(new UnityEngine.Rendering.LocalKeyword(material.shader, "NORMAL_TEXTURES_ON"), _generateNormals);
-
-            if (_generateNormals)
-            {
-                data.GenerateNormal(meshFilter.mesh, _normalComputeShader);
-                material.SetBuffer(MaterialParameterID.NormalBuffer, data.NormalBuffer);
-            }
-
-            material.SetTexture(MaterialParameterID.FeatureMap, nodehandle.feature);
             material.SetTexture(MaterialParameterID.Textures, _textureArray);
             material.SetTexture(MaterialParameterID.NormalMaps, _normalMapArray);
 
             material.SetBuffer("_MappingBuffer", _mappingBuffer);
+
+            //TODO: Use TerrainMapping to find internal ID for water.
             material.SetInt("_WaterIndex", 60);
-
-            _terrainData.Add(go, data);
-        }
-
-        private void SceneManager_OnRemoveTerrain(GameObject go)
-        {
-            RemoveTerrain(go);
-        }
-
-        private void RemoveTerrain(GameObject go)
-        {
-            _terrainData.Remove(go);
         }
 
         private void OnValidate()

@@ -13,26 +13,30 @@
  * Export Control:             NOT EXPORT CONTROLLED
  */
 
-void AppendVertex(inout FS_INPUT pin, float3 wp, float3 center, float radius, float3 uv, float3 normal, float3 color, float alpha)
+static const float kPi = 3.1415926535897932384626433832795028841971;
+static const float kDefaultMutator = 0.546;
+static const float kFoliageHeightMutator = 0.321;
+
+void PopulateVertex(inout FS_INPUT vertex, float3 worldPos, float3 center, float radius, float3 arrayUV, float3 normal, float3 color, float alpha)
 {
-	pin.pos = UnityObjectToClipPos(wp);
-	pin.wp = wp;
-	pin.center = center;
-	pin.radius = radius;
-	pin.tex0 = uv;
-	pin.normal = normal;
-	pin.color = color;
-    pin.alpha = alpha;
+    vertex.pos = UnityObjectToClipPos(worldPos);
+    vertex.worldPos = worldPos;
+	vertex.center = center;
+	vertex.radius = radius;
+    vertex.arrayUV = arrayUV;
+	vertex.normal = normal;
+	vertex.color = color;
+    vertex.alpha = alpha;
 }
 
-float Random(float input, float mutator = 0.546)
+float Random(float input, float mutator = kDefaultMutator)
 {
     float nonInteger = 43758.5453; // A different constant to avoid common factors with typical inputs
     float seed = input + mutator * nonInteger;
     return frac(sin(seed) * 12345.6789);
 }
 
-float Random2D(float2 input, float mutator = 0.546)
+float Random2D(float2 input, float mutator = kDefaultMutator)
 {
 	float i = (input.x * 131.071) + (input.y * 655.37);
 	return Random(i, mutator);
@@ -97,76 +101,68 @@ void Billboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStr
 	float random = _PointBuffer[p[0]].Random;
     float visibility = _PointBuffer[p[0]].Visibility;
 
-	// ********************* MaxMin height  ********************* //
-	
-	float foliageFactor = 0.2f;
-	float maxHorizonHeight = height * (1 + foliageFactor);
-	float minHorizonHeight = height * (1 - foliageFactor);
-
 	// ********************* foliage type data  ********************* //
 
-	int type = floor(random * _foliageCount);
-	type = WeightedRandomHeight(random, height);
+    int type = WeightedRandomHeight(random, height);
 	if (type < 0)
 		return;
 
 	float2 minMaxHeight = _foliageData[type].MaxMin;
 	float2 offset = _foliageData[type].Offset;
-	float weight = _foliageData[type].Weight;
 
 	// ********************* ***************  ********************* //
-
-	float foliageHeight = minMaxHeight.x + ((minMaxHeight.y - minMaxHeight.x) * Random(random, 0.321f));
+	
+	//Randomized height within the valid range
+    float foliageHeight = minMaxHeight.x + ((minMaxHeight.y - minMaxHeight.x) * Random(random, kFoliageHeightMutator));
 	foliageHeight = clamp(foliageHeight, minMaxHeight.x, height);
-	height = foliageHeight + _AdditiveSize;
-	pos.y -= offset.y * height;		// offset to handle Roots
+	height = foliageHeight;
+	pos.y -= offset.y * height; // offset to handle Roots
 
 	float3 up = float3(0, 1, 0);
-	float3 look = float3(1, 1, 1);
+	float3 look;
 
-	float halfS = 0.5f * height;
-	float3 center = pos + up * halfS;
+	float halfHeight = 0.5 * height;
+    float3 center = pos + up * halfHeight;
 
 #ifdef SHADOW_BILLBOARD
-	look = _WorldSpaceLightPos0;
+	look = -_WorldSpaceLightPos0;
 #else
-	look = _WorldSpaceCameraPos - pos;
+    look = pos - _WorldSpaceCameraPos;
 #endif
+	
+    float3 flatLook = normalize(float3(look.x, 0, look.z));
+    float3 right = -cross(up, flatLook);
 
-	look.y = 0;
-	look = normalize(look);
-	float3 right = cross(up, look);
+	float3 v[4];
+    v[0] = pos + halfHeight * right;
+    v[1] = pos + halfHeight * right + height * up;
+    v[2] = pos - halfHeight * right;
+    v[3] = pos - halfHeight * right + height * up;
 
-	float4 v[4];
-	v[0] = float4(pos + halfS * right, 1.0f);
-	v[1] = float4(pos + halfS * right + height * up, 1.0f);
-	v[2] = float4(pos - halfS * right, 1.0f);
-	v[3] = float4(pos - halfS * right + height * up, 1.0f);
-
-	float3 uv0 = float3(1.0f, 0.0f, type);
-	float3 uv1 = float3(1.0f, 1.0f, type);
-	float3 uv2 = float3(0.0f, 0.0f, type);
-	float3 uv3 = float3(0.0f, 1.0f, type);
+	float3 uv0 = float3(1.0, 0.0, type);
+	float3 uv1 = float3(1.0, 1.0, type);
+	float3 uv2 = float3(0.0, 0.0, type);
+	float3 uv3 = float3(0.0, 1.0, type);
 
 #ifdef CROSSBOARD
-	uv0 = float3(0.5f, 0.0f, type);
-	uv1 = float3(0.5f, 0.5f, type);
-	uv2 = float3(0.0f, 0.0f, type);
-	uv3 = float3(0.0f, 0.5f, type);
+	uv0 = float3(0.5, 0.0, type);
+	uv1 = float3(0.5, 0.5, type);
+	uv2 = float3(0.0, 0.0, type);
+	uv3 = float3(0.0, 0.5, type);
 #endif
 
 	FS_INPUT pIn;
 
-    AppendVertex(pIn, v[0], center, halfS, uv0, -look, color, visibility);
+    PopulateVertex(pIn, v[0], center, halfHeight, uv0, flatLook, color, visibility);
 	triStream.Append(pIn);
 
-    AppendVertex(pIn, v[1], center, halfS, uv1, -look, color, visibility);
+    PopulateVertex(pIn, v[1], center, halfHeight, uv1, flatLook, color, visibility);
 	triStream.Append(pIn);
 
-    AppendVertex(pIn, v[2], center, halfS, uv2, -look, color, visibility);
+    PopulateVertex(pIn, v[2], center, halfHeight, uv2, flatLook, color, visibility);
 	triStream.Append(pIn);
 
-    AppendVertex(pIn, v[3], center, halfS, uv3, -look, color, visibility);
+    PopulateVertex(pIn, v[3], center, halfHeight, uv3, flatLook, color, visibility);
 	triStream.Append(pIn);
 }
 
@@ -182,39 +178,35 @@ void Crossboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triSt
 	float random = _PointBuffer[p[0]].Random;
     float visibility = _PointBuffer[p[0]].Visibility;
 
-	// ********************* MaxMin height  ********************* //
-
-	float foliageFactor = 0.2f;
-	float maxHorizonHeight = height * (1 + foliageFactor);
-	float minHorizonHeight = height * (1 - foliageFactor);
-
 	// ********************* foliage type data  ********************* //
 
-	int type = floor(random * _foliageCount);	// calculate the foliage (index) to place down
-	type = WeightedRandomHeight(random, height);
+	// calculate the foliage (index) to place down
+	int type = WeightedRandomHeight(random, height);
 	if (type < 0)
 		return;
 
+	//The minimum and maximum height that the chosen foliage asset can be used for
 	float2 minMaxHeight = _foliageData[type].MaxMin;
+	//Offset used to hide the roots of the foliage asset below ground
 	float2 offset = _foliageData[type].Offset;
-	float weight = _foliageData[type].Weight;
 
 	// ********************* ***************  ********************* //
 
-	float foliageHeight = minMaxHeight.x + ((minMaxHeight.y - minMaxHeight.x) * Random(random, 0.321f));
+	//Randomized height within the valid range
+    float foliageHeight = minMaxHeight.x + ((minMaxHeight.y - minMaxHeight.x) * Random(random, kFoliageHeightMutator));
 	foliageHeight = clamp(foliageHeight, minMaxHeight.x, height);
-	height = foliageHeight + _AdditiveSize;
+	height = foliageHeight;
 	pos.y -= offset.y * height;		// offset to handle Roots
 
 	float3 up = normalize(float3(0, 1, 0));
-	float angle = (Random(random, 0.131f) * 2 - 1) * 3.141592;
+    float angle = (Random(random, 0.131) * 2 - 1) * kPi;
 	float3 randDir = float3(cos(angle), 0, sin(angle));
 
 	float3 right = randDir;
 	float3 front = normalize(-cross(up, right));
 
-	float halfS = 0.5f * height;
-	float3 center = pos + up * halfS;
+    float halfHeight = 0.5 * height;
+    float3 center = pos + up * halfHeight;
 
 	float3 wind = float3(0, 0, 0);
 
@@ -230,27 +222,27 @@ void Crossboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triSt
 
 	// *********** front points ***********
 
-	float4 f[4];
-	f[0] = float4(pos + halfS * right, 1.0f);
-	f[1] = float4(pos + halfS * right + height * up + wind, 1.0f);
-	f[2] = float4(pos - halfS * right, 1.0f);
-	f[3] = float4(pos - halfS * right + height * up + wind, 1.0f);
+	float3 f[4];
+    f[0] = pos + halfHeight * right;
+    f[1] = pos + halfHeight * right + height * up + wind;
+    f[2] = pos - halfHeight * right;
+    f[3] = pos - halfHeight * right + height * up + wind;
 
 	// *********** Right points ***********
 
-	float4 r[4];
-	r[0] = float4(pos + halfS * front, 1.0f);
-	r[1] = float4(pos + halfS * front + height * up + wind, 1.0f);
-	r[2] = float4(pos - halfS * front, 1.0f);
-	r[3] = float4(pos - halfS * front + height * up + wind, 1.0f);
+	float3 r[4];
+    r[0] = pos + halfHeight * front;
+    r[1] = pos + halfHeight * front + height * up + wind;
+    r[2] = pos - halfHeight * front;
+    r[3] = pos - halfHeight * front + height * up + wind;
 
 	// *********** Top points ***********
 
-	float4 t[4];
-	t[0] = float4(center + halfS * right - halfS * front + wind * 0.5, 1.0f);
-	t[1] = float4(center + halfS * right + halfS * front + wind * 0.5, 1.0f);
-	t[2] = float4(center - halfS * right - halfS * front + wind * 0.5, 1.0f);
-	t[3] = float4(center - halfS * right + halfS * front + wind * 0.5, 1.0f);
+	float3 t[4];
+    t[0] = center + halfHeight * right - halfHeight * front + wind * 0.5;
+    t[1] = center + halfHeight * right + halfHeight * front + wind * 0.5;
+    t[2] = center - halfHeight * right - halfHeight * front + wind * 0.5;
+    t[3] = center - halfHeight * right + halfHeight * front + wind * 0.5;
 
 	// *********** Crossboards ***********
 
@@ -258,48 +250,48 @@ void Crossboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triSt
 
 	// *********** front face ***********
 
-    AppendVertex(pIn, f[0], center, halfS, float3(0.5f, 0.0f, type), normalize(front), color, visibility);
+    PopulateVertex(pIn, f[0], center, halfHeight, float3(0.5, 0.0, type), normalize(front), color, visibility);
 	triStream.Append(pIn);
 
-    AppendVertex(pIn, f[1], center, halfS, float3(0.5f, 0.5f, type), normalize(front), color, visibility);
+    PopulateVertex(pIn, f[1], center, halfHeight, float3(0.5, 0.5, type), normalize(front), color, visibility);
 	triStream.Append(pIn);
 
-    AppendVertex(pIn, f[2], center, halfS, float3(0.0f, 0.0f, type), normalize(front), color, visibility);
+    PopulateVertex(pIn, f[2], center, halfHeight, float3(0.0, 0.0, type), normalize(front), color, visibility);
 	triStream.Append(pIn);
 
-    AppendVertex(pIn, f[3], center, halfS, float3(0.0f, 0.5f, type), normalize(front), color, visibility);
+    PopulateVertex(pIn, f[3], center, halfHeight, float3(0.0, 0.5, type), normalize(front), color, visibility);
 	triStream.Append(pIn);
 
 	// *********** right face ***********
 
 	triStream.RestartStrip();
 
-    AppendVertex(pIn, r[0], center, halfS, float3(0.5f, 0.5f, type), normalize(right), color, visibility);
+    PopulateVertex(pIn, r[0], center, halfHeight, float3(0.5, 0.5, type), normalize(right), color, visibility);
 	triStream.Append(pIn);
 
-    AppendVertex(pIn, r[1], center, halfS, float3(0.5f, 1.0f, type), normalize(right), color, visibility);
+    PopulateVertex(pIn, r[1], center, halfHeight, float3(0.5, 1.0, type), normalize(right), color, visibility);
 	triStream.Append(pIn);
 
-    AppendVertex(pIn, r[2], center, halfS, float3(0.0f, 0.5f, type), normalize(right), color, visibility);
+    PopulateVertex(pIn, r[2], center, halfHeight, float3(0.0, 0.5, type), normalize(right), color, visibility);
 	triStream.Append(pIn);
 
-    AppendVertex(pIn, r[3], center, halfS, float3(0.0f, 1.0f, type), normalize(right), color, visibility);
+    PopulateVertex(pIn, r[3], center, halfHeight, float3(0.0, 1.0, type), normalize(right), color, visibility);
 	triStream.Append(pIn);
 
 	// *********** top face ***********
 
 	triStream.RestartStrip();
 
-    AppendVertex(pIn, t[0], center, halfS, float3(1.0f, 0.0f, type), normalize(up), color, visibility);
+    PopulateVertex(pIn, t[0], center, halfHeight, float3(1.0, 0.0, type), normalize(up), color, visibility);
 	triStream.Append(pIn);
 
-    AppendVertex(pIn, t[1], center, halfS, float3(1.0f, 0.5f, type), normalize(up), color, visibility);
+    PopulateVertex(pIn, t[1], center, halfHeight, float3(1.0, 0.5, type), normalize(up), color, visibility);
 	triStream.Append(pIn);
 
-    AppendVertex(pIn, t[2], center, halfS, float3(0.5f, 0.0f, type), normalize(up), color, visibility);
+    PopulateVertex(pIn, t[2], center, halfHeight, float3(0.5, 0.0, type), normalize(up), color, visibility);
 	triStream.Append(pIn);
 
-    AppendVertex(pIn, t[3], center, halfS, float3(0.5f, 0.5f, type), normalize(up), color, visibility);
+    PopulateVertex(pIn, t[3], center, halfHeight, float3(0.5, 0.5, type), normalize(up), color, visibility);
 	triStream.Append(pIn);
 }
 
@@ -335,12 +327,12 @@ void Grass(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStream)
 	for (uint i = 0; i < 12; i++)
 	{
 		float rand = Random(random + i, 0.912);
-		float angle = (rand * 2 - 1) * 3.141592;
+        float angle = (rand * 2 - 1) * kPi;
 		float3 randDir = float3(cos(angle), 0, sin(angle));
 		float3 pos = center + randDir * rand * 1.5;
 
 		float rand02 = Random(random + i, 0.643);
-		angle = (rand02 * 2 - 1) * 3.141592;
+        angle = (rand02 * 2 - 1) * kPi;
 		randDir = float3(cos(angle), 0, sin(angle));
 
 		float3 camDir = _WorldSpaceCameraPos - pos;
@@ -355,10 +347,10 @@ void Grass(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStream)
 
 		float side = sign(dot(camDir, front));
 
-		float foliageHeight = minMaxHeight.x + ((minMaxHeight.y - minMaxHeight.x) * Random(random, 0.321f));
+        float foliageHeight = minMaxHeight.x + ((minMaxHeight.y - minMaxHeight.x) * Random(random, kFoliageHeightMutator));
 		float h = foliageHeight;
-		float halfS = 0.5f * h;
-		pos.y -= offset.y * h;					// offset to handle Roots
+        float halfHeight = 0.5 * h;
+		pos.y -= offset.y * h; // offset to handle Roots
 
 		float3 wind = float3(0, 0, 0);
 
@@ -373,29 +365,29 @@ void Grass(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStream)
             wind = float3(windDir.x, 0, windDir.y) * curve * _WindVector.z * h;
         }
 
-		float4 f[4];
+		float3 f[4];
 		// right bottom
-		f[0] = float4(pos + halfS * right, 1.0f);
+        f[0] = pos + halfHeight * right;
 		// right top
-		f[1] = float4(pos + halfS * right + h * up + wind, 1.0f);
+        f[1] = pos + halfHeight * right + h * up + wind;
 		// left bottom
-		f[2] = float4(pos - halfS * right, 1.0f);
+        f[2] = pos - halfHeight * right;
 		// left top
-		f[3] = float4(pos - halfS * right + h * up + wind, 1.0f);
+        f[3] = pos - halfHeight * right + h * up + wind;
 
 		FS_INPUT pIn;
 
 		// right bottom
-        AppendVertex(pIn, f[0], center, height, float3(1.0f, 0.0f, type), normalize(front * side + right + up * 0.5), color, visibility);
+        PopulateVertex(pIn, f[0], center, height, float3(1.0, 0.0, type), normalize(front * side + right + up * 0.5), color, visibility);
 		triStream.Append(pIn);
 		// right top
-        AppendVertex(pIn, f[1], center, height, float3(1.0f + (rand * 0.2f), 1.0f + (rand02 * 0.2f), type), normalize(up + right), color, visibility);
+        PopulateVertex(pIn, f[1], center, height, float3(1.0 + (rand * 0.2), 1.0 + (rand02 * 0.2), type), normalize(up + right), color, visibility);
 		triStream.Append(pIn);
 		// left bottom
-        AppendVertex(pIn, f[2], center, height, float3(0.0f, 0.0f, type), normalize(front * side - right + up * 0.5), color, visibility);
+        PopulateVertex(pIn, f[2], center, height, float3(0.0, 0.0, type), normalize(front * side - right + up * 0.5), color, visibility);
 		triStream.Append(pIn);
 		// left top
-        AppendVertex(pIn, f[3], center, height, float3(0.0f + (rand02 * 0.2f), 1.0f + (rand * 0.2f), type), normalize(up + right), color, visibility);
+        PopulateVertex(pIn, f[3], center, height, float3(0.0 + (rand02 * 0.2), 1.0 + (rand * 0.2), type), normalize(up + right), color, visibility);
 		triStream.Append(pIn);
 
 		triStream.RestartStrip();

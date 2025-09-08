@@ -247,11 +247,22 @@ namespace Saab.Foundation.Unity.MapStreamer
                 if (depth != 1)
                     return false;
 
-                result = new Texture2D((int)width, (int)height, textureFormat, mipChain);
+                // we try to reuse texture objects when streaming terrain, this improves performance
+                // by almost 2X, a small cache of only 256 MB should be enough since terrain textures
+                // are quite small but frequently changed
+                result = Texture2DCache.GetOrCreateTexture((int)width, (int)height, textureFormat, mipChain, out bool canBeRecycled);
+
+                result.wrapModeU = GetUnityTextureWrapMode(gzTexture.WrapS);
+                result.wrapModeV = GetUnityTextureWrapMode(gzTexture.WrapT);
+                result.wrapModeW = GetUnityTextureWrapMode(gzTexture.WrapR);
+                
+
                 if (!result)
                     return false;
-                
+
+#if DEBUG
                 result.name = "SM - NodeTexture";
+#endif
 
 #if false
                 unsafe
@@ -285,7 +296,9 @@ namespace Saab.Foundation.Unity.MapStreamer
                         break;
                 }
 
-                result.Apply(mipChain, true);
+                // if texture was a candidate for recycling, we keep the CPU side buffer
+                // so that we can update the texture when reused
+                result.Apply(mipChain, makeNoLongerReadable: !canBeRecycled);
 
                 if (info != null)
                 {
@@ -346,6 +359,23 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
 
             throw new NotSupportedException();
+        }
+
+        private static TextureWrapMode GetUnityTextureWrapMode(gzTexture.TextureWrapMode wrapMode)
+        {
+            switch (wrapMode)
+            {
+                case gzTexture.TextureWrapMode.CLAMP_TO_EDGE:
+                case gzTexture.TextureWrapMode.CLAMP_TO_BORDER:
+                case gzTexture.TextureWrapMode.CLAMP:
+                    return TextureWrapMode.Clamp;
+                case gzTexture.TextureWrapMode.REPEAT:
+                    return TextureWrapMode.Repeat;
+                case gzTexture.TextureWrapMode.MIRRORED_REPEAT:
+                    return TextureWrapMode.Mirror;
+                default:
+                    throw new NotSupportedException();
+            }
         }
 
         private static bool IsTextureFormatSupported(TextureFormat format)

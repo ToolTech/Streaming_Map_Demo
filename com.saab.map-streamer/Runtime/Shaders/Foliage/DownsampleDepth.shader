@@ -18,15 +18,20 @@ Shader "Hidden/DownsampleDepth"
             sampler2D _CameraDepthTexture;
             float4 _MainTex_TexelSize;
 
-            struct v2f {
+            struct v2f
+            {
                 float4 pos : SV_POSITION;
                 float2 uv : TEXCOORD0;
             };
 
-            v2f vert(appdata_base v) {
+            v2f vert(appdata_base v)
+            {
                 v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.texcoord;
+#if !UNITY_UV_STARTS_AT_TOP
+                o.uv.y = 1.0 - o.uv.y;
+#endif
                 return o;
             }
 
