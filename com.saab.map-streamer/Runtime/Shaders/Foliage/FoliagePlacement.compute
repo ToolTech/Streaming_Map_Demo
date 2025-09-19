@@ -51,12 +51,13 @@ static const float kDeg2Rad = 0.01745329251994329576923690768489;
 
 static const float kFoliageHeightMutator = 0.321;
 
-StructuredBuffer<float> VertexBuffer; // Adjust data types based on your mesh format
+ByteAddressBuffer VertexBuffer;
 ByteAddressBuffer IndexBuffer;
-uint PositionOffset;
-uint TexcoordOffset;
-uint VertexBufferStride;
 
+uint PositionOffset;    // in bytes
+uint TexcoordOffset;    // in bytes
+uint VertexBufferStride; // in bytes
+uint indexCount; // mesh index count
 
 RWStructuredBuffer<uint> BufferSize;
 RWStructuredBuffer<uint> MinXY;
@@ -99,7 +100,6 @@ uint Scale;
 float2 DownscaleSize; // size of screen in pixels (for depthtexture)
 float2 NodeOffset; // botom left corner of node in "world" space
 float maxHeight; // max size of foliage in meters
-uint indexCount; // mesh index count
 uint uvCount; // the size of surfaceUVs buffer
 float2 terrainResolution; // Resolution of texture/feauture texture
 float2 heightResolution; // Resolution of height texture
@@ -239,21 +239,14 @@ float2 MapUv(float2 uv, float2 size = float2(1, 1))
 
 float3 GetPosition(uint index)
 {
-    uint actualIndex = index * VertexBufferStride + PositionOffset;
-    float x = VertexBuffer[actualIndex];
-    float y = VertexBuffer[actualIndex + 1];
-    float z = VertexBuffer[actualIndex + 2];
-    
-    return float3(x, y, z);
+    uint baseAddr = index * VertexBufferStride + PositionOffset;
+    return asfloat(VertexBuffer.Load3(baseAddr));
 }
 
 float2 GetTexCoord(uint index)
 {
-    uint actualIndex = index * VertexBufferStride + TexcoordOffset;
-    float x = VertexBuffer[actualIndex];
-    float y = VertexBuffer[actualIndex + 1];
-    
-    return float2(x, y);
+    uint baseAddr = index * VertexBufferStride + TexcoordOffset;
+    return asfloat(VertexBuffer.Load2(baseAddr));
 }
 
 // ************* Handle foliage Height ************* //
@@ -343,6 +336,7 @@ uint3 loadTriangleIndices(uint nTriangle)
     uint offsetBytes = nTriangle * 6;
     uint dwordAlignedOffset = offsetBytes & ~3;
     uint2 four16BitIndices = IndexBuffer.Load2(dwordAlignedOffset);
+
     uint3 indices;
     if (dwordAlignedOffset == offsetBytes)
     {
@@ -364,46 +358,38 @@ uint3 loadTriangleIndices(uint nTriangle)
 void CSHeightMap(uint3 id : SV_DispatchThreadID)
 {
     if (id.x >= indexCount)
-    {
         return;
-    }
 
     uint3 indexIndices = loadTriangleIndices(id.x);
 
-    // Vertices for one triangle
     float3 v1 = GetPosition(indexIndices.x);
     float3 v2 = GetPosition(indexIndices.y);
     float3 v3 = GetPosition(indexIndices.z);
 
-    float maxVert = max(max(v1.y, v2.y), v3.y);
-
-    // pixelcoords for one triangle
     float2 uv1 = GetTexCoord(indexIndices.x) * terrainResolution;
     float2 uv2 = GetTexCoord(indexIndices.y) * terrainResolution;
     float2 uv3 = GetTexCoord(indexIndices.z) * terrainResolution;
-    
-    // triangle normal
+
     float3 planeNormal = normalize(cross(v2 - v1, v3 - v1));
+    float maxVert = max(max(v1.y, v2.y), v3.y);
 
-    // pixel grid to work
-    uint Xmax = max(max(uv1.x, uv2.x), uv3.x);
-    uint Xmin = min(min(uv1.x, uv2.x), uv3.x);
-    uint Ymax = max(max(uv1.y, uv2.y), uv3.y);
-    uint Ymin = min(min(uv1.y, uv2.y), uv3.y);
+    // bounding box
+    uint Xmin = (uint) floor(min(min(uv1.x, uv2.x), uv3.x));
+    uint Xmax = (uint) ceil(max(max(uv1.x, uv2.x), uv3.x));
+    uint Ymin = (uint) floor(min(min(uv1.y, uv2.y), uv3.y));
+    uint Ymax = (uint) ceil(max(max(uv1.y, uv2.y), uv3.y));
 
-    float height = maxVert;
+    // --- divide X range into 4 slices based on id.y ---
+    uint width = (Xmax >= Xmin) ? (Xmax - Xmin + 1) : 0;
+    uint sliceWidth = (width + 3) / 4; // ceil(width/4)
+    uint startX = Xmin + id.y * sliceWidth;
+    uint endX = min(Xmax, startX + sliceWidth - 1);
 
-    // divide the for loop in 4x4 threads
-    // TODO: WHY + 2?!?!
-    uint offsetX = ceil((Xmax - Xmin + 2) / 4);
-    uint startX = Xmin + (id.y * offsetX);
-    uint endX = Xmin + ((id.y + 1) * offsetX);
-    endX = min(Xmax, endX);
-
-    uint offsetY = ceil((Ymax - Ymin + 2) / 4);
-    uint startY = Ymin + (id.z * offsetY);
-    uint endY = Ymin + ((id.z + 1) * offsetY);
-    endY = min(Ymax, endY);
+    // --- divide Y range into 4 slices based on id.z ---
+    uint height = (Ymax >= Ymin) ? (Ymax - Ymin + 1) : 0;
+    uint sliceHeight = (height + 3) / 4; // ceil(height/4)
+    uint startY = Ymin + id.z * sliceHeight;
+    uint endY = min(Ymax, startY + sliceHeight - 1);
 
     bool success = true;
 
@@ -411,21 +397,23 @@ void CSHeightMap(uint3 id : SV_DispatchThreadID)
     {
         for (uint y = startY; y <= endY; y++)
         {
-            float2 uv = float2(x, y);
+            if (x >= terrainResolution.x || y >= terrainResolution.y)
+                continue;
 
+            uint2 uv = uint2(x, y);
             if (InsideTriangle(uv, round(uv1), round(uv2), round(uv3)))
             {
                 float3 pixelCoord = GetPixelCoord(uv, 1024);
-                height = GetHeightOfPlaneAtXZ(planeNormal, v1, pixelCoord.xz, success);
-
+                float heightVal = GetHeightOfPlaneAtXZ(planeNormal, v1, pixelCoord.xz, success);
                 if (!success)
-                    height = maxVert;
+                    heightVal = maxVert;
 
-                HeightMap[uv] = height;
+                HeightMap[uv] = heightVal;
             }
         }
     }
 }
+
 
 // ************* Generate Placement ************* //
 [numthreads(4, 4, 4)]

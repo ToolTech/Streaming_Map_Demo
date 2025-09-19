@@ -468,64 +468,92 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             return _surfaceheightMap;
         }
 
+        private static GraphicsBuffer CreateIndexBufferCopy(Mesh mesh)
+        {
+            var src = mesh.GetIndexBuffer();
+
+            if (mesh.indexFormat == UnityEngine.Rendering.IndexFormat.UInt32)
+            {
+                // 32-bit indices already fine
+                var dst = new GraphicsBuffer(GraphicsBuffer.Target.CopyDestination | GraphicsBuffer.Target.Raw,
+                                             src.count, sizeof(uint));
+                Graphics.CopyBuffer(src, dst);
+                return dst;
+            }
+            else
+            {
+                // 16-bit indices: pack into uints (two per element)
+                int packedCount = Mathf.CeilToInt(src.count / 2.0f);
+                var dst = new GraphicsBuffer(GraphicsBuffer.Target.CopyDestination | GraphicsBuffer.Target.Raw,
+                                             packedCount, sizeof(uint));
+                Graphics.CopyBuffer(src, dst);
+                return dst;
+            }
+        }
+
         private RenderTexture GenerateHeight(Vector2 texSize, Vector2 pixelSize, Mesh mesh, Vec3D offset)
         {
-
             ComputeShader.SetVector(PlacementParameterID.Resolution, pixelSize);
 
-            // according to documentation vertexBufferTarget should not be able to be a structured but it works
-            // if any future problems occur test doing the same as indexBuffer -> indexbufferGpuCopy
-            mesh.vertexBufferTarget |= GraphicsBuffer.Target.Structured;
+            // Ensure proper buffer usage flags
+            mesh.vertexBufferTarget |= GraphicsBuffer.Target.Raw;
             mesh.indexBufferTarget |= GraphicsBuffer.Target.CopySource;
 
+            // Acquire buffers
             var vertexBuffer = mesh.GetVertexBuffer(0);
             var indexBuffer = mesh.GetIndexBuffer();
 
-            var indexbufferGpuCopy = new GraphicsBuffer(GraphicsBuffer.Target.CopyDestination | GraphicsBuffer.Target.Raw, Mathf.CeilToInt(indexBuffer.count / 2f), sizeof(uint));
-            Graphics.CopyBuffer(indexBuffer, indexbufferGpuCopy);
+            // Create a GPU copy of the index buffer
+            var indexbufferGpuCopy = CreateIndexBufferCopy(mesh);
 
-            var stride = mesh.GetVertexBufferStride(0);
-            var texOffset = mesh.GetVertexAttributeOffset(UnityEngine.Rendering.VertexAttribute.TexCoord0);
-            var posOffset = mesh.GetVertexAttributeOffset(UnityEngine.Rendering.VertexAttribute.Position);
+            // Get stride/offsets in BYTES
+            int stride = mesh.GetVertexBufferStride(0);
+            int texOffset = mesh.GetVertexAttributeOffset(UnityEngine.Rendering.VertexAttribute.TexCoord0);
+            int posOffset = mesh.GetVertexAttributeOffset(UnityEngine.Rendering.VertexAttribute.Position);
 
-            ComputeShader.SetInt(PlacementParameterID.PositionOffset, posOffset / 4);
-            ComputeShader.SetInt(PlacementParameterID.TexcoordOffset, texOffset / 4);
-            ComputeShader.SetInt(PlacementParameterID.VertexBufferStride, stride / 4);
+            // Pass values as bytes, no division by 4
+            ComputeShader.SetInt(PlacementParameterID.PositionOffset, posOffset);
+            ComputeShader.SetInt(PlacementParameterID.TexcoordOffset, texOffset);
+            ComputeShader.SetInt(PlacementParameterID.VertexBufferStride, stride);
 
-            var indicesCount = mesh.GetIndexCount(0);
+            // Index count
+            int indicesCount = (int)mesh.GetIndexCount(0);
             ComputeShader.SetInt(PlacementParameterID.UvCount, vertexBuffer.count);
 
-            // ************* find node corners ************* //
-
-            //var nodeTexCenter = mesh.bounds.center + new Vector3((float)offset.x + mesh.bounds.extents.x, (float)offset.y, (float)offset.z + mesh.bounds.extents.z);
-            //var nodeExtents = new Vector3((texSize.x - 2) * pixelSize.x / 2, mesh.bounds.size.y, texSize.y * pixelSize.y / 2);
-            //var nodeTexTopLeft = nodeTexTopLeft + nodeExtents;
-            var nodeTexTopLeft = mesh.bounds.center - new Vector3((float)offset.x + (texSize.x * pixelSize.x), (float)offset.y, (float)offset.z);
+            // ************* mesh bounds ************* //
+            var nodeTexTopLeft = mesh.bounds.center -
+                new Vector3((float)offset.x + (texSize.x * pixelSize.x),
+                            (float)offset.y,
+                            (float)offset.z);
             ComputeShader.SetVector(PlacementParameterID.MeshBoundsMax, nodeTexTopLeft);
 
-            // ************* Generate Height Map  ************* //
-
-            var kernelHeight = ComputeShader.FindKernel("CSHeightMap");
+            // ************* Generate Height Map ************* //
+            int kernelHeight = ComputeShader.FindKernel("CSHeightMap");
 
             if (_heightMap != null)
                 _heightMap.Release();
 
-            _heightMap = new RenderTexture((int)texSize.x, (int)texSize.y, 24, RenderTextureFormat.RFloat);
-            _heightMap.enableRandomWrite = true;
-            _heightMap.name = "foliagemodule - HeightMap";
+            _heightMap = new RenderTexture((int)texSize.x, (int)texSize.y, 24, RenderTextureFormat.RFloat)
+            {
+                enableRandomWrite = true,
+                name = "foliagemodule - HeightMap"
+            };
             _heightMap.Create();
 
-            var triangleCount = Mathf.CeilToInt(indicesCount / 3f);
-
+            int triangleCount = Mathf.CeilToInt(indicesCount / 3f);
             ComputeShader.SetInt(PlacementParameterID.IndexCount, triangleCount);
 
+            // Bind buffers and textures
             ComputeShader.SetBuffer(kernelHeight, PlacementParameterID.VertexBuffer, vertexBuffer);
             ComputeShader.SetBuffer(kernelHeight, PlacementParameterID.IndexBuffer, indexbufferGpuCopy);
             ComputeShader.SetTexture(kernelHeight, PlacementParameterID.HeightMap, _heightMap);
 
-            var threads = Mathf.CeilToInt(triangleCount / 4f) < 1 ? 1 : Mathf.CeilToInt(triangleCount / 4f);
+            // Dispatch
+            int threads = Mathf.CeilToInt(triangleCount / 4f);
+            if (threads < 1) threads = 1;
             ComputeShader.Dispatch(kernelHeight, threads, 1, 1);
 
+            // Dispose
             indexBuffer.Dispose();
             vertexBuffer.Dispose();
             indexbufferGpuCopy.Dispose();
