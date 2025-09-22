@@ -21,16 +21,23 @@ using System.Linq;
 
 using ProfilerMarker = global::Unity.Profiling.ProfilerMarker;
 using ProfilerCategory = global::Unity.Profiling.ProfilerCategory;
+using System.Runtime.InteropServices;
 
 namespace Saab.Foundation.Unity.MapStreamer.Modules
 {
+    [StructLayout(LayoutKind.Sequential)]
     public struct FoliagePoint
     {
-        Vector3 Position;
-        Vector3 Color;
-        float Height;
-        float Random;
-        float Visibility;
+        public Vector3 Position;
+        public float Pad0;
+
+        public Vector3 Color;
+        public float Pad1;
+
+        public float Height;
+        public float Random;
+        public float Visibility;
+        public float Pad2;
     }
 
     public struct FeatureData : IDisposable
@@ -103,6 +110,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private readonly int _KernelPreCull;
         private readonly int _kernelPostCull;
         private const float _depthBufferScale = 2.5f;
+        private readonly int _foliageStride;
 
         public int FoliageCount
         {
@@ -111,6 +119,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         public FoliageFeature(int BufferSize, float density, int[] map, ComputeShader computeShader)
         {
+            _foliageStride = Marshal.SizeOf<FoliagePoint>(); // should be 48
+
             _placement = computeShader;
             _kernelCull = _placement.FindKernel("CSCull");
             _kernelClear = _placement.FindKernel("CSClear");
@@ -123,8 +133,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _angleDepth = new ComputeBuffer(Mathf.CeilToInt(180 * _depthBufferScale * 180 * _depthBufferScale), sizeof(uint));
 
             _density = density;
-            _pointCloud = new ComputeBuffer(BufferSize <= 0 ? 1 : BufferSize, sizeof(float) * 8, ComputeBufferType.Append);
-            _pointCloudCulled = new ComputeBuffer(BufferSize <= 0 ? 1 : BufferSize, sizeof(float) * 8, ComputeBufferType.Append);
+            _pointCloud = new ComputeBuffer(BufferSize <= 0 ? 1 : BufferSize, _foliageStride, ComputeBufferType.Append);
+            _pointCloudCulled = new ComputeBuffer(BufferSize <= 0 ? 1 : BufferSize, _foliageStride, ComputeBufferType.Append);
             _mappingBuffer = new ComputeBuffer(map.Length, sizeof(int));
             _mappingBuffer.SetData(map);
         }
@@ -157,8 +167,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 surfaceHeight = height,
                 HeightMap = heightMap
             };
-
-            data.TerrainPoints = new ComputeBuffer(size < 1 ? 1 : size, sizeof(float) * 9, ComputeBufferType.Append);
+        
+            data.TerrainPoints = new ComputeBuffer(size < 1 ? 1 : size, _foliageStride, ComputeBufferType.Append);
 
             FeaturePlacement(data);
 
@@ -206,6 +216,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         // needed to clear old valid tree data from gpu memory, if skipped when frustum culling old trees might get valid/visable
         private void ClearFeature(in FeatureData data)
         {
+            data.TerrainPoints.SetCounterValue(0);
+
             _placement.SetBuffer(_kernelClear, PlacementParameterID.TerrainPoints, data.TerrainPoints);
             _placement.SetInt(PlacementParameterID.BufferCount, data.TerrainPoints.count);
             if (data.TerrainPoints.count > 0)

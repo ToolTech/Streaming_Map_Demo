@@ -101,6 +101,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         private Queue<FoliageJob> _futurePool = new Queue<FoliageJob>();
         private Dictionary<SettingsFeatureType, SettingsFeature> _settingsCache = new Dictionary<SettingsFeatureType, SettingsFeature>();
+        private GraphicsBuffer _vertexBuffer;
+        private GraphicsBuffer _indexBuffer;
+        private GraphicsBuffer _indexbufferGpuCopy;
 
         private static class PlacementParameterID
         {
@@ -445,6 +448,10 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _heightMap?.Release();
             _surfaceheightMap?.Release();
             _depthMap?.Release();
+
+            _indexBuffer?.Release();
+            _vertexBuffer?.Release();
+            _indexbufferGpuCopy?.Release();
         }
 
         private RenderTexture GenerateSurfaceHeight(UnityEngine.Texture texture)
@@ -471,24 +478,25 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private static GraphicsBuffer CreateIndexBufferCopy(Mesh mesh)
         {
             var src = mesh.GetIndexBuffer();
+            GraphicsBuffer dst;
 
             if (mesh.indexFormat == UnityEngine.Rendering.IndexFormat.UInt32)
             {
                 // 32-bit indices already fine
-                var dst = new GraphicsBuffer(GraphicsBuffer.Target.CopyDestination | GraphicsBuffer.Target.Raw,
+                dst = new GraphicsBuffer(GraphicsBuffer.Target.CopyDestination | GraphicsBuffer.Target.Raw,
                                              src.count, sizeof(uint));
                 Graphics.CopyBuffer(src, dst);
-                return dst;
             }
             else
             {
                 // 16-bit indices: pack into uints (two per element)
                 int packedCount = Mathf.CeilToInt(src.count / 2.0f);
-                var dst = new GraphicsBuffer(GraphicsBuffer.Target.CopyDestination | GraphicsBuffer.Target.Raw,
+                dst = new GraphicsBuffer(GraphicsBuffer.Target.CopyDestination | GraphicsBuffer.Target.Raw,
                                              packedCount, sizeof(uint));
                 Graphics.CopyBuffer(src, dst);
-                return dst;
             }
+            src.Release();
+            return dst;
         }
 
         private RenderTexture GenerateHeight(Vector2 texSize, Vector2 pixelSize, Mesh mesh, Vec3D offset)
@@ -500,11 +508,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             mesh.indexBufferTarget |= GraphicsBuffer.Target.CopySource;
 
             // Acquire buffers
-            var vertexBuffer = mesh.GetVertexBuffer(0);
-            var indexBuffer = mesh.GetIndexBuffer();
+            _vertexBuffer = mesh.GetVertexBuffer(0);
+            _indexBuffer = mesh.GetIndexBuffer();
 
             // Create a GPU copy of the index buffer
-            var indexbufferGpuCopy = CreateIndexBufferCopy(mesh);
+            _indexbufferGpuCopy?.Dispose();
+            _indexbufferGpuCopy = CreateIndexBufferCopy(mesh);
 
             // Get stride/offsets in BYTES
             int stride = mesh.GetVertexBufferStride(0);
@@ -518,7 +527,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             // Index count
             int indicesCount = (int)mesh.GetIndexCount(0);
-            ComputeShader.SetInt(PlacementParameterID.UvCount, vertexBuffer.count);
+            ComputeShader.SetInt(PlacementParameterID.UvCount, _vertexBuffer.count);
 
             // ************* mesh bounds ************* //
             var nodeTexTopLeft = mesh.bounds.center -
@@ -544,8 +553,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             ComputeShader.SetInt(PlacementParameterID.IndexCount, triangleCount);
 
             // Bind buffers and textures
-            ComputeShader.SetBuffer(kernelHeight, PlacementParameterID.VertexBuffer, vertexBuffer);
-            ComputeShader.SetBuffer(kernelHeight, PlacementParameterID.IndexBuffer, indexbufferGpuCopy);
+            ComputeShader.SetBuffer(kernelHeight, PlacementParameterID.VertexBuffer, _vertexBuffer);
+            ComputeShader.SetBuffer(kernelHeight, PlacementParameterID.IndexBuffer, _indexbufferGpuCopy);
             ComputeShader.SetTexture(kernelHeight, PlacementParameterID.HeightMap, _heightMap);
 
             // Dispatch
@@ -554,9 +563,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             ComputeShader.Dispatch(kernelHeight, threads, 1, 1);
 
             // Dispose
-            indexBuffer.Dispose();
-            vertexBuffer.Dispose();
-            indexbufferGpuCopy.Dispose();
+            _indexBuffer?.Release();
+            _vertexBuffer?.Release();
+            _indexbufferGpuCopy?.Release();
 
             return _heightMap;
         }

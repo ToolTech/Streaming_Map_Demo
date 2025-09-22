@@ -24,6 +24,42 @@ namespace Saab.Unity.Core
             private static int[] args = new int[4];
             private static float[] floatMatrix = new float[16];
 
+            private static ComputeBuffer _countBuf; // 1 x uint
+
+            private static GraphicsBuffer _gbCountBuf;
+
+            public static void EnsureGBCountBuf()
+            {
+                if (_gbCountBuf == null)
+                    _gbCountBuf = new GraphicsBuffer(GraphicsBuffer.Target.Raw, 1, sizeof(uint));
+            }
+
+            public static int ReadAppendCount(this GraphicsBuffer appendBuffer)
+            {
+                EnsureGBCountBuf();
+                GraphicsBuffer.CopyCount(appendBuffer, _gbCountBuf, 0);
+                uint[] tmp = { 0u };
+                _gbCountBuf.GetData(tmp);
+                return (int)tmp[0];
+            }
+
+            public static void EnsureCountBuf()
+            {
+                if (_countBuf == null)
+                    _countBuf = new ComputeBuffer(1, sizeof(uint), ComputeBufferType.Raw);
+            }
+
+            public static int ReadAppendCount(this ComputeBuffer appendBuffer)
+            {
+                EnsureCountBuf();
+                // copy GPU counter into _countBuf[0]
+                ComputeBuffer.CopyCount(appendBuffer, _countBuf, 0);
+
+                uint[] tmp = { 0u };
+                _countBuf.GetData(tmp);        // blocks until GPU finished; fine for debugging
+                return (int)tmp[0];
+            }
+
             public static int GetCounterValue(this ComputeBuffer buffer, ComputeBuffer argBuffer)
             {
                 args[0] = 0;

@@ -29,12 +29,17 @@
 
 struct FoliagePoint
 {
-    float3 Position;
-    float3 Color;
-    float Height;
-    float Random;
-    float Visibility;
-};
+    float3 Position;    // 12 bytes
+    float Pad0;         // 4 bytes padding
+
+    float3 Color;       // 12 bytes
+    float Pad1;         // 4 bytes padding
+
+    float Height;       // 4 bytes
+    float Random;       // 4 bytes
+    float Visibility;   // 4 bytes
+    float Pad2;         // 4 bytes
+}; // 48 bytes: AMD require data to be divisible by 16 bytes. Nvidia and Intel drivers automatically pads.
 
 struct FoliageShaderData
 {
@@ -240,13 +245,21 @@ float2 MapUv(float2 uv, float2 size = float2(1, 1))
 float3 GetPosition(uint index)
 {
     uint baseAddr = index * VertexBufferStride + PositionOffset;
-    return asfloat(VertexBuffer.Load3(baseAddr));
+    float x = asfloat(VertexBuffer.Load(baseAddr + 0));
+    float y = asfloat(VertexBuffer.Load(baseAddr + 4));
+    float z = asfloat(VertexBuffer.Load(baseAddr + 8));
+    
+    return float3(x, y, z);
 }
 
 float2 GetTexCoord(uint index)
 {
     uint baseAddr = index * VertexBufferStride + TexcoordOffset;
-    return asfloat(VertexBuffer.Load2(baseAddr));
+    
+    float x = asfloat(VertexBuffer.Load(baseAddr + 0));
+    float y = asfloat(VertexBuffer.Load(baseAddr + 4));
+    
+    return float2(x, y);
 }
 
 // ************* Handle foliage Height ************* //
@@ -254,7 +267,7 @@ float2 GetTexCoord(uint index)
 int WeightedRandomHeight(float random, float height)
 {
     float weightSum = 0;
-    for (int index = 0; index < FoliageCount; index++)
+    for (uint index = 0; index < FoliageCount; index++)
     {
         float heightWeight = FoliageData[index].MaxMin.x > height ? 0 : 1;
         weightSum += FoliageData[index].Weight * heightWeight;
@@ -262,7 +275,7 @@ int WeightedRandomHeight(float random, float height)
 
     float r = random * weightSum;
 
-    for (int i = 0; i < FoliageCount; i++)
+    for (uint i = 0; i < FoliageCount; i++)
     {
         float heightWeight = FoliageData[i].MaxMin.x > height ? 0 : 1;
         r -= (FoliageData[i].Weight * heightWeight);
@@ -397,7 +410,7 @@ void CSHeightMap(uint3 id : SV_DispatchThreadID)
     {
         for (uint y = startY; y <= endY; y++)
         {
-            if (x >= terrainResolution.x || y >= terrainResolution.y)
+            if (x >= uint(terrainResolution.x) || y >= uint(terrainResolution.y))
                 continue;
 
             uint2 uv = uint2(x, y);
@@ -501,12 +514,17 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
                                                     
                     float3 coord = float3(foliagePoint.x + randomPoint.x, height, foliagePoint.y + randomPoint.y);
 
+                    float2 uvCoord = uv.xy / terrainResolution.xy;
+                    
                     FoliagePoint res;
                     res.Position = coord.xyz;
                     res.Color = color;
                     res.Random = Random2D(rand);
                     res.Height = surfaceHeight;
-                    res.Visibility = 1;
+                    res.Visibility = 1;                    
+                    res.Pad0 = 0;
+                    res.Pad1 = 0;
+                    res.Pad2 = 0;
                     
                     TerrainPoints.Append(res);
                 }
@@ -806,7 +824,7 @@ bool GetRandomizedData(FoliagePoint data, out FoliageShaderData output)
 
 bool HiddenCheck(uint depth, float distance, float height)
 {
-    return depth <= distance - (height * 0.5);
+    return depth <= uint(distance - (height * 0.5));
 }
 
 // ************* Cull Points ************* //
@@ -833,13 +851,13 @@ void CSCull(uint3 id : SV_DispatchThreadID)
     
     if (height == 0)
         return;
-    
+
     float3 worldUp = float3(0, 1, 0);
     float3 topPadding = worldUp * height * 0.1;
     float3 topOffset = worldUp * (height - foliageData.Offset.y * height) - topPadding;
     float3 pos = mul(ObjToWorld, float4(data.Position.xyz, 1)).xyz;
-    
-    
+
+
     float3 FoliageMid = pos + topOffset * 0.45;
     float3 FoliageTop = pos + topOffset * 0.85;
     float3 toFoliageMid = FoliageMid - CameraPosition;
@@ -870,7 +888,7 @@ void CSCull(uint3 id : SV_DispatchThreadID)
 
     if (IsInFrustum(toFoliageMid, -height))
     {
-        if (FrameCount % 2 == id.x % 2)
+        if (uint(FrameCount) % 2 == id.x % 2)
         {   
             if (Occlusion && IsHidden(pos, height, normalize(toFoliageMid)))
             {
@@ -906,6 +924,9 @@ void CSPostCull(uint3 id : SV_DispatchThreadID)
 [numthreads(128, 1, 1)]
 void CSPreCull(uint3 id : SV_DispatchThreadID)
 {
+    if (id.x >= FoliageCount)
+        return;
+    
     FoliagePoint data = InputBuffer[id.x];
     
     // handle points with no value. (allocated points in buffer is by default float3(0,0,0)) 
@@ -978,6 +999,9 @@ void CSClear(uint3 id : SV_DispatchThreadID)
     res.Random = 0;
     res.Height = 0;
     res.Visibility = 0;
+    res.Pad0 = 0;
+    res.Pad1 = 0;
+    res.Pad2 = 0;
     
     TerrainPoints.Append(res);
 }
