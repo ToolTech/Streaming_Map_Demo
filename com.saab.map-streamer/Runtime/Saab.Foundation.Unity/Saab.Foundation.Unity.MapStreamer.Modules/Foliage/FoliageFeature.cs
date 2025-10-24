@@ -152,11 +152,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             if (height == null)
                 return false;
 
+            _resolution = new Vector2((float)node.featureInfo.v11, (float)node.featureInfo.v22);
             var size = FindBufferSize(featureMap);
+
             if (size >= ushort.MaxValue * 128)
                 return false;
 
-            _resolution = new Vector2((float)node.featureInfo.v11, (float)node.featureInfo.v22);
             var maxside = Mathf.Max(featureMap.width, featureMap.height);
 
             Texture2D texture = node.texture;
