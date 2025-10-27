@@ -49,7 +49,8 @@ namespace Saab.Foundation.Map
         UNKNOWN,
         PLAIN,
         UTM,
-        GEOCENTRIC
+        GEOCENTRIC,
+        PROJ_SWEREF99,
     }
 
     [Flags]
@@ -285,6 +286,20 @@ namespace Saab.Foundation.Map
                     }
                     break;
 
+                case MapType.PROJ_SWEREF99:
+                    {
+                        ProjPos projpos;
+
+                        if (!_converter.GetProjPos(out projpos, FlatGaussProjection.SWEREF99))
+                        {
+                            Message.Send("Controller", MessageLevel.WARNING, "Failed to convert to Projected");
+                            return false;
+                        }
+
+                        pos = new Vec3D(projpos.Y, projpos.H, -projpos.X) - _origin;
+                    }
+                    break;
+
                 default:
                     return false;
             }
@@ -320,6 +335,17 @@ namespace Saab.Foundation.Map
                     _converter.SetCartPos(cartpos);
 
                     break;
+
+                case MapType.PROJ_SWEREF99:
+
+                    ProjPos projpos = new ProjPos(-(position.z + _origin.z), position.x + _origin.x, position.y + _origin.y);
+
+                    _converter.SetProjPos(projpos, FlatGaussProjection.SWEREF99);
+
+                    break;
+                
+                default:
+                    return false;
             }
 
             return true;
@@ -686,9 +712,9 @@ namespace Saab.Foundation.Map
                     }
 
                 case MapType.UTM:
+                case MapType.PROJ_SWEREF99:
 
                     return new Matrix3(new Vec3(1, 0, 0), new Vec3(0, 0, -1), new Vec3(0, 1, 0));    // East North Up vectors
-
 
                 case MapType.GEOCENTRIC:
 
@@ -713,6 +739,7 @@ namespace Saab.Foundation.Map
                     }
 
                 case MapType.UTM:
+                case MapType.PROJ_SWEREF99:
 
                     return new Matrix3(new Vec3(1, 0, 0), new Vec3(0, 0, -1), new Vec3(0, 1, 0));    // East North Up vectors
 
@@ -938,14 +965,27 @@ namespace Saab.Foundation.Map
 
                             _coordSystem = new CoordinateSystem(Datum.WGS84_ELLIPSOID, FlatGaussProjection.NOT_DEFINED, CoordinateType.GEOCENTRIC);
                         }
-                        else
+                        else if (projection == GZ_DB_INFO_PROJECTION_SWEREF99)
                         {
-                            _mapType = MapType.UNKNOWN;
-                            _origin = new Vec3D(0, 0, 0);
+                            _mapType = MapType.PROJ_SWEREF99;
+                            ProjPos projOrigin = _currentMap.GetDbInfo(GZ_DB_INFO_DB_ORIGIN_POS);
+
+                            _origin = new Vec3D(projOrigin.Y, projOrigin.H, -projOrigin.X);
 
                             _metaData.value1 = 0;
                             _metaData.value2 = 0;
 
+                            // replaced if GZ_DB_INFO_COORD_SYS exists
+                            _coordSystem = new CoordinateSystem(Datum.GRS80_ELLIPSOID, FlatGaussProjection.SWEREF99, CoordinateType.PROJECTED);
+                        }
+                        else
+                        {
+                            _mapType = MapType.UNKNOWN;
+                            _origin = new Vec3D(0, 0, 0);
+                        
+                            _metaData.value1 = 0;
+                            _metaData.value2 = 0;
+                        
                             _coordSystem = new CoordinateSystem();
                         }
 
@@ -1195,7 +1235,7 @@ namespace Saab.Foundation.Map
         private MapType                     _mapType;
         private Node                        _currentMap;
         private CoordinateSystem            _coordSystem;
-
+        
         private CoordinateSystemMetaData    _metaData;
 
         private Vec3D                       _origin;

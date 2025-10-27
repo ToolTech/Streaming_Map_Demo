@@ -7,6 +7,9 @@ described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/
 
 ## 4.3
 
+### Added
+- Support for SWEREF99 #341154
+
 ### Changed
 
 - Updated to GizmoSDK 2.12.254.1
