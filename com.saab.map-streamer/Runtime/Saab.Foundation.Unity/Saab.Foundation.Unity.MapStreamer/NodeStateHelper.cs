@@ -183,8 +183,9 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             result = null;
 
+            // allow states without texture
             if (!state.HasTexture(unit) || state.GetMode(StateMode.TEXTURE) != StateModeActivation.ON)
-                return false;
+                return true;
 
             using (var texture = state.GetTexture(unit))
             {

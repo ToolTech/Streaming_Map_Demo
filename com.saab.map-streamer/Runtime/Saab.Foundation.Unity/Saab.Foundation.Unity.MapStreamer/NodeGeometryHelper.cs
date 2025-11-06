@@ -136,7 +136,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
         }
 
-        private static bool CopyTexcoords(Geometry geom, Mesh mesh)
+        private static void CopyTexcoords(Geometry geom, Mesh mesh)
         {
             var texture_units = geom.GetTextureUnits();
 
@@ -145,14 +145,8 @@ namespace Saab.Foundation.Unity.MapStreamer
             for (uint ch = 0; ch < texture_units; ++ch)
             {
                 if (geom.GetTexCoordData<Vector2>(ref _texCoords, ref numTexCoords, ch))
-                {
                     mesh.SetUVs((int)ch, _texCoords, 0, (int)numTexCoords);
-                }
-                else
-                    return false;
             }
-
-            return true;
         }
 
         //output = default;
@@ -192,8 +186,8 @@ namespace Saab.Foundation.Unity.MapStreamer
             if (!CopyNormals(geom, mesh))
                 GenerateNormals(mesh);          // Todo: 221205 AMO This must be changed if we have an overall normal ! AMO
 
-            if (!CopyTexcoords(geom, mesh))
-                return false;
+            // optional
+            CopyTexcoords(geom, mesh);
 
             return true;
         }

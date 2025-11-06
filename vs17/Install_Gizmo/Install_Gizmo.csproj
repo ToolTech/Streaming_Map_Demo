@@ -1,15 +1,17 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <TargetFramework>netstandard2.0</TargetFramework>
     <Platforms>x64</Platforms>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Coordinate" Version="2.12.254.1" />
-    <PackageReference Include="Gizmo3D" Version="2.12.254.1" />
-    <PackageReference Include="GizmoBase" Version="2.12.254.1" />
-    <PackageReference Include="GizmoDistribution" Version="2.12.254.1" />
+    <PackageReference Include="Coordinate" Version="2.12.283.1" />
+    <PackageReference Include="Gizmo3D" Version="2.12.283.1" />
+    <PackageReference Include="GizmoBase" Version="2.12.283.1" />
+    <PackageReference Include="GizmoDistribution" Version="2.12.283.1" />
   </ItemGroup>
 
   <Target Name="CopyFilesAfterBuild" AfterTargets="Build" DependsOnTargets="CustomPostbuildTarget">
