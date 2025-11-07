@@ -12,7 +12,9 @@ described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/
 
 ### Changed
 
-- Updated to GizmoSDK 2.12.254.1
+- Updated to GizmoSDK 2.12.283.1
+- Geometry no longer requires a texture
+- Geometry no longer requires UV coordinates
 
 ### Fixed
 - fixed normal tiling and weird glare (with maps without feature data)

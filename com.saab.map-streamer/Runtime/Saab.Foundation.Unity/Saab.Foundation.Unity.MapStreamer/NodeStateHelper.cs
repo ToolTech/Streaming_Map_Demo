@@ -183,9 +183,28 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             result = null;
 
-            // allow states without texture
+            // allow states without texture by using Texture2D.whiteTexture as placeholder
             if (!state.HasTexture(unit) || state.GetMode(StateMode.TEXTURE) != StateModeActivation.ON)
+            {
+                if (textureCache != null)
+                {
+                    var ptr = state.GetNativeReference();
+
+                    if (textureCache.TryGet(ptr, out Texture cachedTexture, out _))
+                    {
+                        result = (Texture2D)cachedTexture;
+                        return true;
+                    }
+
+                    result = CopyWhiteTexture();
+
+                    return textureCache.TryAdd(ptr, result, null);
+                }
+
+                result = CopyWhiteTexture();
+
                 return true;
+            }
 
             using (var texture = state.GetTexture(unit))
             {
@@ -218,6 +237,14 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
 
             return true;
+        }
+
+        private static Texture2D CopyWhiteTexture()
+        {
+            Texture2D src = Texture2D.whiteTexture;
+            Texture2D dst = new Texture2D(src.width, src.height, src.format, src.mipmapCount > 1);
+            Graphics.CopyTexture(src, dst);
+            return dst;
         }
 
         private static bool CopyTexture(gzTexture gzTexture, out Texture2D result, TextureImageInfo info, bool mipChain = true)
