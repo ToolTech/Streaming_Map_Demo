@@ -18,6 +18,7 @@ described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/
 
 ### Fixed
 - fixed normal tiling and weird glare (with maps without feature data)
+- will now use 32 bit index buffers when required
 
 ## 4.2
 

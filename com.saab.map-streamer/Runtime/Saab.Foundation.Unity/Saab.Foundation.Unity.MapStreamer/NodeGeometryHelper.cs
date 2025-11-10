@@ -80,7 +80,8 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             if (numVertices < 3 || numIndices < 3)
                 return false;
-            
+
+            mesh.indexFormat = numVertices > ushort.MaxValue ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
             mesh.SetVertices(_positions, 0, (int)numVertices);
             mesh.SetIndices(_indices, 0, (int)numIndices, MeshTopology.Triangles, 0);
 
