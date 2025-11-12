@@ -98,6 +98,10 @@ namespace Saab.Foundation.Unity.MapStreamer
         [Tooltip("Ignore state information and always use the fallback material")]
         private bool _forceFallbackMaterial;
 
+        [SerializeField]
+        [Tooltip("Unity layer for node")]
+        private int _layer = 0;    // 0 = Unity "Default" layer
+
 
         private static readonly ProfilerMarker _profilerBuild = new ProfilerMarker(ProfilerCategory.Render, "SM-Geometry-Build");
 
@@ -112,7 +116,8 @@ namespace Saab.Foundation.Unity.MapStreamer
             var geo = (Geometry)nodeHandle.node;
             
             var go = nodeHandle.gameObject;
-            
+            go.layer = _layer;
+
             // MeshRenderer component
             if (!go.TryGetComponent<MeshRenderer>(out var meshRenderer))
                 meshRenderer = go.AddComponent<MeshRenderer>();

@@ -9,7 +9,7 @@ variables:
   ArticleFull: '8866027201'
   ProjectID: 'MapStreamer'
   Major: '4'
-  Minor: '3'
+  Minor: '4'
 
 workspace:
   clean: all

@@ -5,6 +5,12 @@ All notable changes to this project shall be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/CHANGELOG.md_Windows_%26_Apps).
 
+## 4.4
+
+### Added
+- Support for setting Unity layer for Node Builders 
+- Support for setting Unity layer for Foliage 
+
 ## 4.3
 
 ### Added

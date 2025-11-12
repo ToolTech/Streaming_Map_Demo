@@ -76,6 +76,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         //_PerlinNoise
         public Texture2D PerlinNoise;
+        public int Layer = 0;   // 0 = Unity "Default" layer 
 
         [Header("Debug Settings")]
         public bool DebugPrintCount = false;
@@ -104,6 +105,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private GraphicsBuffer _vertexBuffer;
         private GraphicsBuffer _indexBuffer;
         private GraphicsBuffer _indexbufferGpuCopy;
+
 
         private static class PlacementParameterID
         {
@@ -668,7 +670,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                     return;
 
                 var renderBounds = new Bounds(Vector3.zero, new Vector3(set.DrawDistance, set.DrawDistance, set.DrawDistance));
-                Graphics.DrawProceduralIndirect(set.FoliageMaterial, renderBounds, MeshTopology.Points, set.InderectBuffer, 0, null, null, settings.Shadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off);
+                Graphics.DrawProceduralIndirect(set.FoliageMaterial, renderBounds, MeshTopology.Points, set.InderectBuffer, 0, null, null, settings.Shadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off, true, Layer);
             }
 
             DebugPrintCount = false;

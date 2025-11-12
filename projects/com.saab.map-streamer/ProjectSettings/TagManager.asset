@@ -15,6 +15,12 @@ TagManager:
   - 
   - 
   - 
+  - Terrain
+  - Asset
+  - Building
+  - Foliage
+  - Entity
+  - VFX
   - 
   - 
   - 
@@ -30,13 +36,7 @@ TagManager:
   - 
   - 
   - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
+  - PostProcessing
   m_SortingLayers:
   - name: Default
     uniqueID: 0
