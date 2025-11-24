@@ -34,10 +34,10 @@
 //
 //******************************************************************************
 
-using System;
 using GizmoSDK.Coordinate;
 using Saab.Foundation.Map;
 using Saab.Utility.Unity.NodeUtils;
+using System;
 using UnityEngine;
 
 namespace Saab.Foundation.Unity.MapStreamer
@@ -95,6 +95,48 @@ namespace Saab.Foundation.Unity.MapStreamer
                 return false;
 
             return MapToUnity(transform, mp);
+        }
+
+        /// <summary>
+        /// Converts a LatPos (radians) to Unity map-space coordinates.
+        /// </summary>
+        /// <param name="position">Input geographic position in radians.</param>
+        /// <param name="roi">Output ROI transform containing the position.</param>
+        /// <param name="offset">Output local offset within the ROI.</param>
+        /// <returns>True if the conversion succeeded; otherwise false.</returns>
+        public static bool WorldToUnity(LatPos position, out Transform roi, out Vector3 offset)
+        {
+            roi = default;
+            offset = default;
+
+            if (!MapUtil.WorldToMap(position, out var mp))
+                return false;
+
+            if (!MapUtil.MapToUnity(mp, out roi, out offset))
+                return false;
+
+            return true;
+        }
+
+        /// <summary>
+        /// Converts a CartPos (Cartesian) to Unity map-space coordinates.
+        /// </summary>
+        /// <param name="position">Input geographic position in Cartesian coordinate.</param>
+        /// <param name="roi">Output ROI transform containing the position.</param>
+        /// <param name="offset">Output local offset within the ROI.</param>
+        /// <returns>True if the conversion succeeded; otherwise false.</returns>
+        public static bool WorldToUnity(CartPos position, out Transform roi, out Vector3 offset)
+        {
+            roi = default;
+            offset = default;
+
+            if (!MapUtil.WorldToMap(position, out var mp))
+                return false;
+
+            if (!MapUtil.MapToUnity(mp, out roi, out offset))
+                return false;
+
+            return true;
         }
 
         public static bool MapToUnity(Transform transform, MapPos position)

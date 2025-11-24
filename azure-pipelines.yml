@@ -3,7 +3,9 @@ trigger:
 - develop 
 
 pool:
- name: TS-Windows
+  name: TS-Windows
+  demands:
+    - SEP_ENV_TS_DEV_BUILD
 
 variables:
   ArticleFull: '8866027201'
