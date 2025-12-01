@@ -49,6 +49,7 @@ using gzTexture = GizmoSDK.Gizmo3D.Texture;
 using Texture = UnityEngine.Texture;
 using ProfilerMarker = global::Unity.Profiling.ProfilerMarker;
 using ProfilerCategory = global::Unity.Profiling.ProfilerCategory;
+using UnityEngine.Experimental.Rendering;
 
 namespace Saab.Foundation.Unity.MapStreamer
 {
@@ -74,7 +75,7 @@ namespace Saab.Foundation.Unity.MapStreamer
     {
         private static readonly ProfilerMarker _profilerMarker = new ProfilerMarker(ProfilerCategory.Render, "SM-ReadTexture");
 
-        private static readonly Dictionary<TextureFormat, bool> _supportedFormats = new Dictionary<TextureFormat, bool>();
+        private static readonly Dictionary<GraphicsFormat, bool> _supportedGraphicsFormats = new Dictionary<GraphicsFormat, bool>();
 
         public static bool Build(State state, out StateBuildOutput output, TextureManager textureCache = null)
         {
@@ -262,9 +263,9 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                 var components = image.Components;
 
-                var textureFormat = GetUnityTextureFormat(imageFormat,componentType,components);
+                var format = GetUnityGraphicsFormat(imageFormat,componentType,components);
 
-                var uncompress = !IsTextureFormatSupported(textureFormat);
+                var uncompress = !IsGraphicsFormatSupported(format);
 
                 var nativePtr = IntPtr.Zero;
 
@@ -278,7 +279,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                 // we try to reuse texture objects when streaming terrain, this improves performance
                 // by almost 2X, a small cache of only 256 MB should be enough since terrain textures
                 // are quite small but frequently changed
-                result = Texture2DCache.GetOrCreateTexture((int)width, (int)height, textureFormat, mipChain, out bool canBeRecycled);
+                result = Texture2DCache.GetOrCreateTexture((int)width, (int)height, format, mipChain, out bool canBeRecycled);
 
                 result.wrapModeU = GetUnityTextureWrapMode(gzTexture.WrapS);
                 result.wrapModeV = GetUnityTextureWrapMode(gzTexture.WrapT);
@@ -340,54 +341,55 @@ namespace Saab.Foundation.Unity.MapStreamer
             return true;
         }
 
-        private static TextureFormat GetUnityTextureFormat(ImageFormat imageFormat , ComponentType compType, byte components)
+        private static GraphicsFormat GetUnityGraphicsFormat(ImageFormat imageFormat, ComponentType compType)
         {
             switch (imageFormat)
             {
                 case ImageFormat.RGBA:
                     if (compType == ComponentType.UNSIGNED_BYTE)
-                        return TextureFormat.RGBA32;
+                        return GraphicsFormat.R8G8B8A8_UNorm;
                     if (compType == ComponentType.FLOAT)
-                        return TextureFormat.RGBA32;
+                        return GraphicsFormat.R32G32B32A32_SFloat;
                     if (compType == ComponentType.HALF_FLOAT)
-                        return TextureFormat.RGBAHalf;
+                        return GraphicsFormat.R16G16B16A16_SFloat;
                     break;
 
                 case ImageFormat.RGB:
                     if (compType == ComponentType.UNSIGNED_BYTE)
-                        return TextureFormat.RGB24;
+                        // RGB24 is not guaranteed to exist as a GPU format; Unity upconverts to RGBA8 internally.
+                        return GraphicsFormat.R8G8B8A8_UNorm;
                     break;
 
                 case ImageFormat.COMPRESSED_RGBA8_ETC2:
-                    return TextureFormat.ETC2_RGBA8;
-
+                    return GraphicsFormat.RGBA_ETC2_UNorm;
                 case ImageFormat.COMPRESSED_RGB8_ETC2:
-                    return TextureFormat.ETC2_RGB;
+                    return GraphicsFormat.RGB_ETC2_UNorm;
 
                 case ImageFormat.COMPRESSED_RGBA_S3TC_DXT1:
                 case ImageFormat.COMPRESSED_RGB_S3TC_DXT1:
-                    return TextureFormat.DXT1;
+                    return GraphicsFormat.RGBA_DXT1_UNorm;
 
                 case ImageFormat.COMPRESSED_RGBA_S3TC_DXT5:
-                    return TextureFormat.DXT5;
+                    return GraphicsFormat.RGBA_DXT5_UNorm;
 
                 case ImageFormat.LUMINANCE:
-                    if(compType==ComponentType.UNSIGNED_BYTE)
-                        return TextureFormat.R8;
+                    if (compType == ComponentType.UNSIGNED_BYTE)
+                        return GraphicsFormat.R8_UNorm;   // Your R8 fix case
                     if (compType == ComponentType.FLOAT)
-                        return TextureFormat.RFloat;
+                        return GraphicsFormat.R32_SFloat;
                     break;
 
                 case ImageFormat.LUMINANCE_ALPHA:
                     if (compType == ComponentType.UNSIGNED_BYTE)
-                        return TextureFormat.RG16;
+                        return GraphicsFormat.R8G8_UNorm;
                     if (compType == ComponentType.FLOAT)
-                        return TextureFormat.RGFloat;
+                        return GraphicsFormat.R32G32_SFloat;
                     break;
             }
 
             throw new NotSupportedException();
         }
+
 
         private static TextureWrapMode GetUnityTextureWrapMode(gzTexture.TextureWrapMode wrapMode)
         {
@@ -406,18 +408,19 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
         }
 
-        private static bool IsTextureFormatSupported(TextureFormat format)
+        private static bool IsGraphicsFormatSupported(GraphicsFormat format)
         {
-            if (!_supportedFormats.TryGetValue(format, out bool supported))
+            
+            if (!_supportedGraphicsFormats.TryGetValue(format, out bool supported))
             {
-                // SystemInfo.SupportsTextureFormat is a very slow operation, so
+                // SystemInfo.IsFormatSupported is a very slow operation, so
                 // we will cache the result for future queries.
-                supported = SystemInfo.SupportsTextureFormat(format);
-                _supportedFormats.Add(format, supported);
+                supported = SystemInfo.IsFormatSupported(format, FormatUsage.Sample);
+                _supportedGraphicsFormats.Add(format, supported);
             }
 
             if (!supported)
-                Message.Send("StateBuilder", MessageLevel.WARNING, $"{format} was not a supported format!");
+                Message.Send("StateBuilder", MessageLevel.WARNING, $"{format} was not a supported Graphics format!");
 
             return supported;
         }
