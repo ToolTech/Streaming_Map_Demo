@@ -79,7 +79,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                 // item existed in the cache, increase the ref count and return the resource
                 item.RefCount++;
                 _textureCache[key] = item;
-                
+
                 value = item.Texture;
                 info = item.Info;
                 return true;
@@ -123,7 +123,7 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             foreach (var kvp in _lookup)
                 Texture2DCache.Free(kvp.Key);
-            
+
             _lookup.Clear();
             _textureCache.Clear();
         }
@@ -235,24 +235,23 @@ namespace Saab.Foundation.Unity.MapStreamer
             _estimatedCacheSizeInBytes = 0;
         }
 
-        
         /// <summary>
         /// Allocates a new texture or reuses a texture from the cache
         /// </summary>
         /// <param name="width">Width in pixels</param>
         /// <param name="height">Height in pixels</param>
-        /// <param name="format">Texture format</param>
+        /// <param name="format">Graphics format</param>
         /// <param name="mipChain">True to use mip maps</param>
         /// <param name="canBeCached">True if the texture setting was valid for caching</param>
         /// <returns>New or recycled texture</returns>
-        public static Texture2D GetOrCreateTexture(int width, int height, TextureFormat format, 
+        public static Texture2D GetOrCreateTexture(int width, int height, GraphicsFormat format,
             bool mipChain, out bool canBeCached)
         {
             canBeCached = UseCache(width, height, format);
 
             if (canBeCached)
             {
-                ulong key = CreateTextureKey(width, height, format, mipChain);
+                ulong key = CreateGraphicsKey(width, height, format, mipChain);
 
                 // check if cache contains a reusable texture
                 if (_textures.TryGetValue(key, out Stack<Texture2D> textures) && textures.Count > 0)
@@ -264,23 +263,12 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             _texturesCreated++;
 
-            // Unity 6 sometimes maps TextureFormat.R8 to R8_UINT. 
-            // We must force it to UNorm, or compute sampling breaks.
-            if (format == TextureFormat.R8)
-            {
-                var tex = new Texture2D(
-                    width,
-                    height,
-                    GraphicsFormat.R8_UNorm,
-                    mipChain ? TextureCreationFlags.MipChain : TextureCreationFlags.None
-                );
-
-                // assume that if we are in R8 we don't want interpolation
-                tex.filterMode = FilterMode.Point;
-                return tex;
-            }
-
-            return new Texture2D(width, height, format, mipChain);
+            return new Texture2D(
+                     width,
+                     height,
+                     format,
+                     mipChain ? TextureCreationFlags.MipChain : TextureCreationFlags.None
+                 );
         }
 
         /// <summary>
@@ -292,7 +280,7 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             var width = texture.width;
             var height = texture.height;
-            var format = texture.format;
+            var format = texture.graphicsFormat;
             var mipChain = texture.mipmapCount > 1;
 
             if (!UseCache(width, height, format))
@@ -302,8 +290,8 @@ namespace Saab.Foundation.Unity.MapStreamer
                 _texturesDestroyed++;
                 return;
             }
-            
-            ulong key = CreateTextureKey(width, height, format, mipChain);
+
+            ulong key = CreateGraphicsKey(width, height, format, mipChain);
 
             if (!_textures.TryGetValue(key, out Stack<Texture2D> textures))
             {
@@ -330,7 +318,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
         }
 
-        private static ulong CreateTextureKey(int width, int height, TextureFormat format, bool mipChain)
+        private static ulong CreateGraphicsKey(int width, int height, GraphicsFormat format, bool mipChain)
         {
             ulong key = 0;
             key |= (ulong)(ushort)width;                         // bits 0–15
@@ -340,46 +328,53 @@ namespace Saab.Foundation.Unity.MapStreamer
             return key;
         }
 
-        private static ulong EstimateTextureSizeInBytes(int width, int height, TextureFormat format,
+        private static ulong EstimateTextureSizeInBytes(int width, int height, GraphicsFormat format,
             bool mipChain)
         {
             // Approximate bytes per pixel for common formats
             int bytesPerPixel = format switch
             {
-                TextureFormat.Alpha8 => 1,
-                TextureFormat.RGB24 => 3,
-                TextureFormat.RGBA32 => 4,
-                TextureFormat.ARGB32 => 4,
-                TextureFormat.RGFloat => 8,
-                TextureFormat.RGHalf => 4,
-                TextureFormat.R8 => 1,
-                TextureFormat.DXT1 => 0, // compressed formats, see below
-                TextureFormat.DXT5 => 0,
-                _ => 4 // fallback assumption
+                GraphicsFormat.R8_UNorm => 1,
+
+                GraphicsFormat.R8G8_UNorm => 2,
+
+                GraphicsFormat.R8G8B8A8_UNorm => 4,
+                GraphicsFormat.R8G8B8A8_SRGB => 4,
+
+                GraphicsFormat.R16G16_SFloat => 4,     // 16-bit float * 2 channels
+
+                GraphicsFormat.R32_SFloat => 4,
+                GraphicsFormat.R32G32_SFloat => 8,
+                GraphicsFormat.R32G32B32A32_SFloat => 16,
+
+                // many formats do not require special handling here
+                _ => 4 // fallback (Unity uses this estimate internally too)
             };
 
             // Handle compressed formats separately
-            if (TextureFormatIsCompressed(format))
+            if (GraphicsFormatIsCompressed(format))
             {
-                // 4x4 block compression: DXT1 = 8 bytes/block, DXT5 = 16 bytes/block
-                int blockSize = (format == TextureFormat.DXT1 || format == TextureFormat.ETC2_RGBA1) ? 8 : 16;
-                int blocksWide = (width + 3) / 4;
-                int blocksHigh = (height + 3) / 4;
-                int baseLevelSize = blocksWide * blocksHigh * blockSize;
+                int blockSize = GetBlockSize(format); // 8, 16 or ASTC-specific
+                int blockWidth = GetBlockWidth(format);
+                int blockHeight = GetBlockHeight(format);
 
-                ulong totalSize = (ulong)baseLevelSize;
-                if (mipChain)
+                ulong totalSize = 0;
+
+                int w = width;
+                int h = height;
+
+                while (true)
                 {
-                    int mipCount = Mathf.FloorToInt(Mathf.Log(Mathf.Max(width, height), 2)) + 1;
-                    int w = width, h = height;
-                    for (int mip = 1; mip < mipCount; mip++)
-                    {
-                        w = Mathf.Max(1, w / 2);
-                        h = Mathf.Max(1, h / 2);
-                        blocksWide = (w + 3) / 4;
-                        blocksHigh = (h + 3) / 4;
-                        totalSize += (ulong)(blocksWide * blocksHigh * blockSize);
-                    }
+                    int blocksWide = (w + blockWidth - 1) / blockWidth;
+                    int blocksHigh = (h + blockHeight - 1) / blockHeight;
+
+                    totalSize += (ulong)(blocksWide * blocksHigh * blockSize);
+
+                    if (!mipChain || (w == 1 && h == 1))
+                        break;
+
+                    w = Mathf.Max(1, w / 2);
+                    h = Mathf.Max(1, h / 2);
                 }
 
                 return totalSize;
@@ -396,38 +391,104 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
         }
 
-        private static bool TextureFormatIsCompressed(TextureFormat format)
+        private static int GetBlockSize(GraphicsFormat format)
         {
-            return format == TextureFormat.DXT1 ||
-                   format == TextureFormat.DXT5 ||
-                   format == TextureFormat.BC7 ||
-                   format == TextureFormat.ETC_RGB4 ||
-                   format == TextureFormat.ETC2_RGBA8 ||
-                   format == TextureFormat.ASTC_4x4 ||
-                   format == TextureFormat.ASTC_6x6;
-        }
-
-        private static bool UseCache(int width, int height, TextureFormat format)
-        {
-            // Ignore large textures
-            if (width > _maxSize || height > _maxSize)
-                return false;
-
-            // Include only common and reusable formats
             switch (format)
             {
-                case TextureFormat.RGBA32:
-                case TextureFormat.RGB24:
-                case TextureFormat.Alpha8:
-                case TextureFormat.RGHalf:
-                case TextureFormat.RGFloat:
-                case TextureFormat.R8:
-                case TextureFormat.DXT1:
-                case TextureFormat.DXT5:
+                case GraphicsFormat.RGBA_DXT1_UNorm:
+                case GraphicsFormat.RGB_ETC2_UNorm:
+                    return 8;
+
+                case GraphicsFormat.RGBA_DXT5_UNorm:
+                case GraphicsFormat.RGBA_BC7_UNorm:
+                case GraphicsFormat.RGBA_ETC2_UNorm:
+                    return 16;
+
+                // ASTC uses fixed 16-byte blocks regardless of block dimension
+                case GraphicsFormat.RGBA_ASTC4X4_UNorm:
+                case GraphicsFormat.RGBA_ASTC5X5_UNorm:
+                case GraphicsFormat.RGBA_ASTC6X6_UNorm:
+                case GraphicsFormat.RGBA_ASTC8X8_UNorm:
+                case GraphicsFormat.RGBA_ASTC10X10_UNorm:
+                case GraphicsFormat.RGBA_ASTC12X12_UNorm:
+                    return 16;
+
+                default:
+                    return 16;
+            }
+        }
+
+        private static int GetBlockWidth(GraphicsFormat format)
+        {
+            return format switch
+            {
+                GraphicsFormat.RGBA_ASTC4X4_UNorm => 4,
+                GraphicsFormat.RGBA_ASTC5X5_UNorm => 5,
+                GraphicsFormat.RGBA_ASTC6X6_UNorm => 6,
+                GraphicsFormat.RGBA_ASTC8X8_UNorm => 8,
+                GraphicsFormat.RGBA_ASTC10X10_UNorm => 10,
+                GraphicsFormat.RGBA_ASTC12X12_UNorm => 12,
+                _ => 4 // BC and ETC always use 4×4
+            };
+        }
+
+        private static int GetBlockHeight(GraphicsFormat format)
+        {
+            return format switch
+            {
+                GraphicsFormat.RGBA_ASTC4X4_UNorm => 4,
+                GraphicsFormat.RGBA_ASTC5X5_UNorm => 5,
+                GraphicsFormat.RGBA_ASTC6X6_UNorm => 6,
+                GraphicsFormat.RGBA_ASTC8X8_UNorm => 8,
+                GraphicsFormat.RGBA_ASTC10X10_UNorm => 10,
+                GraphicsFormat.RGBA_ASTC12X12_UNorm => 12,
+                _ => 4
+            };
+        }
+
+        private static bool GraphicsFormatIsCompressed(GraphicsFormat format)
+        {
+            switch (format)
+            {
+                case GraphicsFormat.RGBA_DXT1_UNorm:
+                case GraphicsFormat.RGBA_DXT5_UNorm:
+                case GraphicsFormat.RGBA_BC7_UNorm:
+
+                case GraphicsFormat.RGB_ETC2_UNorm:
+                case GraphicsFormat.RGBA_ETC2_UNorm:
+
+                case GraphicsFormat.RGBA_ASTC4X4_UNorm:
+                case GraphicsFormat.RGBA_ASTC5X5_UNorm:
+                case GraphicsFormat.RGBA_ASTC6X6_UNorm:
+                case GraphicsFormat.RGBA_ASTC8X8_UNorm:
+                case GraphicsFormat.RGBA_ASTC10X10_UNorm:
+                case GraphicsFormat.RGBA_ASTC12X12_UNorm:
                     return true;
+
                 default:
                     return false;
             }
         }
+
+        private static bool UseCache(int width, int height, GraphicsFormat format)
+        {
+            if (width > _maxSize || height > _maxSize)
+                return false;
+
+            switch (format)
+            {
+                case GraphicsFormat.R8G8B8A8_UNorm:
+                case GraphicsFormat.R8_UNorm:
+                case GraphicsFormat.R16G16_SFloat:
+                case GraphicsFormat.R32G32_SFloat:
+                case GraphicsFormat.RGBA_DXT1_UNorm:
+                case GraphicsFormat.RGBA_DXT5_UNorm:
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
     }
 }
