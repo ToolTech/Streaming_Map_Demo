@@ -16,6 +16,7 @@ described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/
 - Support for setting Unity layer for Node Builders 
 - Support for setting Unity layer for Foliage 
 - New WorldToUnity methods to MapUtil
+- Support for Unity 6
 
 ## 4.3
 
