@@ -13,6 +13,9 @@ described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/
 - New WorldToUnity methods to MapUtil
 - Support for Unity 6
 
+### Changed
+- Changed TextureManager to use GraphicsFormat over TextureFormat
+
 ## 4.3
 
 ### Added

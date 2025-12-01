@@ -263,7 +263,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                 var components = image.Components;
 
-                var format = GetUnityGraphicsFormat(imageFormat,componentType,components);
+                var format = GetUnityGraphicsFormat(imageFormat,componentType);
 
                 var uncompress = !IsGraphicsFormatSupported(format);
 
@@ -361,16 +361,16 @@ namespace Saab.Foundation.Unity.MapStreamer
                     break;
 
                 case ImageFormat.COMPRESSED_RGBA8_ETC2:
-                    return GraphicsFormat.RGBA_ETC2_UNorm;
+                    return GraphicsFormat.RGBA_ETC2_SRGB;
                 case ImageFormat.COMPRESSED_RGB8_ETC2:
-                    return GraphicsFormat.RGB_ETC2_UNorm;
+                    return GraphicsFormat.RGB_ETC2_SRGB;
 
                 case ImageFormat.COMPRESSED_RGBA_S3TC_DXT1:
                 case ImageFormat.COMPRESSED_RGB_S3TC_DXT1:
-                    return GraphicsFormat.RGBA_DXT1_UNorm;
+                    return GraphicsFormat.RGBA_DXT1_SRGB;
 
                 case ImageFormat.COMPRESSED_RGBA_S3TC_DXT5:
-                    return GraphicsFormat.RGBA_DXT5_UNorm;
+                    return GraphicsFormat.RGBA_DXT5_SRGB;
 
                 case ImageFormat.LUMINANCE:
                     if (compType == ComponentType.UNSIGNED_BYTE)
