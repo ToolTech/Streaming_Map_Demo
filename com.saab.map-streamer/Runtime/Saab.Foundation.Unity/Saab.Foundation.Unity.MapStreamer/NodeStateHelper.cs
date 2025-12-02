@@ -374,7 +374,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                 case ImageFormat.LUMINANCE:
                     if (compType == ComponentType.UNSIGNED_BYTE)
-                        return GraphicsFormat.R8_UNorm;   // Your R8 fix case
+                        return GraphicsFormat.R8_UNorm;
                     if (compType == ComponentType.FLOAT)
                         return GraphicsFormat.R32_SFloat;
                     break;
