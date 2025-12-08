@@ -123,7 +123,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             return true;
         }
 
-        private static bool ReadTextureFromState(State state, out Texture2D result, TextureManager textureCache, out TextureImageInfo info, uint unit=0,bool useMipMap=true)
+        private static bool ReadTextureFromState(State state, out Texture2D result, TextureManager textureCache, out TextureImageInfo info, uint unit = 0, bool useMipMap = true)
         {
             result = null;
             info = null;
@@ -263,7 +263,7 @@ namespace Saab.Foundation.Unity.MapStreamer
 
                 var components = image.Components;
 
-                var format = GetUnityGraphicsFormat(imageFormat,componentType);
+                var format = GetUnityGraphicsFormat(imageFormat, componentType);
 
                 var uncompress = !IsGraphicsFormatSupported(format);
 
@@ -272,7 +272,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                 if (!gzTexture.GetMipMapImageArray(ref nativePtr, out uint size, out _, out _, out _,
                     out uint width, out uint height, out uint depth, mipChain, uncompress))
                     return false;
-                 
+
                 if (depth != 1)
                     return false;
 
@@ -284,7 +284,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                 result.wrapModeU = GetUnityTextureWrapMode(gzTexture.WrapS);
                 result.wrapModeV = GetUnityTextureWrapMode(gzTexture.WrapT);
                 result.wrapModeW = GetUnityTextureWrapMode(gzTexture.WrapR);
-                
+
 
                 if (!result)
                     return false;
@@ -308,7 +308,7 @@ namespace Saab.Foundation.Unity.MapStreamer
                 result.LoadRawTextureData(nativePtr, (int)size);
 
 #endif
-                
+
                 switch (gzTexture.MinFilter)
                 {
                     case gzTexture.TextureMinFilter.LINEAR:
@@ -410,13 +410,15 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         private static bool IsGraphicsFormatSupported(GraphicsFormat format)
         {
-            
+
             if (!_supportedGraphicsFormats.TryGetValue(format, out bool supported))
             {
-                // SystemInfo.IsFormatSupported is a very slow operation, so
-                // we will cache the result for future queries.
-                supported = SystemInfo.IsFormatSupported(format, FormatUsage.Sample);
-                _supportedGraphicsFormats.Add(format, supported);
+#if UNITY_6000_0_OR_NEWER
+                supported = SystemInfo.IsFormatSupported(format, GraphicsFormatUsage.Sample);
+#else
+        supported = SystemInfo.IsFormatSupported(format, FormatUsage.Sample);
+#endif
+                _supportedGraphicsFormats[format] = supported;
             }
 
             if (!supported)
