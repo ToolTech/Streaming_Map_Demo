@@ -150,20 +150,20 @@ namespace Saab.Unity.Initializer
 
             // Enable multicast state listener
             EnableMulticastState();
-                        
 
-#region -------- Test Related stuff in init --------------------
+
+            #region -------- Test Related stuff in init --------------------
 
             //SetupJavaBindings();
 
             //test();
 
-#endregion
+            #endregion
 
             // Set up scene manager camera
-
-            SceneManager scenemanager = FindObjectOfType<SceneManager>();
-            CameraControl cameracontrol = FindObjectOfType<CameraControl>();
+            
+            SceneManager scenemanager = FindFirstObjectByType<SceneManager>();
+            CameraControl cameracontrol = FindFirstObjectByType<CameraControl>();
 
             scenemanager.MapUrl = KeyDatabase.GetDefaultUserKey("SceneManager/MapUrl", scenemanager.MapUrl);
 
