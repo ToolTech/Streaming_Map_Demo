@@ -126,6 +126,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             public static readonly int MeshBoundsMax = Shader.PropertyToID("MeshBoundsMax");
             public static readonly int VertexBufferStride = Shader.PropertyToID("VertexBufferStride");
             public static readonly int TexcoordOffset = Shader.PropertyToID("TexcoordOffset");
+            public static readonly int NormalOffset = Shader.PropertyToID("NormalOffset");
             public static readonly int PositionOffset = Shader.PropertyToID("PositionOffset");
             public static readonly int SurfaceHeightMap = Shader.PropertyToID("SurfaceHeightMap");
             public static readonly int Texture = Shader.PropertyToID("Texture");
@@ -338,6 +339,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             if (isAsset)
                 return;
 
+            //if (go.name != "15_8_5") //&& go.name != "15_8_6")
+            //    return;
+
+            //if (go.name != "15_16_14")
+            //    return;
+
             AddJob(go);
         }
 
@@ -383,7 +390,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             ComputeShader.SetVector(PlacementParameterID.TerrainSize, mesh.bounds.size);
             ComputeShader.SetVector(PlacementParameterID.NodeOffset, nodeOffset);
             ComputeShader.SetVector(PlacementParameterID.Resolution, pixelSize);
-            ComputeShader.SetMatrix(PlacementParameterID.ObjToWorld, go.transform.localToWorldMatrix);
 
             var meshCenter = nodeHandle.node.BoundaryCenter;
 
@@ -395,8 +401,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             var topLeftCorner = nodeHandle.featureInfo * new Vec3D(0, 0, 1);
 
             var nodeSize = (texSize * pixelSize);
-            var nodeOffsetDiff = nodeSize - new Vector2(mesh.bounds.size.x, mesh.bounds.size.z);
             var centerOffset = new Vec3D(topLeftCorner.x - utmPos.Easting, 0, topLeftCorner.y - utmPos.Northing);
+            var nodeOffsetDiff = Vector2.zero; // pixelSize * 2f;
+            nodeOffsetDiff.x *= -1;
 
             if (Math.Abs(centerOffset.x) < nodeSize.x / 2)
                 nodeOffsetDiff.x *= -1;
@@ -521,10 +528,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             int stride = mesh.GetVertexBufferStride(0);
             int texOffset = mesh.GetVertexAttributeOffset(UnityEngine.Rendering.VertexAttribute.TexCoord0);
             int posOffset = mesh.GetVertexAttributeOffset(UnityEngine.Rendering.VertexAttribute.Position);
+            int normalOffset = mesh.GetVertexAttributeOffset(UnityEngine.Rendering.VertexAttribute.Normal);
 
             // Pass values as bytes, no division by 4
             ComputeShader.SetInt(PlacementParameterID.PositionOffset, posOffset);
             ComputeShader.SetInt(PlacementParameterID.TexcoordOffset, texOffset);
+            ComputeShader.SetInt(PlacementParameterID.NormalOffset, normalOffset);
             ComputeShader.SetInt(PlacementParameterID.VertexBufferStride, stride);
 
             // Index count
@@ -533,7 +542,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             // ************* mesh bounds ************* //
             var nodeTexTopLeft = mesh.bounds.center -
-                new Vector3((float)offset.x + (texSize.x * pixelSize.x),
+                new Vector3((float)-offset.x,
                             (float)offset.y,
                             (float)offset.z);
             ComputeShader.SetVector(PlacementParameterID.MeshBoundsMax, nodeTexTopLeft);

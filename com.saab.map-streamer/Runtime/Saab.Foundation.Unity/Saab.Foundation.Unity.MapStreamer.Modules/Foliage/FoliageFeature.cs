@@ -17,11 +17,12 @@ using UnityEngine;
 using System.Collections.Generic;
 using System;
 using GizmoSDK.GizmoBase;
-using System.Linq;
 
 using ProfilerMarker = global::Unity.Profiling.ProfilerMarker;
 using ProfilerCategory = global::Unity.Profiling.ProfilerCategory;
 using System.Runtime.InteropServices;
+using Saab.Unity.Extensions;
+using Saab.Foundation.Map;
 
 namespace Saab.Foundation.Unity.MapStreamer.Modules
 {
@@ -78,7 +79,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public void Dispose()
         {
             if (surfaceHeight is RenderTexture rt)
-                rt?.Release();    
+                rt?.Release();
             TerrainPoints?.Release();
             PlacementMatrix?.Release();
             HeightMap?.Release();
@@ -168,7 +169,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 surfaceHeight = height,
                 HeightMap = heightMap
             };
-        
+
             data.TerrainPoints = new ComputeBuffer(size < 1 ? 1 : size, _foliageStride, ComputeBufferType.Append);
 
             FeaturePlacement(data);
@@ -346,10 +347,49 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         }
 
         private void PostCull()
-        {            
-           _placement.SetBuffer(_kernelPostCull, PlacementParameterID.AngleDepth, _angleDepth);
-           int groups = Mathf.CeilToInt(_angleDepth.count / 256f);
-           _placement.Dispatch(_kernelPostCull, groups < 1 ? 1 : groups, 1, 1);
+        {
+            _placement.SetBuffer(_kernelPostCull, PlacementParameterID.AngleDepth, _angleDepth);
+            int groups = Mathf.CeilToInt(_angleDepth.count / 256f);
+            _placement.Dispatch(_kernelPostCull, groups < 1 ? 1 : groups, 1, 1);
+        }
+
+        private Matrix4x4 FromBasis(Vector3 right, Vector3 up, Vector3 forward)
+        {
+            var m = Matrix4x4.identity;
+
+            // Columns are the basis vectors.
+            m.SetColumn(0, new Vector4(right.x, right.y, right.z, 0f));
+            m.SetColumn(1, new Vector4(up.x, up.y, up.z, 0f));
+            m.SetColumn(2, new Vector4(forward.x, forward.y, forward.z, 0f));
+
+            return m;
+        }
+
+        private Vector3 Flip(Vector3 v)
+        {
+            return new Vector3(v.x, v.y, -v.z);
+        }
+
+        private Matrix4x4 LocalToWorldMatrix(GameObject go)
+        {
+            if (!go.TryGetComponent<NodeHandle>(out var handle))
+                return Matrix4x4.identity;
+
+            var center = handle.node.BoundaryCenter;
+            MapControl.SystemMap.GlobalToWorld(center, out GizmoSDK.Coordinate.LatPos latPos);
+
+            var matrix = Matrix4x4.Translate(-center.ToVector3());
+            var pos = new MapPos();
+            pos.SetLatPos(latPos.Latitude, latPos.Longitude, latPos.Altitude);
+            var enu = pos.EnuToLocal();
+
+            var east = enu * new Vec3(1, 0, 0);
+            var north = enu * new Vec3(0, 1, 0);
+            var up = enu * new Vec3(0, 0, 1);
+
+            var rot = Matrix4x4.Rotate(UnityEngine.Quaternion.Euler(0f, 0f, 0f));
+
+            return go.transform.localToWorldMatrix * matrix.inverse * FromBasis((east.ToVector3()), (up.ToVector3()), (-north.ToVector3())) * rot * matrix;
         }
 
         private void PreCull()
@@ -368,7 +408,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
                 _placement.SetBuffer(_KernelPreCull, PlacementParameterID.AngleDepth, _angleDepth);
                 _placement.SetBuffer(_KernelPreCull, PlacementParameterID.InputBuffer, item.TerrainPoints);
-                _placement.SetMatrix(PlacementParameterID.ObjToWorld, go.transform.localToWorldMatrix);
+
+                _placement.SetMatrix(PlacementParameterID.ObjToWorld, LocalToWorldMatrix(go));
 
                 _placement.Dispatch(_KernelPreCull, groups < 1 ? 1 : groups, 1, 1);
             }
@@ -395,7 +436,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _placement.SetFloat(PlacementParameterID.maxHeight, maxHeight);
             _placement.SetVector(PlacementParameterID.CameraPosition, camera.transform.position);
             _placement.SetVector(PlacementParameterID.CameraRightVector, camera.transform.right);
-            _placement.SetVector(PlacementParameterID.CameraForwardVector, camera.transform.forward);          
+            _placement.SetVector(PlacementParameterID.CameraForwardVector, camera.transform.forward);
             _placement.SetVectorArray(PlacementParameterID.frustumPlanes, frustum);
 
             float verticalView = camera.fieldOfView;
@@ -433,7 +474,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
                 _placement.SetBuffer(_kernelCull, PlacementParameterID.AngleDepth, _angleDepth);
                 _placement.SetBuffer(_kernelCull, PlacementParameterID.InputBuffer, item.TerrainPoints);
-                _placement.SetMatrix(PlacementParameterID.ObjToWorld, go.transform.localToWorldMatrix);
+
+                Vector3 E = new(-0.2430f, 0.9700f, 0.0000f);
+                Vector3 N = new(-0.8210f, -0.2060f, 0.5330f);
+                Vector3 U = new(0.5170f, 0.1300f, 0.8460f);
+
+                _placement.SetMatrix(PlacementParameterID.ObjToWorld, LocalToWorldMatrix(go));
 
                 _placement.Dispatch(_kernelCull, groups < 1 ? 1 : groups, 1, 1);
             }
