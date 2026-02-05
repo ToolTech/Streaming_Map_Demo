@@ -119,11 +119,22 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             uint numNormals = 0;
 
-            if (!geom.GetNormalData<Vector3>(ref _normals, ref numNormals) /*|| numNormals != numVertices*/)
+            if (!geom.GetNormalData<Vector3>(ref _normals, ref numNormals))
+                return false;
+
+            if (numNormals == 1)
+            {
+                Vector3 normal = _normals[0];
+                if (_normals.Length < numVertices)
+                    _normals = new Vector3[numVertices];
+                Array.Fill(_normals, normal, 0, numVertices);
+                return true;
+            }
+
+            if (numNormals < numVertices)
                 return false;
 
             mesh.SetNormals(_normals, 0, numVertices);
-
             return true;
         }
 
@@ -131,10 +142,11 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             var numVertices = mesh.vertexCount;
 
-            if (Geometry.GenerateNormalData<Vector3>(ref _normals, (uint)numVertices, new Vec3(0,1,0)))
-            {
-                mesh.SetNormals(_normals, 0, numVertices);
-            }
+            if (_normals == null || _normals.Length < numVertices)
+                _normals = new Vector3[numVertices];
+            
+            Array.Fill(_normals, Vector3.up, 0, numVertices);
+            mesh.SetNormals(_normals, 0, numVertices);
         }
 
         private static void CopyTexcoords(Geometry geom, Mesh mesh)
