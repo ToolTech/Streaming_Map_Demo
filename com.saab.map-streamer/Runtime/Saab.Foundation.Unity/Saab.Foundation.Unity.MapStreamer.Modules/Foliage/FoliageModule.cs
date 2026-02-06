@@ -402,17 +402,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             var nodeSize = (texSize * pixelSize);
             var centerOffset = new Vec3D(topLeftCorner.x - utmPos.Easting, 0, topLeftCorner.y - utmPos.Northing);
-            var nodeOffsetDiff = Vector2.zero; // pixelSize * 2f;
-            nodeOffsetDiff.x *= -1;
-
-            if (Math.Abs(centerOffset.x) < nodeSize.x / 2)
-                nodeOffsetDiff.x *= -1;
-
-            if (Math.Abs(centerOffset.y) > nodeSize.y / 2)
-                nodeOffsetDiff.y *= -1;
-
-            centerOffset.x += nodeOffsetDiff.x;
-            centerOffset.y += nodeOffsetDiff.y;
 
             var heightmap = GenerateHeight(texSize, pixelSize, mesh, centerOffset);
 

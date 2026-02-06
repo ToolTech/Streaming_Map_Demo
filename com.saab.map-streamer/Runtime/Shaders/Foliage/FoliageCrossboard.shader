@@ -54,17 +54,18 @@ Shader "Custom/Foliage/Billboard"
 
 			struct FoliagePoint
 			{
-				float3 Position;
-				float  Pad0;
+				float3 Position;    // 12 bytes
+				float3 Color;       // 12 bytes
 
-				float3 Color;
-				float  Pad1;
+				float Height;       // 4 bytes
+				float Random;       // 4 bytes
+				float Visibility;   // 4 bytes
 
-				float Height;
-				float Random;
-				float Visibility;
-				float Pad2;
-			};
+				float3 up;          // 12 bytes
+				float3 right;       // 12 bytes
+    
+				float Pad0; // 4 bytes padding
+			}; // 64 bytes: AMD require data to be divisible by 16 bytes (caused by float3 => 16 bytes padding). Nvidia and Intel drivers automatically pads.
 
 			struct FoliageShaderData
 			{

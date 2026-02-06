@@ -355,6 +355,7 @@ MonoBehaviour:
   _latitude: 59.338024
   _longitude: 18.128561
   _nodeHandle: {fileID: 0}
+  _uvCoord: {x: 0, y: 0}
 --- !u!4 &800218312
 Transform:
   m_ObjectHideFlags: 0

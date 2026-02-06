@@ -30,15 +30,16 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
     public struct FoliagePoint
     {
         public Vector3 Position;
-        public float Pad0;
-
         public Vector3 Color;
-        public float Pad1;
 
         public float Height;
         public float Random;
         public float Visibility;
-        public float Pad2;
+
+        public Vector3 up;
+        public Vector3 right;
+
+        public float Pad0;
     }
 
     public struct FeatureData : IDisposable
@@ -387,9 +388,11 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             var north = enu * new Vec3(0, 1, 0);
             var up = enu * new Vec3(0, 0, 1);
 
+            //var rot = Matrix4x4.Rotate(UnityEngine.Quaternion.Euler(0f, Mathf.PI, 0f)); // GärdetNorm
             var rot = Matrix4x4.Rotate(UnityEngine.Quaternion.Euler(0f, 0f, 0f));
+            var enuBasis = FromBasis((east.ToVector3()), (up.ToVector3()), -(north.ToVector3()));
 
-            return go.transform.localToWorldMatrix * matrix.inverse * FromBasis((east.ToVector3()), (up.ToVector3()), (-north.ToVector3())) * rot * matrix;
+            return go.transform.localToWorldMatrix * matrix.inverse * enuBasis * rot * matrix;
         }
 
         private void PreCull()

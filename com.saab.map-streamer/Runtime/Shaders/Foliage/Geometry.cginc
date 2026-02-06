@@ -101,6 +101,9 @@ void Billboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStr
 	float random = _PointBuffer[p[0]].Random;
     float visibility = _PointBuffer[p[0]].Visibility;
 
+    float3 up = _PointBuffer[p[0]].up;
+    //float3 right = _PointBuffer[p[0]].right;
+	
 	// ********************* foliage type data  ********************* //
 
     int type = WeightedRandomHeight(random, height);
@@ -118,7 +121,7 @@ void Billboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStr
 	height = foliageHeight;
 	pos.y -= offset.y * height; // offset to handle Roots
 
-	float3 up = float3(0, 1, 0);
+	//float3 up = float3(0, 1, 0);
 	float3 look;
 
 	float halfHeight = 0.5 * height;
@@ -130,7 +133,7 @@ void Billboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStr
     look = pos - _WorldSpaceCameraPos;
 #endif
 	
-    float3 flatLook = normalize(float3(look.x, 0, look.z));
+    float3 flatLook = normalize(float3(look.x, look.y, look.z));
     float3 right = -cross(up, flatLook);
 
 	float3 v[4];
@@ -178,6 +181,9 @@ void Crossboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triSt
 	float random = _PointBuffer[p[0]].Random;
     float visibility = _PointBuffer[p[0]].Visibility;
 
+    float3 up = _PointBuffer[p[0]].up;
+    float3 right = _PointBuffer[p[0]].right;
+	
 	// ********************* foliage type data  ********************* //
 
 	// calculate the foliage (index) to place down
@@ -198,11 +204,11 @@ void Crossboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triSt
 	height = foliageHeight;
 	pos.y -= offset.y * height;		// offset to handle Roots
 
-	float3 up = normalize(float3(0, 1, 0));
-    float angle = (Random(random, 0.131) * 2 - 1) * kPi;
-	float3 randDir = float3(cos(angle), 0, sin(angle));
+	//float3 up = normalize(float3(0, 1, 0));
+	//float angle = (Random(random, 0.131) * 2 - 1) * kPi;
+	//float3 randDir = float3(cos(angle), 0, sin(angle));
 
-	float3 right = randDir;
+	//float3 right = randDir;
 	float3 front = normalize(-cross(up, right));
 
     float halfHeight = 0.5 * height;
@@ -307,6 +313,9 @@ void Grass(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStream)
 	float random = _PointBuffer[p[0]].Random;
     float visibility = _PointBuffer[p[0]].Visibility;
 
+    float3 up = _PointBuffer[p[0]].up;
+    float3 right = _PointBuffer[p[0]].right;
+	
 	// ********************* foliage type data  ********************* //
 
 	int type = floor(random * _foliageCount);	// calculate the foliage (index) to place down
@@ -319,7 +328,7 @@ void Grass(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStream)
 	float weight = _foliageData[type].Weight;
 
 	// *********** billboard ***********
-	float3 up = normalize(float3(0, 1, 0));
+	//float3 up = normalize(float3(0, 1, 0));
 	float3 center = pos;
 
 	//float distance = clamp((length(_WorldSpaceCameraPos - pos) / 20), 0, 1);

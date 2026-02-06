@@ -30,16 +30,17 @@
 struct FoliagePoint
 {
     float3 Position;    // 12 bytes
-    float Pad0;         // 4 bytes padding
-
     float3 Color;       // 12 bytes
-    float Pad1;         // 4 bytes padding
 
     float Height;       // 4 bytes
     float Random;       // 4 bytes
     float Visibility;   // 4 bytes
-    float Pad2;         // 4 bytes
-}; // 48 bytes: AMD require data to be divisible by 16 bytes (caused by float3 => 16 bytes padding). Nvidia and Intel drivers automatically pads.
+
+    float3 up;          // 12 bytes
+    float3 right;       // 12 bytes
+    
+    float Pad0; // 4 bytes padding
+}; // 64 bytes: AMD require data to be divisible by 16 bytes (caused by float3 => 16 bytes padding). Nvidia and Intel drivers automatically pads.
 
 struct FoliageShaderData
 {
@@ -550,15 +551,25 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
                     
                     float2 uvCoord = uv.xy / terrainResolution.xy;
                     
+                    float random = Random2D(rand);
+                     
+                    float angle = (Random(random, 0.131) * 2 - 1) * kPi;
+                    float3 randDir = float3(cos(angle), 0, sin(angle));
+                    
+                    float3 up = mul(ObjToWorld, float4(0, 1, 0, 0)).xyz;
+                    //up.z *= -1;
+                    float3 right = normalize(mul(ObjToWorld, float4(randDir.xyz, 0)).xyz);
+                    //right.z *= -1;
+                    
                     FoliagePoint res;
                     res.Position = coord.xyz;
                     res.Color = color; // float4(uvCoord.xy, 0, 1);
                     res.Random = 0.1;  //Random2D(rand);
-                    res.Height = 20;
-                    res.Visibility = 1;                    
+                    res.Height = 20; //surfaceHeight;
+                    res.Visibility = 1;        
+                    res.up = up;
+                    res.right = right;
                     res.Pad0 = 0;
-                    res.Pad1 = 0;
-                    res.Pad2 = 0;
                     
                     TerrainPoints.Append(res);
                 }
@@ -886,6 +897,7 @@ void CSCull(uint3 id : SV_DispatchThreadID)
     if (height == 0)
         return;
 
+    //float3 worldUp = mul(ObjToWorld, float4(0, 1, 0, 1)).xyz;
     float3 worldUp = float3(0, 1, 0);
     float3 topPadding = worldUp * height * 0.1;
     float3 topOffset = worldUp * (height - foliageData.Offset.y * height) - topPadding;
@@ -977,8 +989,11 @@ void CSPreCull(uint3 id : SV_DispatchThreadID)
     float height = GetFoliageHeight(data, foliageData);
     float halfheight = height * 0.5;
     
+    //float3 worldUp = mul(ObjToWorld, float4(0, 1, 0, 1)).xyz;
+    float3 worldUp = float3(0, 1, 0);
+
     //TODO: Skip this intermediate center-calculation and calculate corners directly?
-    float3 centerOffset = float3(0, 0.5, 0) * height;
+    float3 centerOffset = worldUp * 0.5f * height;
     float3 midPos = pos + centerOffset;
     float3 toFoliageMid = (midPos - CameraPosition);
     
@@ -997,8 +1012,7 @@ void CSPreCull(uint3 id : SV_DispatchThreadID)
         return;
 
     toFoliageMid = normalize(toFoliageMid);
-    float3 worldUp = float3(0, 1, 0);
-          
+    
     float3 toFoliageRight = normalize(cross(up, toFoliageMid));
 
     float scale = 0.02;
@@ -1033,9 +1047,9 @@ void CSClear(uint3 id : SV_DispatchThreadID)
     res.Random = 0;
     res.Height = 0;
     res.Visibility = 0;
+    res.up = float3(0, 1, 0);
+    res.right = float3(1, 0, 0);
     res.Pad0 = 0;
-    res.Pad1 = 0;
-    res.Pad2 = 0;
     
     TerrainPoints.Append(res);
 }

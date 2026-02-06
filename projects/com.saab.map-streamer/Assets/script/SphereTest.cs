@@ -34,7 +34,7 @@ public class SphereTest : MonoBehaviour
         pos.SetLatPos(latpos.Latitude, latpos.Longitude, latpos.Altitude);
 
         //DrawMatrix(pos.LocalToEnu());
-        //DrawMatrix(pos.EnuToLocal());
+        DrawMatrix(pos.EnuToLocal());
         //DrawOrientationMatrix(latpos);
 
         var enu = Coordinate.GetOrientationMatrix(latpos);
@@ -79,57 +79,21 @@ public class SphereTest : MonoBehaviour
         var latpos = new LatPos(_latitude * Coordinate.DEG2RAD, _longitude * Coordinate.DEG2RAD, 0);
         var pos = new MapPos();
         pos.SetLatPos(latpos.Latitude, latpos.Longitude, latpos.Altitude);
-        //var localToEnu = pos.LocalToEnu();
+        var enu = pos.EnuToLocal();
 
         // ---------- Matrix ----------
 
         var NodeMatrix = Matrix4x4.Translate(-centerPos);
-        var enu = Coordinate.GetOrientationMatrix(latPos);
+        //var enu = Coordinate.GetOrientationMatrix(latPos);
 
         var east = enu * new Vec3(1, 0, 0);
         var north = enu * new Vec3(0, 1, 0);
         var up = enu * new Vec3(0, 0, 1);
 
-        var localToEnu = FromBasis((east.ToVector3()), (north.ToVector3()), (up.ToVector3()));
-
+        var localToEnu = FromBasis((east.ToVector3()), (up.ToVector3()), (north.ToVector3()));
         var finalMatrix = handle.transform.localToWorldMatrix * NodeMatrix.inverse * localToEnu * NodeMatrix;
 
         DrawMatrix(finalMatrix, handle.transform, handle.transform.localToWorldMatrix * Flip(centerPos));
-    }
-
-    Vector3 NodeTopLeft(NodeHandle handle, Vector2 texSize, Vector2 pixelSize)
-    {
-        if (!handle.TryGetComponent<MeshFilter>(out var meshFilter))
-            return Vector3.zero;
-
-        var mesh = meshFilter.sharedMesh;
-        var meshCenter = handle.node.BoundaryCenter;
-
-        MapControl.SystemMap.GlobalToWorld(meshCenter, out GizmoSDK.Coordinate.CartPos cartPos);
-        _coordConverter.SetCartPos(cartPos);
-        _coordConverter.GetUTMPos(out var utmPos);
-
-        var topLeftCorner = handle.featureInfo * new Vec3D(0, 0, 1);
-
-        var nodeSize = (texSize * pixelSize);
-        var nodeOffsetDiff = nodeSize - new Vector2(mesh.bounds.size.x, mesh.bounds.size.z);    // HERE!!!!!! assume flat mesh !!!!!!!!!
-        var centerOffset = new Vec3D(topLeftCorner.x - utmPos.Easting, 0, topLeftCorner.y - utmPos.Northing);
-
-        if (Math.Abs(centerOffset.x) < nodeSize.x / 2)
-            nodeOffsetDiff.x *= -1;
-
-        if (Math.Abs(centerOffset.y) > nodeSize.y / 2)
-            nodeOffsetDiff.y *= -1;
-
-        centerOffset.x += nodeOffsetDiff.x;
-        centerOffset.y += nodeOffsetDiff.y;
-
-        var nodeTexTopLeft = mesh.bounds.center -
-        new Vector3((float)centerOffset.x + (texSize.x * pixelSize.x),
-                    (float)centerOffset.y,
-                    (float)centerOffset.z);
-
-        return nodeTexTopLeft;
     }
 
     Vector3 NodeTopLeftNew(NodeHandle handle, Vector2 texSize, Vector2 pixelSize)
@@ -148,17 +112,17 @@ public class SphereTest : MonoBehaviour
         var nodeSize = (texSize * pixelSize);
         
         var leftCornerNode = new Vec3D(topLeftCorner.x - utmPos.Easting, 0, topLeftCorner.y - utmPos.Northing);
-        var nodeOffsetDiff = pixelSize * 2f;
-        nodeOffsetDiff.x *= -1;
+        //var nodeOffsetDiff = pixelSize * 2f;
+        //nodeOffsetDiff.x *= -1;
 
-        if (Math.Abs(leftCornerNode.x) < nodeSize.x / 2)
-            nodeOffsetDiff.x *= -1;
+        //if (Math.Abs(leftCornerNode.x) < nodeSize.x / 2)
+        //    nodeOffsetDiff.x *= -1;
 
-        if (Math.Abs(leftCornerNode.y) > nodeSize.y / 2)
-            nodeOffsetDiff.y *= -1;
+        //if (Math.Abs(leftCornerNode.y) > nodeSize.y / 2)
+        //    nodeOffsetDiff.y *= -1;
 
-        leftCornerNode.x += nodeOffsetDiff.x;
-        leftCornerNode.y += nodeOffsetDiff.y;
+        //leftCornerNode.x += nodeOffsetDiff.x;
+        //leftCornerNode.y += nodeOffsetDiff.y;
 
         var nodeTexTopLeft = mesh.bounds.center -
         new Vector3((float)-leftCornerNode.x,
@@ -185,7 +149,7 @@ public class SphereTest : MonoBehaviour
         Vector2 pixelOverlap = new Vector2(2, 0);
         //_uvCoord += pixelOverlap
 
-        var topLeft = NodeTopLeft(handle, texSize, pixelSize);
+        var topLeft = NodeTopLeftNew(handle, texSize, pixelSize);
         var topLeftCorner = NodeTopLeftNew(handle, texSize, pixelSize);
 
         var pos = GetPixelCoord(_uvCoord + pixelOverlap, pixelSize, topLeft, 0);
@@ -226,14 +190,16 @@ public class SphereTest : MonoBehaviour
 
         //Gizmos.DrawWireSphere(handle.transform.localToWorldMatrix * Flip(centerPos), 50f);
 
+        var center = /*newTransform.localToWorldMatrix **/ (newTransform.position);
+
         Gizmos.color = Color.red;
-        Gizmos.DrawRay(origin, newTransform.localToWorldMatrix * Flip(east) * 4000);
+        Gizmos.DrawRay(center, newTransform.localToWorldMatrix * Flip(east) * 4000);
 
         Gizmos.color = Color.green;
-        Gizmos.DrawRay(origin, newTransform.localToWorldMatrix * Flip(north) * 4000);
+        Gizmos.DrawRay(center, newTransform.localToWorldMatrix * Flip(north) * 4000);
 
         Gizmos.color = Color.blue;
-        Gizmos.DrawRay(origin, newTransform.localToWorldMatrix * Flip(up) * 4000);
+        Gizmos.DrawRay(center, newTransform.localToWorldMatrix * Flip(up) * 4000);
 
         //Gizmos.color = Color.red;
         //Gizmos.DrawRay(origin, (east) * 4000);
