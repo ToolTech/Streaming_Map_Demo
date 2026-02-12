@@ -120,7 +120,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             public static readonly int FrameCount = Shader.PropertyToID("FrameCount");
             public static readonly int Occlusion = Shader.PropertyToID("Occlusion");
             public static readonly int DownscaleFactor = Shader.PropertyToID("DownscaleFactor");
-            public static readonly int HeightMap = Shader.PropertyToID("HeightMap");
+            //public static readonly int HeightMap = Shader.PropertyToID("HeightMap");
             public static readonly int IndexBuffer = Shader.PropertyToID("IndexBuffer");
             public static readonly int VertexBuffer = Shader.PropertyToID("VertexBuffer");
             public static readonly int MeshBoundsMax = Shader.PropertyToID("MeshBoundsMax");
@@ -129,6 +129,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             public static readonly int NormalOffset = Shader.PropertyToID("NormalOffset");
             public static readonly int PositionOffset = Shader.PropertyToID("PositionOffset");
             public static readonly int SurfaceHeightMap = Shader.PropertyToID("SurfaceHeightMap");
+            public static readonly int PixelToObjectCoord = Shader.PropertyToID("PixelToObjectCoord");
+
             public static readonly int Texture = Shader.PropertyToID("Texture");
             public static readonly int Density = Shader.PropertyToID("Density");
 
@@ -497,7 +499,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             return dst;
         }
 
-        private RenderTexture GenerateHeight(Vector2 texSize, Vector2 pixelSize, Mesh mesh, Vec3D offset)
+        private ComputeBuffer GenerateHeight(Vector2 texSize, Vector2 pixelSize, Mesh mesh, Vec3D offset)
         {
             ComputeShader.SetVector(PlacementParameterID.Resolution, pixelSize);
 
@@ -537,17 +539,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             ComputeShader.SetVector(PlacementParameterID.MeshBoundsMax, nodeTexTopLeft);
 
             // ************* Generate Height Map ************* //
-            int kernelHeight = ComputeShader.FindKernel("CSHeightMap");
+            int kernelHeight = ComputeShader.FindKernel("CSPixelToObject");
 
-            if (_heightMap != null)
-                _heightMap.Release();
-
-            _heightMap = new RenderTexture((int)texSize.x, (int)texSize.y, 24, RenderTextureFormat.RFloat)
-            {
-                enableRandomWrite = true,
-                name = "foliagemodule - HeightMap"
-            };
-            _heightMap.Create();
+            ComputeBuffer _pixelToObject = new ComputeBuffer(Mathf.CeilToInt(texSize.x * texSize.y), sizeof(float) * 3, ComputeBufferType.Default);
 
             int triangleCount = Mathf.CeilToInt(indicesCount / 3f);
             ComputeShader.SetInt(PlacementParameterID.IndexCount, triangleCount);
@@ -555,7 +549,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             // Bind buffers and textures
             ComputeShader.SetBuffer(kernelHeight, PlacementParameterID.VertexBuffer, _vertexBuffer);
             ComputeShader.SetBuffer(kernelHeight, PlacementParameterID.IndexBuffer, _indexbufferGpuCopy);
-            ComputeShader.SetTexture(kernelHeight, PlacementParameterID.HeightMap, _heightMap);
+            ComputeShader.SetBuffer(kernelHeight, PlacementParameterID.PixelToObjectCoord, _pixelToObject);
 
             // Dispatch
             int threads = Mathf.CeilToInt(triangleCount / 4f);
@@ -567,7 +561,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _vertexBuffer?.Release();
             _indexbufferGpuCopy?.Release();
 
-            return _heightMap;
+            return _pixelToObject;
         }
 
         private IEnumerator WaitForDepth()

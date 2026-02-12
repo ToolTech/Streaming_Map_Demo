@@ -15,29 +15,26 @@
 
 #pragma kernel CSPlacement
 #pragma kernel CSSurfaceHeightMap
-#pragma kernel CSHeightMap
+#pragma kernel CSPixelToObject
 #pragma kernel CSCull
 #pragma kernel CSPreCull
 #pragma kernel CSPostCull
 #pragma kernel CSFindBufferSize
-#pragma kernel CSFindMinUv
-#pragma kernel CSFindMinMax
-//#pragma kernel CSDownscaleDepth
 #pragma kernel CSClear
 
 #include "UnityCG.cginc"
 
 struct FoliagePoint
 {
-    float3 Position;    // 12 bytes
-    float3 Color;       // 12 bytes
+    float3 Position; // 12 bytes
+    float3 Color; // 12 bytes
 
-    float Height;       // 4 bytes
-    float Random;       // 4 bytes
-    float Visibility;   // 4 bytes
+    float Height; // 4 bytes
+    float Random; // 4 bytes
+    float Visibility; // 4 bytes
 
-    float3 up;          // 12 bytes
-    float3 right;       // 12 bytes
+    float3 up; // 12 bytes
+    float3 right; // 12 bytes
     
     float Pad0; // 4 bytes padding
 }; // 64 bytes: AMD require data to be divisible by 16 bytes (caused by float3 => 16 bytes padding). Nvidia and Intel drivers automatically pads.
@@ -60,30 +57,28 @@ static const float kFoliageHeightMutator = 0.321;
 ByteAddressBuffer VertexBuffer;
 ByteAddressBuffer IndexBuffer;
 
-uint PositionOffset;        // in bytes
-uint TexcoordOffset;        // in bytes
-uint NormalOffset;          // in bytes
-uint VertexBufferStride;    // in bytes
-uint indexCount;            // mesh index count
+uint PositionOffset; // in bytes
+uint TexcoordOffset; // in bytes
+uint NormalOffset; // in bytes
+uint VertexBufferStride; // in bytes
+uint indexCount; // mesh index count
 
 RWStructuredBuffer<uint> BufferSize;
 RWStructuredBuffer<uint> MinXY;
-
 StructuredBuffer<bool> FeatureMap; // feature map => int[255] 
 
-AppendStructuredBuffer<FoliagePoint> TerrainPoints;     // Calculated points for one mesh
-RWStructuredBuffer<FoliagePoint> InputBuffer;           // buffer with all points
-StructuredBuffer<float> PixelToWorld;                   // matrix pixel to world (worldpixel coord)VertexBuffer
-AppendStructuredBuffer<FoliagePoint> OutputBuffer;      // buffer with all (frustum) culled points 
-
+AppendStructuredBuffer<FoliagePoint> TerrainPoints; // Calculated points for one mesh
+RWStructuredBuffer<FoliagePoint> InputBuffer; // buffer with all points
+StructuredBuffer<float> PixelToWorld; // matrix pixel to world (worldpixel coord)VertexBuffer
+AppendStructuredBuffer<FoliagePoint> OutputBuffer; // buffer with all (frustum) culled points 
 RWStructuredBuffer<uint> AngleDepth;
+RWStructuredBuffer<float3> PixelToObjectCoord; // pixelIndex to objectspace
 
 // textures input
 Texture2D<unorm float> SplatMap;
 Texture2D<float4> Texture;
 Texture2D<unorm float> HeightSurface;
 RWTexture2D<float> SurfaceHeightMap;
-RWTexture2D<float> HeightMap;
 Texture2D<float> DepthTexture;
 
 uint DownscaleFactor;
@@ -113,8 +108,8 @@ float2 heightResolution; // Resolution of height texture
 float3 terrainSize; // size of terrain (mesh) size
 float2 Resolution; // the size of each pixel in meters
 float Density; // density of trees
-float3 MeshBoundsMax;   // Mesh offset
-float4x4 ObjToWorld;    // Local To World
+float3 MeshBoundsMax; // Mesh offset
+float4x4 ObjToWorld; // Local To World
 float ScreenCoverage;
 
 uint FoliageCount;
@@ -130,6 +125,49 @@ bool InsideTriangle(float2 p, float2 A, float2 B, float2 C)
     float t = (A.x * B.y - A.y * B.x + (A.y - B.y) * p.x + (B.x - A.x) * p.y) * sign;
 
     return s >= 0 && t >= 0 && (s + t) <= 2 * area * sign;
+}
+
+bool BarycentricInTriangle(float2 pt, float2 v0, float2 v1, float2 v2, out float3 w)
+{
+    float2 v0v1 = v1 - v0;
+    float2 v0v2 = v2 - v0;
+    float2 v0pt = pt - v0;
+
+    float d00 = dot(v0v1, v0v1);
+    float d01 = dot(v0v1, v0v2);
+    float d11 = dot(v0v2, v0v2);
+    float d20 = dot(v0pt, v0v1);
+    float d21 = dot(v0pt, v0v2);
+
+    float denom = d00 * d11 - d01 * d01;
+    if (abs(denom) < 1e-12)
+    {
+        w = float3(1, 0, 0);
+        return false;
+    }
+
+    float invDen = 1.0 / denom;
+
+    float u = (d11 * d20 - d01 * d21) * invDen; // weight for v1
+    float v = (d00 * d21 - d01 * d20) * invDen; // weight for v2
+
+    float w0 = 1.0 - u - v;
+    w = float3(w0, u, v);
+
+    // allow tiny epsilon for edge hits
+    const float eps = 1e-6;
+    return (u >= -eps) && (v >= -eps) && (u + v <= 1.0 + eps);
+}
+
+bool PositionFromUVInTri(
+    float2 uv, float2 uv0, float2 uv1, float2 uv2,
+    float3 p0, float3 p1, float3 p2,
+    out float3 pos)
+{
+    float3 w;
+    bool inside = BarycentricInTriangle(uv, uv0, uv1, uv2, w);
+    pos = p0 * w.x + p1 * w.y + p2 * w.z;
+    return inside;
 }
 
 // ************* Plane Intersect ************* //
@@ -178,7 +216,30 @@ float GetHeightOfPlaneAtXZ(float3 planeNormal, float3 pointInPlane, float2 xz, o
     return pointInPlane.y + diffX * yByX + diffZ * yByZ;
 }
 
-float3 GetPixelCoord(float2 uv, float height = 0)
+float LengthAlongVectorNormalized(float3 vNorm, float3 p)
+{
+    return dot(p, vNorm);
+}
+
+uint PixelToIndex(uint2 pixel, uint2 resolution)
+{
+    return pixel.y * resolution.x + pixel.x;
+}
+
+uint2 IndexToPixel(uint index, uint2 resolution)
+{
+    uint y = index / resolution.x;
+    uint x = index % resolution.x;
+    return uint2(x, y);
+}
+
+float3 GetPixelCoord(float2 uv)
+{
+    uint index = PixelToIndex(uv, terrainResolution);
+    return PixelToObjectCoord[index];
+}
+
+float3 GetPixelCoord(float2 uv, float height)
 {
     // z-coordinate is negative because of the infamous BTA Z-flip	
     //float3 coord = float3(uv.x * Resolution.x + MeshBoundsMax.x, height, -uv.y * Resolution.y + MeshBoundsMax.z);
@@ -201,15 +262,20 @@ float Random2D(float2 input, float mutator = 0.546)
 
 float BilinearHeight(int2 texCoord, float2 frac)
 {
-    float dl, dr, ul, ur;
+    float3 dl, dr, ul, ur;
 
-    dl = HeightMap[texCoord].r;
-    dr = HeightMap[int2(texCoord.x + 1, texCoord.y)].r;
-    ul = HeightMap[int2(texCoord.x, texCoord.y + 1)].r;
-    ur = HeightMap[int2(texCoord.x + 1, texCoord.y + 1)].r;
+    uint index_dl = PixelToIndex(texCoord, terrainResolution);
+    uint index_dr = PixelToIndex(int2(texCoord.x + 1, texCoord.y), terrainResolution);
+    uint index_ul = PixelToIndex(int2(texCoord.x, texCoord.y + 1), terrainResolution);
+    uint index_ur = PixelToIndex(int2(texCoord.x + 1, texCoord.y + 1), terrainResolution);
+    
+    dl = PixelToObjectCoord[index_dl];
+    dr = PixelToObjectCoord[index_dr];
+    ul = PixelToObjectCoord[index_ul];
+    ur = PixelToObjectCoord[index_ur];
 
-    float dx = lerp(dl, dr, frac.x);
-    float ux = lerp(ul, ur, frac.x);
+    float3 dx = lerp(dl, dr, frac.x);
+    float3 ux = lerp(ul, ur, frac.x);
 
     return lerp(ux, dx, frac.y);
 }
@@ -275,6 +341,28 @@ float2 GetTexCoord(uint index)
     return float2(x, y);
 }
 
+uint3 loadTriangleIndices(uint nTriangle)
+{
+    uint offsetBytes = nTriangle * 6;
+    uint dwordAlignedOffset = offsetBytes & ~3;
+    uint2 four16BitIndices = IndexBuffer.Load2(dwordAlignedOffset);
+
+    uint3 indices;
+    if (dwordAlignedOffset == offsetBytes)
+    {
+        indices.x = four16BitIndices.x & 0xffff;
+        indices.y = (four16BitIndices.x >> 16) & 0xffff;
+        indices.z = four16BitIndices.y & 0xffff;
+    }
+    else
+    {
+        indices.x = (four16BitIndices.x >> 16) & 0xffff;
+        indices.y = four16BitIndices.y & 0xffff;
+        indices.z = (four16BitIndices.y >> 16) & 0xffff;
+    }
+    return indices;
+}
+
 // ************* Handle foliage Height ************* //
 
 int WeightedRandomHeight(float random, float height)
@@ -318,26 +406,6 @@ float GetFoliageHeight(FoliagePoint data, FoliageShaderData foliageData)
     return foliageHeight;
 }
 
-// ************* Find min uv value ************* //
-[numthreads(32, 1, 1)]
-void CSFindMinUv(uint3 id : SV_DispatchThreadID)
-{
-    if (id.x >= uvCount)
-        return;
-
-    InterlockedMin(MinXY[0], (uint) (GetTexCoord(id.x).x * terrainResolution));
-    InterlockedMin(MinXY[1], (uint) (GetTexCoord(id.x).y * terrainResolution));
-}
-
-[numthreads(8, 8, 1)]
-void CSFindMinMax(uint3 id : SV_DispatchThreadID)
-{
-    float height = HeightSurface[id.xy] * 255;
-
-    InterlockedMin(MinXY[0], (uint) (height));
-    InterlockedMax(MinXY[1], (uint) (height));
-}
-
 // ************* Generate Placement ************* //
 [numthreads(8, 8, 1)]
 void CSFindBufferSize(uint3 id : SV_DispatchThreadID)
@@ -357,36 +425,9 @@ void CSSurfaceHeightMap(uint3 id : SV_DispatchThreadID)
     SurfaceHeightMap[id.xy] = 3 + length(color) / 3 * 18;
 }
 
-uint3 loadTriangleIndices(uint nTriangle)
-{
-    uint offsetBytes = nTriangle * 6;
-    uint dwordAlignedOffset = offsetBytes & ~3;
-    uint2 four16BitIndices = IndexBuffer.Load2(dwordAlignedOffset);
-
-    uint3 indices;
-    if (dwordAlignedOffset == offsetBytes)
-    {
-        indices.x = four16BitIndices.x & 0xffff;
-        indices.y = (four16BitIndices.x >> 16) & 0xffff;
-        indices.z = four16BitIndices.y & 0xffff;
-    }
-    else
-    {
-        indices.x = (four16BitIndices.x >> 16) & 0xffff;
-        indices.y = four16BitIndices.y & 0xffff;
-        indices.z = (four16BitIndices.y >> 16) & 0xffff;
-    }
-    return indices;
-}
-
-float LengthAlongVectorNormalized(float3 vNorm, float3 p)
-{
-    return dot(p, vNorm);
-}
-
-// ************* Height Map Gen ************* //
+// ************* PixelToObject ************* //
 [numthreads(4, 4, 4)]
-void CSHeightMap(uint3 id : SV_DispatchThreadID)
+void CSPixelToObject(uint3 id : SV_DispatchThreadID)
 {
     if (id.x >= indexCount)
         return;
@@ -396,24 +437,10 @@ void CSHeightMap(uint3 id : SV_DispatchThreadID)
     float3 v1 = GetPosition(indexIndices.x);
     float3 v2 = GetPosition(indexIndices.y);
     float3 v3 = GetPosition(indexIndices.z);
-    
-    float3 n1 = GetNormal(indexIndices.x);
-    float3 n2 = GetNormal(indexIndices.y);
-    float3 n3 = GetNormal(indexIndices.z);
 
-    float3 localEnu = normalize(n1 + n2 + n3);
-    
     float2 uv1 = GetTexCoord(indexIndices.x) * terrainResolution;
     float2 uv2 = GetTexCoord(indexIndices.y) * terrainResolution;
     float2 uv3 = GetTexCoord(indexIndices.z) * terrainResolution;
-
-    float3 planeNormal = normalize(cross(v2 - v1, v3 - v1));
-    
-    float height1 = LengthAlongVectorNormalized(localEnu, v1);
-    float height2 = LengthAlongVectorNormalized(localEnu, v2);
-    float height3 = LengthAlongVectorNormalized(localEnu, v2);
-    
-    float maxHeight = max(max(height1, height2), height3);
 
     // bounding box
     uint Xmin = (uint) floor(min(min(uv1.x, uv2.x), uv3.x));
@@ -432,9 +459,7 @@ void CSHeightMap(uint3 id : SV_DispatchThreadID)
     uint sliceHeight = (height + 3) / 4; // ceil(height/4)
     uint startY = Ymin + id.z * sliceHeight;
     uint endY = min(Ymax, startY + sliceHeight - 1);
-
-    bool success = true;
-
+    
     for (uint x = startX; x <= endX; x++)
     {
         for (uint y = startY; y <= endY; y++)
@@ -443,16 +468,11 @@ void CSHeightMap(uint3 id : SV_DispatchThreadID)
                 continue;
 
             uint2 uv = uint2(x, y);
-            if (InsideTriangle(uv, round(uv1), round(uv2), round(uv3)))
+            float3 result;
+            if (PositionFromUVInTri(uv, uv1, uv2, uv3, v1, v2, v3, result))
             {
-                float3 pixelCoord = GetPixelCoord(uv, 1024);
-                float heightVal = GetHeightOfPlaneAtXZ(planeNormal, v1, pixelCoord.xz, success); //FIX!!!!!!!
-                
-                success = false; // TEST
-                if (!success)
-                    heightVal = maxHeight;
-
-                HeightMap[uv] = heightVal;
+                uint index = PixelToIndex(uv, terrainResolution);
+                PixelToObjectCoord[index] = result;
             }
         }
     }
@@ -479,10 +499,14 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
     float2 subPixel = float2(subPixelX, subPixelY);
 
     uint2 uv = id.xy;
-    //uint2 rotUV = uint2(uv.y, terrainResolution.x - uv.x);
 
+    float3 up = mul(ObjToWorld, float4(0, 1, 0, 0)).xyz;
+    up.z *= -1;
+    float3 right = normalize(mul(ObjToWorld, float4(1, 0, 0, 0)).xyz);
+    right.z *= -1;
+    
     uint feature = uint(SplatMap[uv] * 255);
-    float2 pixelOverlap = float2(2, 0);
+    float2 pixelOverlap = float2(2, 2);
 
     if (FeatureMap[feature])
     {
@@ -507,18 +531,19 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
                 float offsetX = (wpx - worldCoord.x);
                 float offsetY = (wpy - worldCoord.y);
                 
-                float3 pixelCoord = GetPixelCoord(uv + pixelOffset + pixelOverlap);
+                float3 pixelCoord = GetPixelCoord(uv); //+ pixelOffset + pixelOverlap);
                 float2 foliagePoint = float2(pixelCoord.x + offsetX, pixelCoord.z - offsetY);
-
+                
                 float2 randoffset = fmod(GetWorldCoord(uv, ToWorldTexCoord, NodeOffset), 1000);
                 float2 rand = randoffset * 0.001;
                 rand += Random(rand.x + rand.y);
 
                 float angle = (Random2D(rand, 3.731) * 2 - 1) * 3.141592;
-                float2 randDir = float2(cos(angle), sin(angle));
+                float3 randDir = 0; // float2(cos(angle), sin(angle));
                 
                 float distance = Random2D(rand, 12.243) * (stepsize * 0.5) * 1.5;
-                float2 randomPoint = 0; //randDir * distance;
+                float2 randomPoint = randDir * distance;
+                
                 float2 uvfrac = frac(randomPoint / Resolution);
                 float2 uvOffset = floor(randomPoint / Resolution);
                 uvOffset.y *= -1;
@@ -528,15 +553,14 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
                     continue;
 
                 feature = uint(SplatMap[uv + uvOffset] * 255);
-                float height = BilinearHeight(uv + uvOffset, uvfrac);
+                float3 movedCoord = BilinearHeight(uv + uvOffset, uvfrac);
 
                 if (offsetX < (Resolution.x * subPixelX) && offsetY < (Resolution.y * subPixelY))
                 {
                     float3 color = Texture[uv + uvOffset].xyz;
-                    float2 corrd = float2(clamp((uv + uvOffset).x - 1, 0, terrainResolution.x - 2), clamp((uv + uvOffset).y - 1, 0, terrainResolution.y - 2));
+                    float2 texCoord = float2(clamp((uv + uvOffset).x - 1, 0, terrainResolution.x - 2), clamp((uv + uvOffset).y - 1, 0, terrainResolution.y - 2));
 
-                    float2 uvHeight = (corrd / (terrainResolution.xy)) * heightResolution.xy;
-
+                    float2 uvHeight = (texCoord / (terrainResolution.xy)) * heightResolution.xy;
                     float surfaceHeight = HeightSurface[uvHeight] * 255;
 
                     // Check if surfaceHeight is "Undefined" give random value as in CSSurfaceHeightMap
@@ -545,28 +569,16 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
                         surfaceHeight = (3 + length(color) / 3 * 18) * 255;
                     }
                                            
-                    // this assume up is (0,1,0), right (1,0,0), forward (0,0,1)
-                    height = 20;
-                    float3 coord = float3(foliagePoint.x + randomPoint.x, pixelCoord.y + height, foliagePoint.y + randomPoint.y);
-                    
-                    float2 uvCoord = uv.xy / terrainResolution.xy;
-                    
-                    float random = Random2D(rand);
-                     
-                    float angle = (Random(random, 0.131) * 2 - 1) * kPi;
-                    float3 randDir = float3(cos(angle), 0, sin(angle));
-                    
-                    float3 up = mul(ObjToWorld, float4(0, 1, 0, 0)).xyz;
-                    //up.z *= -1;
-                    float3 right = normalize(mul(ObjToWorld, float4(randDir.xyz, 0)).xyz);
-                    //right.z *= -1;
+                    //float3 coord = float3(foliagePoint.x + randomPoint.x, pixelCoord.y, foliagePoint.y + randomPoint.y);   
+                    float3 coord = pixelCoord.xyz;
+                    float2 uvCoord = uv.xy / terrainResolution.xy;                  
                     
                     FoliagePoint res;
                     res.Position = coord.xyz;
                     res.Color = color; // float4(uvCoord.xy, 0, 1);
-                    res.Random = 0.1;  //Random2D(rand);
-                    res.Height = 20; //surfaceHeight;
-                    res.Visibility = 1;        
+                    res.Random = Random2D(rand);
+                    res.Height = surfaceHeight;
+                    res.Visibility = 1;
                     res.up = up;
                     res.right = right;
                     res.Pad0 = 0;
@@ -612,10 +624,10 @@ bool IsHidden(float3 worldPos, float height, float3 toFoliage)
     
     int2 downscale = int2(DownscaleFactor, DownscaleFactor);
     int2 screenSize = int2(_ScreenParams.xy);
-    int2 lowResSize = floor(screenSize / (float)downscale);
+    int2 lowResSize = floor(screenSize / (float) downscale);
     
-    int2 minXY = int2(floor(min(bottomLeft.xy, topRight.xy) / (float)downscale));
-    int2 maxXY = int2(ceil(max(bottomLeft.xy, topRight.xy) / (float)downscale));
+    int2 minXY = int2(floor(min(bottomLeft.xy, topRight.xy) / (float) downscale));
+    int2 maxXY = int2(ceil(max(bottomLeft.xy, topRight.xy) / (float) downscale));
     
     // 1-pixel safety margin
     minXY -= 1;
@@ -746,14 +758,14 @@ void FillSkewedRectangleInterlockedMin(uint minIndex, uint maxIndex, float dista
     
     int rWidth = GetRectangleWidth(minIndex, maxIndex, bufferWidth);
     uint index = minIndex;
-    uint rows = floor((float)(maxIndex - minIndex) / (float)bufferWidth);
+    uint rows = floor((float) (maxIndex - minIndex) / (float) bufferWidth);
     uint currentRow = 0;
     
     while (index < maxIndex)
     {
-        uint rowStart = floor((float)index / (float)bufferWidth) * bufferWidth;
-        uint rowEnd = ceil((float)index / (float)bufferWidth) * bufferWidth;
-        int skew = (float)currentRow * tilt;
+        uint rowStart = floor((float) index / (float) bufferWidth) * bufferWidth;
+        uint rowEnd = ceil((float) index / (float) bufferWidth) * bufferWidth;
+        int skew = (float) currentRow * tilt;
         
         int startIndex = index + skew;
         uint endIndex = startIndex + rWidth;
@@ -876,7 +888,7 @@ bool HiddenCheck(uint depth, float distance, float height)
 [numthreads(128, 1, 1)]
 void CSCull(uint3 id : SV_DispatchThreadID)
 {
-    FoliagePoint data = InputBuffer[id.x]; 
+    FoliagePoint data = InputBuffer[id.x];
             
     // handle points with no value. (allocated points in buffer is by default float3(0,0,0))
     if (dot(data.Position, data.Position) == 0)
@@ -886,7 +898,7 @@ void CSCull(uint3 id : SV_DispatchThreadID)
     float3 right = CameraRightVector;
     float3 up = normalize(cross(forward, right));
     
-    FoliageShaderData foliageData = (FoliageShaderData)0;
+    FoliageShaderData foliageData = (FoliageShaderData) 0;
     bool dataFound = GetRandomizedData(data, foliageData);
     
     if (!dataFound)
@@ -935,7 +947,7 @@ void CSCull(uint3 id : SV_DispatchThreadID)
     if (IsInFrustum(toFoliageMid, -height))
     {
         if (uint(FrameCount) % 2 == id.x % 2)
-        {   
+        {
             if (Occlusion && IsHidden(pos, height, normalize(toFoliageMid)))
             {
                 //return;
@@ -980,7 +992,7 @@ void CSPreCull(uint3 id : SV_DispatchThreadID)
         return;
     
     float3 pos = mul(ObjToWorld, float4(data.Position.xyz, 1)).xyz;
-    FoliageShaderData foliageData = (FoliageShaderData)0;
+    FoliageShaderData foliageData = (FoliageShaderData) 0;
     bool dataFound = GetRandomizedData(data, foliageData);
     
     if (!dataFound)
