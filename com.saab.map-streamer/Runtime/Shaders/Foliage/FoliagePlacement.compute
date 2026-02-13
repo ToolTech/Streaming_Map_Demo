@@ -57,11 +57,11 @@ static const float kFoliageHeightMutator = 0.321;
 ByteAddressBuffer VertexBuffer;
 ByteAddressBuffer IndexBuffer;
 
-uint PositionOffset; // in bytes
-uint TexcoordOffset; // in bytes
-uint NormalOffset; // in bytes
-uint VertexBufferStride; // in bytes
-uint indexCount; // mesh index count
+uint PositionOffset;        // in bytes
+uint TexcoordOffset;        // in bytes
+uint NormalOffset;          // in bytes
+uint VertexBufferStride;    // in bytes
+uint indexCount;            // mesh index count
 
 RWStructuredBuffer<uint> BufferSize;
 RWStructuredBuffer<uint> MinXY;
