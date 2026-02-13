@@ -341,7 +341,7 @@ Shader "Custom/TerrainShader"
 					SurfaceOutputStandardSpecular o;
 				#endif
 
-				o.Albedo = tex2D(_FeatureMap, i.uv);
+				o.Albedo = finalColor;
 				o.Emission = 0;
 				o.Alpha = col.a;
 				o.Occlusion = 1.0;

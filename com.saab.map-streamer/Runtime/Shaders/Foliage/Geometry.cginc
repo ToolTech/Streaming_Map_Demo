@@ -119,8 +119,6 @@ void Billboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStr
 	foliageHeight = clamp(foliageHeight, minMaxHeight.x, height);
 	height = foliageHeight;
 	pos -= offset.y * height * up; // offset to handle Roots
-
-	//float3 up = float3(0, 1, 0);
 	float3 look;
 
 	float halfHeight = 0.5 * height;
@@ -132,8 +130,8 @@ void Billboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStr
     look = pos - _WorldSpaceCameraPos;
 #endif
 	
-    float3 flatLook = normalize(float3(look.x, look.y, look.z));
-    float3 right = -cross(up, flatLook);
+    float3 flatLook = look.xyz;
+    float3 right = normalize(-cross(up, flatLook));
 
 	float3 v[4];
     v[0] = pos + halfHeight * right;

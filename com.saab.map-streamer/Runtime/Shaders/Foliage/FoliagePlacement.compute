@@ -260,7 +260,7 @@ float Random2D(float2 input, float mutator = 0.546)
     return Random(i, mutator);
 }
 
-float BilinearHeight(int2 texCoord, float2 frac)
+float3 BilinearPosition(int2 texCoord, float2 frac)
 {
     float3 dl, dr, ul, ur;
 
@@ -502,8 +502,16 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
 
     float3 up = mul(ObjToWorld, float4(0, 1, 0, 0)).xyz;
     up.z *= -1;
-    float3 right = normalize(mul(ObjToWorld, float4(1, 0, 0, 0)).xyz);
-    right.z *= -1;
+    float3 east = normalize(mul(ObjToWorld, float4(1, 0, 0, 0)).xyz);
+    east.z *= -1;
+    
+    float3 north = normalize(cross(east, up));
+	
+    float3x3 M = float3x3(
+		east, // first column
+		up, // second column
+		north // third column
+	);
     
     uint feature = uint(SplatMap[uv] * 255);
     float2 pixelOverlap = float2(2, 2);
@@ -539,7 +547,7 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
                 rand += Random(rand.x + rand.y);
 
                 float angle = (Random2D(rand, 3.731) * 2 - 1) * 3.141592;
-                float3 randDir = 0; // float2(cos(angle), sin(angle));
+                float2 randDir = float2(cos(angle), sin(angle));
                 
                 float distance = Random2D(rand, 12.243) * (stepsize * 0.5) * 1.5;
                 float2 randomPoint = randDir * distance;
@@ -553,37 +561,40 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
                     continue;
 
                 feature = uint(SplatMap[uv + uvOffset] * 255);
-                float3 movedCoord = BilinearHeight(uv + uvOffset, uvfrac);
-
-                if (offsetX < (Resolution.x * subPixelX) && offsetY < (Resolution.y * subPixelY))
+                float3 movedCoord = BilinearPosition(uv + uvOffset, uvfrac);
+                
+                if (FeatureMap[feature])
                 {
-                    float3 color = Texture[uv + uvOffset].xyz;
-                    float2 texCoord = float2(clamp((uv + uvOffset).x - 1, 0, terrainResolution.x - 2), clamp((uv + uvOffset).y - 1, 0, terrainResolution.y - 2));
-
-                    float2 uvHeight = (texCoord / (terrainResolution.xy)) * heightResolution.xy;
-                    float surfaceHeight = HeightSurface[uvHeight] * 255;
-
-                    // Check if surfaceHeight is "Undefined" give random value as in CSSurfaceHeightMap
-                    if (surfaceHeight <= 0)
+                    if (offsetX < (Resolution.x * subPixelX) && offsetY < (Resolution.y * subPixelY))
                     {
-                        surfaceHeight = (3 + length(color) / 3 * 18) * 255;
-                    }
+                        float3 color = Texture[uv + uvOffset].xyz;
+                        float2 texCoord = float2(clamp((uv + uvOffset).x - 1, 0, terrainResolution.x - 2), clamp((uv + uvOffset).y - 1, 0, terrainResolution.y - 2));
+
+                        float2 uvHeight = (texCoord / (terrainResolution.xy)) * heightResolution.xy;
+                        float surfaceHeight = HeightSurface[uvHeight] * 255;
+
+                        // Check if surfaceHeight is "Undefined" give random value as in CSSurfaceHeightMap
+                        if (surfaceHeight <= 0)
+                        {
+                            surfaceHeight = (3 + length(color) / 3 * 18) * 255;
+                        }
                                            
-                    //float3 coord = float3(foliagePoint.x + randomPoint.x, pixelCoord.y, foliagePoint.y + randomPoint.y);   
-                    float3 coord = pixelCoord.xyz;
-                    float2 uvCoord = uv.xy / terrainResolution.xy;                  
+                        //float3 coord = float3(foliagePoint.x + randomPoint.x, pixelCoord.y, foliagePoint.y + randomPoint.y);   
+                        float3 coord = movedCoord.xyz;
+                        float2 uvCoord = uv.xy / terrainResolution.xy;
                     
-                    FoliagePoint res;
-                    res.Position = coord.xyz;
-                    res.Color = color; // float4(uvCoord.xy, 0, 1);
-                    res.Random = Random2D(rand);
-                    res.Height = surfaceHeight;
-                    res.Visibility = 1;
-                    res.up = up;
-                    res.right = right;
-                    res.Pad0 = 0;
+                        FoliagePoint res;
+                        res.Position = coord.xyz;
+                        res.Color = color; // float4(uvCoord.xy, 0, 1);
+                        res.Random = Random2D(rand);
+                        res.Height = surfaceHeight;
+                        res.Visibility = 1;
+                        res.up = up;
+                        res.right = east;
+                        res.Pad0 = 0;
                     
-                    TerrainPoints.Append(res);
+                        TerrainPoints.Append(res);          
+                    }      
                 }
             }
         }
