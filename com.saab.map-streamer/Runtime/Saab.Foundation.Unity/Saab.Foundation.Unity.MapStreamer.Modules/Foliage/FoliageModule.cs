@@ -94,9 +94,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private int[] _mappingTable;
 
         // **************** Generate HeightMap ****************
-        private RenderTexture _heightMap;
         private RenderTexture _surfaceheightMap;
-        private ComputeBuffer _minXY;
         private RenderTexture _depthMap;
         private bool _hasDepthTexture = false;
 
@@ -120,6 +118,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             public static readonly int FrameCount = Shader.PropertyToID("FrameCount");
             public static readonly int Occlusion = Shader.PropertyToID("Occlusion");
             public static readonly int DownscaleFactor = Shader.PropertyToID("DownscaleFactor");
+
             //public static readonly int HeightMap = Shader.PropertyToID("HeightMap");
             public static readonly int IndexBuffer = Shader.PropertyToID("IndexBuffer");
             public static readonly int VertexBuffer = Shader.PropertyToID("VertexBuffer");
@@ -166,8 +165,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             SceneManager.OnNewTerrain += SceneManager_OnNewTerrain;
             SceneManager.OnPostTraverse += SceneManager_OnPostTraverse;
             SceneManager.OnRemoveTerrain += SceneManager_OnRemoveTerrain;
-
-            _minXY = new ComputeBuffer(2, sizeof(uint), ComputeBufferType.Default);
 
             for (int i = 0; i < Features.Count; i++)
             {
@@ -405,7 +402,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             var nodeSize = (texSize * pixelSize);
             var centerOffset = new Vec3D(topLeftCorner.x - utmPos.Easting, 0, topLeftCorner.y - utmPos.Northing);
 
-            var heightmap = GenerateHeight(texSize, pixelSize, mesh, centerOffset);
+            var pixelToObject = GeneratePixelToObject(texSize, pixelSize, mesh, centerOffset);
 
             RenderTexture surface = null;
             if (nodeHandle.surfaceHeight == null)
@@ -423,7 +420,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
                 if (nodeSide < set.NodeMaxWidth)
                 {
-                    set.FoliageFeature.AddFoliage(go, nodeHandle, heightmap, surface);
+                    set.FoliageFeature.AddFoliage(go, nodeHandle, pixelToObject, surface);
                 }
 
                 requireCleanup = false;
@@ -431,21 +428,18 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             if (requireCleanup)
             {
-                heightmap?.Release();
+                pixelToObject?.Release();
                 surface?.Release();
             }
         }
 
         private void OnDestroy()
         {
-            _minXY?.Release();
-
             foreach (var set in Features)
             {
                 set?.Dispose();
             }
 
-            _heightMap?.Release();
             _surfaceheightMap?.Release();
             _depthMap?.Release();
 
@@ -499,7 +493,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             return dst;
         }
 
-        private ComputeBuffer GenerateHeight(Vector2 texSize, Vector2 pixelSize, Mesh mesh, Vec3D offset)
+        private ComputeBuffer GeneratePixelToObject(Vector2 texSize, Vector2 pixelSize, Mesh mesh, Vec3D offset)
         {
             ComputeShader.SetVector(PlacementParameterID.Resolution, pixelSize);
 

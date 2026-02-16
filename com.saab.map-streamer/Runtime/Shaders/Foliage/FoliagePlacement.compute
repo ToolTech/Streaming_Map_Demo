@@ -62,17 +62,18 @@ uint TexcoordOffset;        // in bytes
 uint NormalOffset;          // in bytes
 uint VertexBufferStride;    // in bytes
 uint indexCount;            // mesh index count
+uint FoliageCount;
 
 RWStructuredBuffer<uint> BufferSize;
-RWStructuredBuffer<uint> MinXY;
+//RWStructuredBuffer<uint> MinXY;
 StructuredBuffer<bool> FeatureMap; // feature map => int[255] 
-
-AppendStructuredBuffer<FoliagePoint> TerrainPoints; // Calculated points for one mesh
-RWStructuredBuffer<FoliagePoint> InputBuffer; // buffer with all points
-StructuredBuffer<float> PixelToWorld; // matrix pixel to world (worldpixel coord)VertexBuffer
-AppendStructuredBuffer<FoliagePoint> OutputBuffer; // buffer with all (frustum) culled points 
-RWStructuredBuffer<uint> AngleDepth;
-RWStructuredBuffer<float3> PixelToObjectCoord; // pixelIndex to objectspace
+AppendStructuredBuffer<FoliagePoint> TerrainPoints;     // Calculated points for one mesh
+RWStructuredBuffer<FoliagePoint> InputBuffer;           // buffer with all points
+StructuredBuffer<float> PixelToWorld;                   // matrix pixel to world (worldpixel coord)VertexBuffer
+AppendStructuredBuffer<FoliagePoint> OutputBuffer;      // buffer with all (frustum) culled points 
+RWStructuredBuffer<uint> AngleDepth;                    // custom angle depth
+RWStructuredBuffer<float3> PixelToObjectCoord;          // pixelIndex to objectspace
+StructuredBuffer<FoliageShaderData> FoliageData;
 
 // textures input
 Texture2D<unorm float> SplatMap;
@@ -83,37 +84,34 @@ Texture2D<float> DepthTexture;
 
 uint DownscaleFactor;
 Texture2D<float> DepthTextureLowRes;
-
 int FrameCount;
 
 // Camera
 float2 Fov;
-float3 CameraPosition; // camera position in worldPos
-float4 frustumPlanes[6]; // Frustum planes (6 planes * 4 floats: [ normal.x, normal.y, normal.z, distance ])
+float3 CameraPosition;          // camera position in worldPos
+float4 frustumPlanes[6];        // Frustum planes (6 planes * 4 floats: [ normal.x, normal.y, normal.z, distance ])
 uniform float4x4 WorldToScreen; // World to clipPos
-float3 CameraRightVector; // The right vector of the camera
-float3 CameraForwardVector; // The right vector of the camera
+float3 CameraRightVector;       // The right vector of the camera
+float3 CameraForwardVector;     // The right vector of the camera
 
 // Global Variables
 float AngleResolutionScale;
 uint BufferCount;
 bool Occlusion;
 uint Scale;
-float2 DownscaleSize; // size of screen in pixels (for depthtexture)
-float2 NodeOffset; // bottom left corner of node in "world" space
-float maxHeight; // max size of foliage in meters
-uint uvCount; // the size of surfaceUVs buffer
-float2 terrainResolution; // Resolution of texture/feauture texture
-float2 heightResolution; // Resolution of height texture
-float3 terrainSize; // size of terrain (mesh) size
-float2 Resolution; // the size of each pixel in meters
-float Density; // density of trees
-float3 MeshBoundsMax; // Mesh offset
-float4x4 ObjToWorld; // Local To World
+float2 DownscaleSize;       // size of screen in pixels (for depthtexture)
+float2 NodeOffset;          // bottom left corner of node in "world" space
+float maxHeight;            // max size of foliage in meters
+uint uvCount;               // the size of surfaceUVs buffer
+float2 terrainResolution;   // Resolution of texture/feauture texture
+float2 heightResolution;    // Resolution of height texture
+float3 terrainSize;         // size of terrain (mesh) size
+float2 Resolution;          // the size of each pixel in meters
+float Density;              // density of trees
+float3 MeshBoundsMax;       // Mesh offset
+float4x4 ObjToWorld;        // Local To World
 float ScreenCoverage;
 
-uint FoliageCount;
-StructuredBuffer<FoliageShaderData> FoliageData;
 
 // ************* Inside triangle check ************* //
 bool InsideTriangle(float2 p, float2 A, float2 B, float2 C)
@@ -170,57 +168,6 @@ bool PositionFromUVInTri(
     return inside;
 }
 
-// ************* Plane Intersect ************* //
-float PlaneIntersect(float3 origin, float3 ray, float3 planeNormal, float3 planeCoord, out bool success)
-{
-    success = true;
-    // calculate plane
-    float distance = dot(planeNormal, planeCoord);
-
-    // avoid divide by zero
-    if (dot(planeNormal, ray) == 0)
-    {
-        success = false;
-        return 0;
-    }
-
-    // Compute the t value for the directed line ray intersecting the plane
-    float t = (distance - dot(planeNormal, origin)) / dot(planeNormal, ray);
-
-    // scale the ray by t
-    float3 newRay = ray * t;
-
-    // calc contact point
-    float3 contact = origin + newRay;
-
-    return contact.y;
-}
-
-float GetHeightOfPlaneAtXZ(float3 planeNormal, float3 pointInPlane, float2 xz, out bool success)
-{
-    success = true;
-    
-    //Probably not necessary since terrain triangles should never be perfectly vertical.
-    if (planeNormal.y == 0)
-    {
-        success = false;
-        return 0;
-    }
-    
-    float yByX = -planeNormal.x / planeNormal.y;
-    float yByZ = -planeNormal.z / planeNormal.y;
-    
-    float diffX = xz.x - pointInPlane.x;
-    float diffZ = xz.y - pointInPlane.z;
-    
-    return pointInPlane.y + diffX * yByX + diffZ * yByZ;
-}
-
-float LengthAlongVectorNormalized(float3 vNorm, float3 p)
-{
-    return dot(p, vNorm);
-}
-
 uint PixelToIndex(uint2 pixel, uint2 resolution)
 {
     return pixel.y * resolution.x + pixel.x;
@@ -237,14 +184,6 @@ float3 GetPixelCoord(float2 uv)
 {
     uint index = PixelToIndex(uv, terrainResolution);
     return PixelToObjectCoord[index];
-}
-
-float3 GetPixelCoord(float2 uv, float height)
-{
-    // z-coordinate is negative because of the infamous BTA Z-flip	
-    //float3 coord = float3(uv.x * Resolution.x + MeshBoundsMax.x, height, -uv.y * Resolution.y + MeshBoundsMax.z);
-    float3 coord = float3(uv.x * Resolution.x + MeshBoundsMax.x, MeshBoundsMax.y + height, -uv.y * Resolution.y + MeshBoundsMax.z);
-    return coord;
 }
 
 float Random(float input, float mutator = 0.546)
