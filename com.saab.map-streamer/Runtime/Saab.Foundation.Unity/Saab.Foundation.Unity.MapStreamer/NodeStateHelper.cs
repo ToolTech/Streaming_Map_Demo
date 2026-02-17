@@ -256,24 +256,34 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             using (var image = gzTexture.GetImage())
             {
-                var imageFormat = image.Format;
+                ImageFormat imageFormat = image.Format;
 
-                var componentType = image.ComponentType;
+                ComponentType componentType = image.ComponentType;
 
-                var components = image.Components;
+                TextureFormat textureFormat = GetUnityTextureFormat(imageFormat,componentType);
 
-                var textureFormat = GetUnityTextureFormat(imageFormat,componentType,components);
+                bool supported = IsTextureFormatSupported(textureFormat);
 
-                var uncompress = !IsTextureFormatSupported(textureFormat);
+                bool uncompress = !supported;
 
                 var nativePtr = IntPtr.Zero;
-
-                if (!gzTexture.GetMipMapImageArray(ref nativePtr, out uint size, out _, out _, out _,
+                
+                if (!gzTexture.GetMipMapImageArray(ref nativePtr, out uint size, 
+                    out ImageFormat finalImageFormat, out ComponentType finalComponentType, out _,
                     out uint width, out uint height, out uint depth, mipChain, uncompress))
                     return false;
-                 
+
                 if (depth != 1)
                     return false;
+
+                // with uncompress enabled, image might have been mutated during GetMipMapImageArray
+                if (finalImageFormat != imageFormat || finalComponentType != image.ComponentType)
+                {
+                    textureFormat = GetUnityTextureFormat(finalImageFormat, finalComponentType);
+
+                    if (!IsTextureFormatSupported(textureFormat))
+                        return false;
+                }
 
                 // we try to reuse texture objects when streaming terrain, this improves performance
                 // by almost 2X, a small cache of only 256 MB should be enough since terrain textures
@@ -340,7 +350,7 @@ namespace Saab.Foundation.Unity.MapStreamer
             return true;
         }
 
-        private static TextureFormat GetUnityTextureFormat(ImageFormat imageFormat , ComponentType compType, byte components)
+        private static TextureFormat GetUnityTextureFormat(ImageFormat imageFormat , ComponentType compType)
         {
             switch (imageFormat)
             {
@@ -414,10 +424,10 @@ namespace Saab.Foundation.Unity.MapStreamer
                 // we will cache the result for future queries.
                 supported = SystemInfo.SupportsTextureFormat(format);
                 _supportedFormats.Add(format, supported);
-            }
 
-            if (!supported)
-                Message.Send("StateBuilder", MessageLevel.WARNING, $"{format} was not a supported format!");
+                if (!supported)
+                    Message.Send("StateBuilder", MessageLevel.WARNING, $"{format} was not a supported format!");
+            }
 
             return supported;
         }

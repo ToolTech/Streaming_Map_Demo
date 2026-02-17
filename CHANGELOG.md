@@ -10,6 +10,9 @@ described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/
 ### Added
 - Support for uniform normal, single normal shared by geometry
 
+### Fixed
+- BFV and Map tool crashes when try to load an ETC2 map #363510
+
 ## 4.4
 
 ### Added
