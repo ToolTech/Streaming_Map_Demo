@@ -80,7 +80,8 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             if (numVertices < 3 || numIndices < 3)
                 return false;
-            
+
+            mesh.indexFormat = numVertices > ushort.MaxValue ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
             mesh.SetVertices(_positions, 0, (int)numVertices);
             mesh.SetIndices(_indices, 0, (int)numIndices, MeshTopology.Triangles, 0);
 
@@ -118,11 +119,22 @@ namespace Saab.Foundation.Unity.MapStreamer
 
             uint numNormals = 0;
 
-            if (!geom.GetNormalData<Vector3>(ref _normals, ref numNormals) /*|| numNormals != numVertices*/)
+            if (!geom.GetNormalData<Vector3>(ref _normals, ref numNormals))
+                return false;
+
+            if (numNormals == 1)
+            {
+                Vector3 normal = _normals[0];
+                if (_normals.Length < numVertices)
+                    _normals = new Vector3[numVertices];
+                Array.Fill(_normals, normal, 0, numVertices);
+                return true;
+            }
+
+            if (numNormals < numVertices)
                 return false;
 
             mesh.SetNormals(_normals, 0, numVertices);
-
             return true;
         }
 
@@ -130,13 +142,14 @@ namespace Saab.Foundation.Unity.MapStreamer
         {
             var numVertices = mesh.vertexCount;
 
-            if (Geometry.GenerateNormalData<Vector3>(ref _normals, (uint)numVertices, new Vec3(0,1,0)))
-            {
-                mesh.SetNormals(_normals, 0, numVertices);
-            }
+            if (_normals == null || _normals.Length < numVertices)
+                _normals = new Vector3[numVertices];
+            
+            Array.Fill(_normals, Vector3.up, 0, numVertices);
+            mesh.SetNormals(_normals, 0, numVertices);
         }
 
-        private static bool CopyTexcoords(Geometry geom, Mesh mesh)
+        private static void CopyTexcoords(Geometry geom, Mesh mesh)
         {
             var texture_units = geom.GetTextureUnits();
 
@@ -145,14 +158,8 @@ namespace Saab.Foundation.Unity.MapStreamer
             for (uint ch = 0; ch < texture_units; ++ch)
             {
                 if (geom.GetTexCoordData<Vector2>(ref _texCoords, ref numTexCoords, ch))
-                {
                     mesh.SetUVs((int)ch, _texCoords, 0, (int)numTexCoords);
-                }
-                else
-                    return false;
             }
-
-            return true;
         }
 
         //output = default;
@@ -192,8 +199,8 @@ namespace Saab.Foundation.Unity.MapStreamer
             if (!CopyNormals(geom, mesh))
                 GenerateNormals(mesh);          // Todo: 221205 AMO This must be changed if we have an overall normal ! AMO
 
-            if (!CopyTexcoords(geom, mesh))
-                return false;
+            // optional
+            CopyTexcoords(geom, mesh);
 
             return true;
         }

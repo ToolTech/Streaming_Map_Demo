@@ -1,48 +1,69 @@
 trigger:
-- master
-- develop 
-
-pool:
- name: TS-Windows
+  - master
+  - release/*
 
 variables:
-  ArticleFull: '8866027201'
-  ProjectID: 'MapStreamer'
-  Major: '4'
-  Minor: '3'
-
-workspace:
-  clean: all
+  ArticleFull: 8866027201
+  ProjectID: MapStreamer
+  Major: 4
+  Minor: 5
 
 # Build number format
 name: $(ArticleFull).$(Major).$(Minor).$(rev:r)
 
-steps:
-- checkout: self 
-  lfs: true
-  clean: true 
-  submodules: recursive
-  persistCredentials: true
+resources:
+  repositories:
+    - repository: release_templates
+      type: git
+      name: release_templates
+      project: Common
+      ref: refs/tags/2.2.9
 
-- task: GitBuildInformation@0
-  displayName: 'Create build information for repository - branch master or PR to master'
-  condition: or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/master'))
-  inputs:
-    outputFile: 'BuildInfo'
-    branchFilterRegex: '^(origin\/master|origin\/release\/+)'
-    branchApprovedRegex: '^(origin\/master|origin\/release\/+)'
-  continueOnError: false
+stages:
+  - stage: Checkout
+    jobs:
+      - job: Checkout
+        workspace:
+          clean: all
 
-- task: set-version-variables@1
-  displayName: 'Set version variables according to BuildNumber'
-  inputs:
-    setProductVersionVariable: true
-    setMajorVariable: true
-    setMinorVariable: true
-    setBuildVariable: true
-    setRevisionVariable: true
-    failOnVersionSyntax: true
-    defineCustomizedVariable: false 
+        pool:
+          name: TS-Windows
+          demands:
+            - SEP_ENV_TS_DEV_BUILD
 
-- script: echo Version = $(Build_ProductVersion)
-  displayName: 'Pipeline for setting component version and change history'
+        steps:
+          - checkout: self
+            lfs: true
+            clean: true
+            persistCredentials: true
+
+          - task: set-version-variables@1
+            displayName: Set version variables according to BuildNumber
+            inputs:
+              setProductVersionVariable: true
+              setMajorVariable: true
+              setMinorVariable: true
+              setBuildVariable: true
+              setRevisionVariable: true
+              failOnVersionSyntax: true
+              defineCustomizedVariable: false
+
+          - task: PublishBuildArtifacts@1
+            displayName: Publish Wiki Artifact
+            inputs:
+              PathtoPublish: CHANGELOG.md
+              ArtifactName: wiki
+
+  - ${{ if or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')) }}:
+      - stage: PublishWiki
+        displayName: Publish to Wiki, tag and retain
+        dependsOn: Checkout
+        jobs:
+          - template: update_wiki.yml@release_templates
+            parameters:
+              article: $(ArticleFull)
+              project: Common
+              wiki: Common
+              page: 1479
+              changelogpath: wiki/CHANGELOG.md
+              publishEnvironment: PublishEnvironment

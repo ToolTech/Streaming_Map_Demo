@@ -55,10 +55,15 @@ Shader "Custom/Foliage/Billboard"
 			struct FoliagePoint
 			{
 				float3 Position;
+				float  Pad0;
+
 				float3 Color;
+				float  Pad1;
+
 				float Height;
 				float Random;
 				float Visibility;
+				float Pad2;
 			};
 
 			struct FoliageShaderData

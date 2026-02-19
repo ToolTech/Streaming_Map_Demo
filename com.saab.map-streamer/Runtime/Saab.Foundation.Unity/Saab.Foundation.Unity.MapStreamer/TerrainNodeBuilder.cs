@@ -89,9 +89,6 @@ namespace Saab.Foundation.Unity.MapStreamer
                 _materials.Add(id, material);
             }
 
-            // Todo: reuse material if texture match
-            //var material = Instantiate(_material);
-
             // main texture
             material.mainTexture = stateNode.texture;
 

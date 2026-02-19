@@ -5,14 +5,35 @@ All notable changes to this project shall be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/CHANGELOG.md_Windows_%26_Apps).
 
+## 4.5
+
+### Added
+- Support for uniform normal, single normal shared by geometry
+
+### Fixed
+- BFV and Map tool crashes when try to load an ETC2 map #363510
+
+## 4.4
+
+### Added
+- Support for setting Unity layer for Node Builders 
+- Support for setting Unity layer for Foliage 
+- New WorldToUnity methods to MapUtil
+
 ## 4.3
+
+### Added
+- Support for SWEREF99 #341154
 
 ### Changed
 
-- Updated to GizmoSDK 2.12.254.1
+- Updated to GizmoSDK 2.12.283.1
+- Geometry no longer requires a texture
+- Geometry no longer requires UV coordinates
 
 ### Fixed
 - fixed normal tiling and weird glare (with maps without feature data)
+- will now use 32 bit index buffers when required
 
 ## 4.2
 
