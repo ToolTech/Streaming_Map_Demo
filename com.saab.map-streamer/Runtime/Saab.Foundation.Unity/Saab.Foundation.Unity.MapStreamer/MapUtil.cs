@@ -248,6 +248,36 @@ namespace Saab.Foundation.Unity.MapStreamer
             return MapControl.SystemMap.SetPosition(mappos, cartpos, clampType, clampFlags);
         }
 
+        /// <summary>
+        /// Constructs a rotation matrix from explicit orthonormal basis vectors.
+        /// 
+        /// The vectors define the local coordinate frame:
+        ///     X-axis → right
+        ///     Y-axis → up
+        ///     Z-axis → forward
+        ///
+        /// The matrix contains no translation (pure rotation).
+        /// </summary>
+        /// <param name="right">Local X-axis direction (must be normalized).</param>
+        /// <param name="up">Local Y-axis direction (must be normalized).</param>
+        /// <param name="forward">Local Z-axis direction (must be normalized).</param>
+        /// <returns>
+        /// A Matrix4x4 whose columns are the supplied basis vectors.
+        /// </returns>
+        public static Matrix4x4 FromBasis(Vector3 right, Vector3 up, Vector3 forward)
+        {
+            var m = Matrix4x4.identity;
+
+            // In Unity matrices are column-major.
+            // Columns represent the transform's basis vectors.
+            m.SetColumn(0, new Vector4(right.x, right.y, right.z, 0f));
+            m.SetColumn(1, new Vector4(up.x, up.y, up.z, 0f));
+            m.SetColumn(2, new Vector4(forward.x, forward.y, forward.z, 0f));
+
+            return m;
+        }
+
+
         public static class Debug
         {
             public static GameObject CreatePrimitive(PrimitiveType primType, LatPos latpos, float scale = 1f, Color? color = null)

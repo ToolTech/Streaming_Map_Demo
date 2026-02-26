@@ -5,6 +5,17 @@ All notable changes to this project shall be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/CHANGELOG.md_Windows_%26_Apps).
 
+## 4.6
+
+### Added
+- support for foliage on spherical maps.
+
+### Fixed
+- Camera controlls now support spherical maps.
+
+### Changed
+- lowered foliage GPU memory bandwidth to increase performance.
+
 ## 4.5
 
 ### Added

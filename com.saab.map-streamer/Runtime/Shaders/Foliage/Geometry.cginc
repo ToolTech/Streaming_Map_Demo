@@ -22,11 +22,11 @@ void PopulateVertex(inout FS_INPUT vertex, float3 worldPos, float3 center, float
     vertex.pos = UnityObjectToClipPos(worldPos);
     vertex.worldPos = worldPos;
 	vertex.center = center;
-	vertex.radius = radius;
-    vertex.arrayUV = arrayUV;
-	vertex.normal = normal;
-	vertex.color = color;
-    vertex.alpha = alpha;
+    vertex.radius = (half)radius;
+    vertex.uv = (half2) arrayUV.xy;
+    vertex.layer = (uint) round(arrayUV.z);
+    vertex.normal = PackNormalOct(normal);
+    vertex.colorA = PackColor(float4(color.xyz, alpha));
 }
 
 float Random(float input, float mutator = kDefaultMutator)
@@ -96,11 +96,13 @@ void Billboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStr
 	// ********************* point cloud data  ********************* //
 
 	float3 pos = _PointBuffer[p[0]].Position;
-	float3 color = _PointBuffer[p[0]].Color;
-	float height = _PointBuffer[p[0]].Height;
-	float random = _PointBuffer[p[0]].Random;
-    float visibility = _PointBuffer[p[0]].Visibility;
+    float3 color = UnpackColor(_PointBuffer[p[0]].ColorA).rgb;
+    half height = UnpackHalfLo(_PointBuffer[p[0]].packed0);
+    half random = UnpackHalfHi(_PointBuffer[p[0]].packed0);
+    half visibility = UnpackHalfLo(_PointBuffer[p[0]].packed1);
 
+    float3 up = UnpackNormalOct(_PointBuffer[p[0]].up);
+    	
 	// ********************* foliage type data  ********************* //
 
     int type = WeightedRandomHeight(random, height);
@@ -116,9 +118,7 @@ void Billboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStr
     float foliageHeight = minMaxHeight.x + ((minMaxHeight.y - minMaxHeight.x) * Random(random, kFoliageHeightMutator));
 	foliageHeight = clamp(foliageHeight, minMaxHeight.x, height);
 	height = foliageHeight;
-	pos.y -= offset.y * height; // offset to handle Roots
-
-	float3 up = float3(0, 1, 0);
+	pos -= offset.y * height * up; // offset to handle Roots
 	float3 look;
 
 	float halfHeight = 0.5 * height;
@@ -130,8 +130,7 @@ void Billboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStr
     look = pos - _WorldSpaceCameraPos;
 #endif
 	
-    float3 flatLook = normalize(float3(look.x, 0, look.z));
-    float3 right = -cross(up, flatLook);
+    float3 right = normalize(-cross(up, look));
 
 	float3 v[4];
     v[0] = pos + halfHeight * right;
@@ -153,16 +152,16 @@ void Billboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStr
 
 	FS_INPUT pIn;
 
-    PopulateVertex(pIn, v[0], center, halfHeight, uv0, flatLook, color, visibility);
+    PopulateVertex(pIn, v[0], center, halfHeight, uv0, look, color, visibility);
 	triStream.Append(pIn);
 
-    PopulateVertex(pIn, v[1], center, halfHeight, uv1, flatLook, color, visibility);
+    PopulateVertex(pIn, v[1], center, halfHeight, uv1, look, color, visibility);
 	triStream.Append(pIn);
 
-    PopulateVertex(pIn, v[2], center, halfHeight, uv2, flatLook, color, visibility);
+    PopulateVertex(pIn, v[2], center, halfHeight, uv2, look, color, visibility);
 	triStream.Append(pIn);
 
-    PopulateVertex(pIn, v[3], center, halfHeight, uv3, flatLook, color, visibility);
+    PopulateVertex(pIn, v[3], center, halfHeight, uv3, look, color, visibility);
 	triStream.Append(pIn);
 }
 
@@ -173,11 +172,21 @@ void Crossboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triSt
 	// ********************* point cloud data  ********************* //
 
 	float3 pos = _PointBuffer[p[0]].Position;
-	float3 color = _PointBuffer[p[0]].Color;
-	float height = _PointBuffer[p[0]].Height;
-	float random = _PointBuffer[p[0]].Random;
-    float visibility = _PointBuffer[p[0]].Visibility;
+    float3 color = UnpackColor(_PointBuffer[p[0]].ColorA).rgb;
+    half height = UnpackHalfLo(_PointBuffer[p[0]].packed0);
+    half random = UnpackHalfHi(_PointBuffer[p[0]].packed0);
+    half visibility = UnpackHalfLo(_PointBuffer[p[0]].packed1);
 
+    float3 up = UnpackNormalOct(_PointBuffer[p[0]].up);
+    float3 east = UnpackNormalOct(_PointBuffer[p[0]].right);
+    float3 north = normalize(cross(east, up));
+	
+    float3x3 M = float3x3(
+		east, // first column
+		up, // second column
+		north // third column
+	);
+	
 	// ********************* foliage type data  ********************* //
 
 	// calculate the foliage (index) to place down
@@ -190,20 +199,20 @@ void Crossboard(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triSt
 	//Offset used to hide the roots of the foliage asset below ground
 	float2 offset = _foliageData[type].Offset;
 
-	// ********************* ***************  ********************* //
+	// ********************* ***************  ********************* /d/
 
 	//Randomized height within the valid range
     float foliageHeight = minMaxHeight.x + ((minMaxHeight.y - minMaxHeight.x) * Random(random, kFoliageHeightMutator));
 	foliageHeight = clamp(foliageHeight, minMaxHeight.x, height);
 	height = foliageHeight;
-	pos.y -= offset.y * height;		// offset to handle Roots
+	pos -= offset.y * height * up;		// offset to handle Roots
 
-	float3 up = normalize(float3(0, 1, 0));
-    float angle = (Random(random, 0.131) * 2 - 1) * kPi;
+	float angle = (Random(random, 0.131) * 2 - 1) * kPi;
 	float3 randDir = float3(cos(angle), 0, sin(angle));
-
-	float3 right = randDir;
-	float3 front = normalize(-cross(up, right));
+    float3 right = mul(randDir, M);
+	
+	//float3 right = randDir;
+    float3 front = normalize(-cross(up, right));
 
     float halfHeight = 0.5 * height;
     float3 center = pos + up * halfHeight;
@@ -302,24 +311,32 @@ void Grass(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStream)
 	// ********************* point cloud data  ********************* //
 
 	float3 pos = _PointBuffer[p[0]].Position;
-	float3 color = _PointBuffer[p[0]].Color;
-	float height = _PointBuffer[p[0]].Height;
-	float random = _PointBuffer[p[0]].Random;
-    float visibility = _PointBuffer[p[0]].Visibility;
+    float3 color = UnpackColor(_PointBuffer[p[0]].ColorA).rgb;
+    half height = UnpackHalfLo(_PointBuffer[p[0]].packed0);
+    half random = UnpackHalfHi(_PointBuffer[p[0]].packed0);
+    half visibility = UnpackHalfLo(_PointBuffer[p[0]].packed1);
 
+    float3 up = UnpackNormalOct(_PointBuffer[p[0]].up);
+    float3 east = UnpackNormalOct(_PointBuffer[p[0]].right);
+    float3 north = normalize(cross(east, up));
+	
+    float3x3 M = float3x3(
+		east, // first column
+		up, // second column
+		north // third column
+	);
+	
 	// ********************* foliage type data  ********************* //
 
 	int type = floor(random * _foliageCount);	// calculate the foliage (index) to place down
 	
     type = WeightedRandomHeight(random, height);
-	//type = WeightedRandom(random);
 
 	float2 minMaxHeight = _foliageData[type].MaxMin;
 	float2 offset = _foliageData[type].Offset;
 	float weight = _foliageData[type].Weight;
 
 	// *********** billboard ***********
-	float3 up = normalize(float3(0, 1, 0));
 	float3 center = pos;
 
 	//float distance = clamp((length(_WorldSpaceCameraPos - pos) / 20), 0, 1);
@@ -328,12 +345,12 @@ void Grass(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStream)
 	{
 		float rand = Random(random + i, 0.912);
         float angle = (rand * 2 - 1) * kPi;
-		float3 randDir = float3(cos(angle), 0, sin(angle));
-		float3 pos = center + randDir * rand * 1.5;
+        float3 randDir = mul(float3(cos(angle), 0, sin(angle)), M);
+        float3 pos = center + randDir * rand * 1.5;
 
 		float rand02 = Random(random + i, 0.643);
         angle = (rand02 * 2 - 1) * kPi;
-		randDir = float3(cos(angle), 0, sin(angle));
+        randDir = mul(float3(cos(angle), 0, sin(angle)), M);
 
 		float3 camDir = _WorldSpaceCameraPos - pos;
 		float blend = normalize(camDir).y;
@@ -350,7 +367,8 @@ void Grass(point uint p[1] : TEXCOORD, inout TriangleStream<FS_INPUT> triStream)
         float foliageHeight = minMaxHeight.x + ((minMaxHeight.y - minMaxHeight.x) * Random(random, kFoliageHeightMutator));
 		float h = foliageHeight;
         float halfHeight = 0.5 * h;
-		pos.y -= offset.y * h; // offset to handle Roots
+		
+		pos -= offset.y * h * up; // offset to handle Roots
 
 		float3 wind = float3(0, 0, 0);
 
