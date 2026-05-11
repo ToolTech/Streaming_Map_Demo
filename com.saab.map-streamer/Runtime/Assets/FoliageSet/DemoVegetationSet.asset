@@ -23,3 +23,13 @@ MonoBehaviour:
     Weight: 0
   - Foliage: {fileID: 11400000, guid: c8b018727f8739145a2b49f4b478543a, type: 2}
     Weight: 0
+  - Foliage: {fileID: 11400000, guid: 04b191cc586e9ea4690ce96a4b30d977, type: 2}
+    Weight: 0
+  - Foliage: {fileID: 11400000, guid: 54cd5b0f45ef571478406e6181ee3047, type: 2}
+    Weight: 0
+  - Foliage: {fileID: 11400000, guid: bdf00dc88614a0245b95450c6002f532, type: 2}
+    Weight: 0
+  - Foliage: {fileID: 11400000, guid: 6786d5dc3536d6947ba99f2a7b1ac407, type: 2}
+    Weight: 0
+  - Foliage: {fileID: 11400000, guid: 02af2b4d76bb73344b3eae0c5fa16a88, type: 2}
+    Weight: 0

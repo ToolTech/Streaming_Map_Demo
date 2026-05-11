@@ -39,32 +39,36 @@ Shader "Custom/Foliage/Billboard"
 			#include "UnityGBuffer.cginc"
 			#include "UnityStandardUtils.cginc"
 			#include "UnityPBSLighting.cginc"
+			#include "CompressionUtil.cginc"
 
 			struct FS_INPUT
 			{
-				float4	pos			: POSITION;
-				float3	worldPos	: TEXCOORD2;
-				float3  center		: POSITION1;
-				float	radius		: POSITION2;
-				float3	arrayUV		: TEXCOORD0;
-				float3	normal		: NORMAL;
-				float3	color		: TEXCOORD1;
-				float	alpha		: TEXCOORD3;
+				float4 pos						: SV_POSITION;
+
+				float3 worldPos					: TEXCOORD0;
+				nointerpolation float3 center	: TEXCOORD1;
+
+				half2 uv						: TEXCOORD2;
+				nointerpolation uint layer		: TEXCOORD3;
+
+				nointerpolation half radius		: TEXCOORD4;
+
+				nointerpolation uint normal		: TEXCOORD5;	 // normal oct packed
+				nointerpolation uint colorA     : COLOR0;        // RGBA8 (tint + alpha)
 			};
 
 			struct FoliagePoint
 			{
-				float3 Position;
-				float  Pad0;
+				float3 Position;    // 12 bytes
+				uint ColorA;        // 4 bytes
 
-				float3 Color;
-				float  Pad1;
+				uint up;            // 4 bytes
+				uint right;         // 4 bytes
 
-				float Height;
-				float Random;
-				float Visibility;
-				float Pad2;
-			};
+				uint packed0;		// 4  -> 28  (Height16 | Random16)
+				uint packed1;		// 4  -> 32  (Visibility16 | unused/pad16)
+
+			}; // 32 bytes: AMD require data to be divisible by 16 bytes (caused by float3 => 16 bytes padding). Nvidia and Intel drivers automatically pads.
 
 			struct FoliageShaderData
 			{
@@ -110,13 +114,15 @@ Shader "Custom/Foliage/Billboard"
 
 			float3 SphereProjectedNormal(FS_INPUT i)
 			{
-				fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_MainTexArray, i.arrayUV);
+				float3 arrayUV = float3(i.uv.xy, i.layer);
+
+				fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_MainTexArray, arrayUV);
 
 				float3 camToPixelDir = normalize(i.worldPos - _WorldSpaceCameraPos);
 				float3 camToCenter = (i.center - _WorldSpaceCameraPos);
 				float centerProjection = dot(camToPixelDir, camToCenter);
 				float3 rightAnglePoint = _WorldSpaceCameraPos + camToPixelDir * centerProjection;
-				// float centerDistance = distance(i.center, rightAnglePoint);
+
 				float3 centerOffset = i.center - rightAnglePoint;
 				float centerDistanceSquared = dot(centerOffset, centerOffset);
 
@@ -180,17 +186,20 @@ Shader "Custom/Foliage/Billboard"
 				
 				void frag(FS_INPUT i, out half4 outGBuffer0 : SV_Target0, out half4 outGBuffer1 : SV_Target1, out half4 outGBuffer2 : SV_Target2, out half4 outEmission : SV_Target3)
 				{
-					fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_MainTexArray, i.arrayUV);
+					float3 arrayUV = float3(i.uv.xy, i.layer);
+					fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_MainTexArray, arrayUV);
 					//half3 tnormal = UnpackNormal(tex2D(_NormalMap, i.arrayUV));
 
-					float c = CutoffDistance(distance(i.worldPos, _WorldSpaceCameraPos));
+					float c = CutoffDistance(distance(i.center, _WorldSpaceCameraPos));
 					clip(col.a - c);
 
 
 					fixed3 worldViewDir = normalize(UnityWorldSpaceViewDir(i.worldPos));
 					float depth = i.pos.z / i.pos.w;
 					
-					float3 LookDir = normalize(_WorldSpaceCameraPos - i.worldPos);
+					float3 LookDir = normalize(_WorldSpaceCameraPos - i.center);
+					float3 normal = UnpackNormalOct(i.normal);
+
 					//float blend = dot(i.normal, LookDir);
 
 					// *********** sphere normals ************* 
@@ -199,12 +208,14 @@ Shader "Custom/Foliage/Billboard"
 					
 					float3 finalNormal = sphereNormal;
 
-					col.rgb = col.rgb * 0.9 + i.color.rgb * 0.1;
+					float4 ColorA = UnpackColor(i.colorA);
+
+					col.rgb = col.rgb * 0.75 + ColorA.rgb * 0.25;
 	
 					if (_isToggled)
 					{
-						finalNormal = i.normal;
-						col.rgb = col.rgb * i.arrayUV.y + i.color.rgb * 0.4 * (1 - i.arrayUV.y);
+						finalNormal = normal;
+						col.rgb = col.rgb * arrayUV.y + ColorA.rgb * 0.4 * (1 - arrayUV.y);
 					}
 
 					const half4x4 thresholdMatrix =
@@ -217,11 +228,11 @@ Shader "Custom/Foliage/Billboard"
 
 					fixed threshold = thresholdMatrix[i.pos.x % 4][i.pos.y % 4] / 17;
 					float power = 3;
-					clip(i.alpha - threshold);
+					clip(ColorA.a - threshold);
 
-					if(1 - abs(i.normal.y) < 0.01)
+					if(1 - abs(normal.y) < 0.01)
 					{
-						float upGradient = abs(dot(LookDir, i.normal));
+						float upGradient = abs(dot(LookDir, normal));
 						float angle = 2 * acos(upGradient) / 3.141592653589793238462643;
 						float linearAngle = remap(0.3, 0.7, 1, 0, angle);
 
@@ -318,8 +329,9 @@ Shader "Custom/Foliage/Billboard"
 				// Fragment Shader 
 				float4 frag(FS_INPUT i) : COLOR
 				{
-					fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_MainTexArray, i.arrayUV);
-					float c = CutoffDistance(distance(i.worldPos, _WorldSpaceCameraPos));
+					float3 arrayUV = float3(i.uv.xy, i.layer);
+					fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_MainTexArray, arrayUV);
+					float c = CutoffDistance(distance(i.center, _WorldSpaceCameraPos));
 					clip(col.a - c);
 
 					return float4(0,0,0,0);
