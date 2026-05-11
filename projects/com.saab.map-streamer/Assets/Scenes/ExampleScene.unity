@@ -209,6 +209,7 @@ MonoBehaviour:
   _material: {fileID: 2100000, guid: 7b3b84139d8f3354e927c3e2d99d2e53, type: 2}
   _mask: 2056
   _forceFallbackMaterial: 0
+  _layer: 0
 --- !u!114 &44396063
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -226,6 +227,7 @@ MonoBehaviour:
   _material: {fileID: 2100000, guid: e252302673b0b904d9f60572efbe4cb4, type: 2}
   _mask: 6
   _forceFallbackMaterial: 0
+  _layer: 0
 --- !u!1 &705507993
 GameObject:
   m_ObjectHideFlags: 0
@@ -398,7 +400,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 963194225}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: -10}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -421,7 +423,7 @@ MonoBehaviour:
   ShiftMultiplier: 5
   RotSpeed: 20
   X: 0
-  Y: 80
+  Y: 0
   Z: 0
 --- !u!1 &1692271381
 GameObject:
@@ -489,6 +491,7 @@ MonoBehaviour:
   ComputeShader: {fileID: 7200000, guid: 658d4304a9fd9fe49bd7d3b0ede75fb1, type: 3}
   FoliageShader: {fileID: 4800000, guid: 068e6fbc052d17648b666532b330a5a7, type: 3}
   PerlinNoise: {fileID: 0}
+  Layer: 0
   DebugPrintCount: 0
   Disabled: 0
   DebugNoDraw: 0

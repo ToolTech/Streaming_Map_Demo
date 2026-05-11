@@ -94,9 +94,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private int[] _mappingTable;
 
         // **************** Generate HeightMap ****************
-        private RenderTexture _heightMap;
         private RenderTexture _surfaceheightMap;
-        private ComputeBuffer _minXY;
         private RenderTexture _depthMap;
         private bool _hasDepthTexture = false;
 
@@ -105,7 +103,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         private GraphicsBuffer _vertexBuffer;
         private GraphicsBuffer _indexBuffer;
         private GraphicsBuffer _indexbufferGpuCopy;
-
+        private ComputeBuffer _pixelToWorld;
 
         private static class PlacementParameterID
         {
@@ -120,14 +118,17 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             public static readonly int FrameCount = Shader.PropertyToID("FrameCount");
             public static readonly int Occlusion = Shader.PropertyToID("Occlusion");
             public static readonly int DownscaleFactor = Shader.PropertyToID("DownscaleFactor");
-            public static readonly int HeightMap = Shader.PropertyToID("HeightMap");
+
             public static readonly int IndexBuffer = Shader.PropertyToID("IndexBuffer");
             public static readonly int VertexBuffer = Shader.PropertyToID("VertexBuffer");
             public static readonly int MeshBoundsMax = Shader.PropertyToID("MeshBoundsMax");
             public static readonly int VertexBufferStride = Shader.PropertyToID("VertexBufferStride");
             public static readonly int TexcoordOffset = Shader.PropertyToID("TexcoordOffset");
+            public static readonly int NormalOffset = Shader.PropertyToID("NormalOffset");
             public static readonly int PositionOffset = Shader.PropertyToID("PositionOffset");
             public static readonly int SurfaceHeightMap = Shader.PropertyToID("SurfaceHeightMap");
+            public static readonly int PixelToObjectCoord = Shader.PropertyToID("PixelToObjectCoord");
+
             public static readonly int Texture = Shader.PropertyToID("Texture");
             public static readonly int Density = Shader.PropertyToID("Density");
 
@@ -163,8 +164,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             SceneManager.OnNewTerrain += SceneManager_OnNewTerrain;
             SceneManager.OnPostTraverse += SceneManager_OnPostTraverse;
             SceneManager.OnRemoveTerrain += SceneManager_OnRemoveTerrain;
-
-            _minXY = new ComputeBuffer(2, sizeof(uint), ComputeBufferType.Default);
 
             for (int i = 0; i < Features.Count; i++)
             {
@@ -383,7 +382,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             ComputeShader.SetVector(PlacementParameterID.TerrainSize, mesh.bounds.size);
             ComputeShader.SetVector(PlacementParameterID.NodeOffset, nodeOffset);
             ComputeShader.SetVector(PlacementParameterID.Resolution, pixelSize);
-            ComputeShader.SetMatrix(PlacementParameterID.ObjToWorld, go.transform.localToWorldMatrix);
 
             var meshCenter = nodeHandle.node.BoundaryCenter;
 
@@ -395,19 +393,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             var topLeftCorner = nodeHandle.featureInfo * new Vec3D(0, 0, 1);
 
             var nodeSize = (texSize * pixelSize);
-            var nodeOffsetDiff = nodeSize - new Vector2(mesh.bounds.size.x, mesh.bounds.size.z);
             var centerOffset = new Vec3D(topLeftCorner.x - utmPos.Easting, 0, topLeftCorner.y - utmPos.Northing);
 
-            if (Math.Abs(centerOffset.x) < nodeSize.x / 2)
-                nodeOffsetDiff.x *= -1;
-
-            if (Math.Abs(centerOffset.y) > nodeSize.y / 2)
-                nodeOffsetDiff.y *= -1;
-
-            centerOffset.x += nodeOffsetDiff.x;
-            centerOffset.y += nodeOffsetDiff.y;
-
-            var heightmap = GenerateHeight(texSize, pixelSize, mesh, centerOffset);
+            _pixelToWorld = GeneratePixelToWorld(texSize, pixelSize, mesh, centerOffset);
 
             RenderTexture surface = null;
             if (nodeHandle.surfaceHeight == null)
@@ -425,7 +413,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
                 if (nodeSide < set.NodeMaxWidth)
                 {
-                    set.FoliageFeature.AddFoliage(go, nodeHandle, heightmap, surface);
+                    set.FoliageFeature.AddFoliage(go, nodeHandle, _pixelToWorld, surface);
                 }
 
                 requireCleanup = false;
@@ -433,23 +421,21 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             if (requireCleanup)
             {
-                heightmap?.Release();
+                _pixelToWorld?.Release();
                 surface?.Release();
             }
         }
 
         private void OnDestroy()
         {
-            _minXY?.Release();
-
             foreach (var set in Features)
             {
                 set?.Dispose();
             }
 
-            _heightMap?.Release();
             _surfaceheightMap?.Release();
             _depthMap?.Release();
+            _pixelToWorld?.Release();
 
             _indexBuffer?.Release();
             _vertexBuffer?.Release();
@@ -501,7 +487,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             return dst;
         }
 
-        private RenderTexture GenerateHeight(Vector2 texSize, Vector2 pixelSize, Mesh mesh, Vec3D offset)
+        private ComputeBuffer GeneratePixelToWorld(Vector2 texSize, Vector2 pixelSize, Mesh mesh, Vec3D offset)
         {
             ComputeShader.SetVector(PlacementParameterID.Resolution, pixelSize);
 
@@ -521,10 +507,12 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             int stride = mesh.GetVertexBufferStride(0);
             int texOffset = mesh.GetVertexAttributeOffset(UnityEngine.Rendering.VertexAttribute.TexCoord0);
             int posOffset = mesh.GetVertexAttributeOffset(UnityEngine.Rendering.VertexAttribute.Position);
+            int normalOffset = mesh.GetVertexAttributeOffset(UnityEngine.Rendering.VertexAttribute.Normal);
 
             // Pass values as bytes, no division by 4
             ComputeShader.SetInt(PlacementParameterID.PositionOffset, posOffset);
             ComputeShader.SetInt(PlacementParameterID.TexcoordOffset, texOffset);
+            ComputeShader.SetInt(PlacementParameterID.NormalOffset, normalOffset);
             ComputeShader.SetInt(PlacementParameterID.VertexBufferStride, stride);
 
             // Index count
@@ -533,23 +521,18 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             // ************* mesh bounds ************* //
             var nodeTexTopLeft = mesh.bounds.center -
-                new Vector3((float)offset.x + (texSize.x * pixelSize.x),
+                new Vector3((float)-offset.x,
                             (float)offset.y,
                             (float)offset.z);
             ComputeShader.SetVector(PlacementParameterID.MeshBoundsMax, nodeTexTopLeft);
 
             // ************* Generate Height Map ************* //
-            int kernelHeight = ComputeShader.FindKernel("CSHeightMap");
+            int kernelHeight = ComputeShader.FindKernel("CSPixelToObject");
 
-            if (_heightMap != null)
-                _heightMap.Release();
+            if (_pixelToWorld != null)
+                _pixelToWorld.Release();
 
-            _heightMap = new RenderTexture((int)texSize.x, (int)texSize.y, 24, RenderTextureFormat.RFloat)
-            {
-                enableRandomWrite = true,
-                name = "foliagemodule - HeightMap"
-            };
-            _heightMap.Create();
+            _pixelToWorld = new ComputeBuffer(Mathf.CeilToInt(texSize.x * texSize.y), sizeof(float) * 3, ComputeBufferType.Default);
 
             int triangleCount = Mathf.CeilToInt(indicesCount / 3f);
             ComputeShader.SetInt(PlacementParameterID.IndexCount, triangleCount);
@@ -557,7 +540,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             // Bind buffers and textures
             ComputeShader.SetBuffer(kernelHeight, PlacementParameterID.VertexBuffer, _vertexBuffer);
             ComputeShader.SetBuffer(kernelHeight, PlacementParameterID.IndexBuffer, _indexbufferGpuCopy);
-            ComputeShader.SetTexture(kernelHeight, PlacementParameterID.HeightMap, _heightMap);
+            ComputeShader.SetBuffer(kernelHeight, PlacementParameterID.PixelToObjectCoord, _pixelToWorld);
 
             // Dispatch
             int threads = Mathf.CeilToInt(triangleCount / 4f);
@@ -569,7 +552,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _vertexBuffer?.Release();
             _indexbufferGpuCopy?.Release();
 
-            return _heightMap;
+            return _pixelToWorld;
         }
 
         private IEnumerator WaitForDepth()

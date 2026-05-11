@@ -10,18 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0fbe837a22ffe434381219dee0818311, type: 3}
-  m_Name: eu32y
+  m_Name: AF01y_full
   m_EditorClassIdentifier: 
-  MainTexture: {fileID: 2800000, guid: bafbcfee8f8bed34f88c84bd3dc1fc8a, type: 3}
+  MainTexture: {fileID: 2800000, guid: f3a3e4eaa641df04aa3b2488634ea7a7, type: 3}
   AutumnTexture: {fileID: 0}
   WinterTexture: {fileID: 0}
   Normal: {fileID: 0}
   Mesh: {fileID: 0}
   MeshMaterial: {fileID: 0}
-  MaxMin: {x: 4, y: 9}
-  Offset: {x: 0, y: 0.19}
-  CullAreaWidth: 0.25
-  Weight: 0.3
-  Feature: 395264
+  MaxMin: {x: 1, y: 4}
+  Offset: {x: 0, y: 0.06}
+  CullAreaWidth: 0.01
+  Weight: 0.2
+  Feature: 657408
   Biome: 0
   TextureMode: 1
