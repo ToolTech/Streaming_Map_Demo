@@ -12,6 +12,7 @@ described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/
 
 ### Fixed
 - Camera controlls now support spherical maps.
+- crash issue on certain maps (misaligned buffers)
 
 ### Changed
 - lowered foliage GPU memory bandwidth to increase performance.

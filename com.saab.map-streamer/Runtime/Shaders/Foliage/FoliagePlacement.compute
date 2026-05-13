@@ -112,17 +112,7 @@ float4x4 ObjToWorld;        // Local To World
 float ScreenCoverage;
 
 
-// ************* Inside triangle check ************* //
-bool InsideTriangle(float2 p, float2 A, float2 B, float2 C)
-{
-    float area = 0.5 * (-B.y * C.x + A.y * (-B.x + C.x) + A.x * (B.y - C.y) + B.x * C.y);
-    float sign = area < 0 ? -1 : 1;
-
-    float s = (A.y * C.x - A.x * C.y + (C.y - A.y) * p.x + (A.x - C.x) * p.y) * sign;
-    float t = (A.x * B.y - A.y * B.x + (A.y - B.y) * p.x + (B.x - A.x) * p.y) * sign;
-
-    return s >= 0 && t >= 0 && (s + t) <= 2 * area * sign;
-}
+// ************* triangle check ************* //
 
 bool BarycentricInTriangle(float2 pt, float2 v0, float2 v1, float2 v2, out float3 w)
 {
@@ -179,12 +169,6 @@ uint2 IndexToPixel(uint index, uint2 resolution)
     return uint2(x, y);
 }
 
-float3 GetPixelCoord(float2 uv)
-{
-    uint index = PixelToIndex(uv, terrainResolution);
-    return PixelToObjectCoord[index];
-}
-
 float Random(float input, float mutator = 0.546)
 {
     float nonInteger = 43758.5453; // A different constant to avoid common factors with typical inputs
@@ -232,21 +216,6 @@ float2 GetWorldCoord(uint2 texCoord, float3x3 worldToTexCoord, float2 nodeCoord)
 
     float2 WorldPixelCoord = nodeCoord + (texCoord * Resolution);
     return WorldPixelCoord + foliageOffset;
-}
-
-float2 MapUv(float2 uv, float2 size = float2(1, 1))
-{
-    float2 coord = uv;
-    
-#ifdef UNITY_HALF_TEXEL_OFFSET
-        coord -= float2(0.5 / size.x, 0.5 / size.y);
-#endif
-            
-#if UNITY_UV_STARTS_AT_TOP
-        coord.y = 1.0 - (coord.y / size.y); // Flip the y-coordinate if UVs start at the top
-#endif
-    
-    return coord;
 }
 
 float3 GetPosition(uint index)
@@ -372,10 +341,13 @@ void CSPixelToObject(uint3 id : SV_DispatchThreadID)
 
     uint3 indexIndices = loadTriangleIndices(id.x);
 
+    if (indexIndices.x == indexIndices.y || indexIndices.x == indexIndices.z || indexIndices.y == indexIndices.z)
+        return;
+    
     float3 v1 = GetPosition(indexIndices.x);
     float3 v2 = GetPosition(indexIndices.y);
     float3 v3 = GetPosition(indexIndices.z);
-
+    
     float2 uv1 = GetTexCoord(indexIndices.x) * terrainResolution;
     float2 uv2 = GetTexCoord(indexIndices.y) * terrainResolution;
     float2 uv3 = GetTexCoord(indexIndices.z) * terrainResolution;
@@ -477,10 +449,7 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
 
             float offsetX = (wpx - worldCoord.x);
             float offsetY = (wpy - worldCoord.y);
-                
-            float3 pixelCoord = GetPixelCoord(uv); //+ pixelOffset + pixelOverlap);
-            float2 foliagePoint = float2(pixelCoord.x + offsetX, pixelCoord.z - offsetY);
-                
+                                
             float2 randoffset = fmod(GetWorldCoord(uv, ToWorldTexCoord, NodeOffset), 1000);
             float2 rand = randoffset * 0.001;
             rand += Random(rand.x + rand.y);
@@ -518,8 +487,7 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
                 {
                     surfaceHeight = (3 + length(color) / 3 * 18) * 255;
                 }
-                                           
-                //float3 coord = float3(foliagePoint.x + randomPoint.x, pixelCoord.y, foliagePoint.y + randomPoint.y);   
+                                    
                 float3 coord = movedCoord.xyz;
                 float2 uvCoord = uv.xy / terrainResolution.xy;
                     
