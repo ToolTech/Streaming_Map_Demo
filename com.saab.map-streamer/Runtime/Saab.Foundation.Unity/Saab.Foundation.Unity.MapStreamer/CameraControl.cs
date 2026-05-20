@@ -19,7 +19,7 @@
 // Module		:
 // Description	: Manages camera updates with large coordinates
 // Author		: Anders Modén
-// Product		: Gizmo3D 2.12.310
+// Product		: Gizmo3D 2.12.326
 //
 // NOTE:	Gizmo3D is a high performance 3D Scene Graph and effect visualisation 
 //			C++ toolkit for Linux, Mac OS X, Windows, Android, iOS and HoloLens for  
@@ -36,7 +36,6 @@
 
 //#define TEST_ROTATION   // Just test some default rotation
 
-using GizmoSDK.Coordinate;
 using GizmoSDK.GizmoBase;
 using Saab.Foundation.Map;
 using Saab.Unity.Extensions;
@@ -110,14 +109,6 @@ namespace Saab.Foundation.Unity.MapStreamer
 
         private float _countDownJump = 4;
         private float _jumpTime = 4;
-        private Matrix4x4 _eun;
-        private MapPos _mapPos;
-        private bool _initialized = false;
-
-        private Vector3 _unityEast;
-        private Vector3 _unityNorth;
-        private Vector3 _unityUp;
-
         public float JumpInterval
         {
             get
@@ -146,12 +137,11 @@ namespace Saab.Foundation.Unity.MapStreamer
             get { return MapControl.SystemMap.GetLocalOrientation(GlobalPosition).GetCol(1).ToVector3(); }
         }
 
-
-
         private void MoveForward(float moveSpeed)
         {
             X = X + moveSpeed * GetDeltaTime() * transform.forward.x;
             Y = Y + moveSpeed * GetDeltaTime() * transform.forward.y;
+
             // As we have a Right Handed ON system and unitys Z into the screen we apply a negative direction
             Z = Z - moveSpeed * GetDeltaTime() * transform.forward.z;
         }
@@ -174,16 +164,15 @@ namespace Saab.Foundation.Unity.MapStreamer
             Z = Z - moveSpeed * GetDeltaTime() * transform.up.z;
         }
 
-        private Quaternion Tilt(float rotationSpeed, Vector3 right)
+        private Quaternion Tilt(float rotationSpeed)
         {
-            float angle = rotationSpeed * GetDeltaTime();
-            return Quaternion.AngleAxis(angle, right);
+            System.Numerics.Quaternion.CreateFromYawPitchRoll(0, 0, 0);
+            return Quaternion.Euler(rotationSpeed * GetDeltaTime(), 0, 0);
         }
 
         private Quaternion Pan(float rotationSpeed)
         {
-            float angle = rotationSpeed * GetDeltaTime();
-            return Quaternion.AngleAxis(angle, _unityUp);
+            return Quaternion.Euler(0, rotationSpeed * GetDeltaTime(), 0);
         }
 
         public void UpdateMoveCamera(float forward, float right, float up, float pan, float tilt, bool lockOtherInput = true)
@@ -212,14 +201,8 @@ namespace Saab.Foundation.Unity.MapStreamer
             MoveUp(movement.up);
 
             Quaternion rot = transform.rotation;
-
+            rot = rot * Tilt(movement.tilt);
             rot = Pan(-movement.pan) * rot;
-
-            Vector3 newForward = rot * Vector3.forward;
-            Vector3 newRight = Vector3.Cross(_unityUp, newForward).normalized;   // right on tangent plane
-
-            rot = Tilt(movement.tilt, newRight) * rot;
-
             transform.rotation = rot;
         }
 
@@ -321,54 +304,12 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
         }
 
-        public void LateUpdate()
-        {
-            if (MapControl.SystemMap?.CurrentMap != null)
-            {
-                if (MapControl.SystemMap.GlobalToWorld(new Vec3D(X, Y, Z), out LatPos latPos))
-                {
-                    if(_mapPos == null)
-                    {
-                        _mapPos = new MapPos();                   
-                    }
-
-                    _mapPos.SetLatPos(latPos.Latitude, latPos.Longitude, latPos.Altitude);
-                    var enu = _mapPos.EnuToLocal();
-
-                    var east = enu * new Vec3(1, 0, 0);
-                    var north = enu * new Vec3(0, 1, 0);
-                    var up = enu * new Vec3(0, 0, 1);
-
-                    _unityEast = east.ToVector3FlipZ();
-                    _unityNorth = north.ToVector3FlipZ();
-                    _unityUp = up.ToVector3FlipZ();
-
-                    _eun = MapUtil.FromBasis((east.ToVector3()), (up.ToVector3()), (north.ToVector3()));
-
-                    Shader.SetGlobalMatrix("_LocalToEUN", _eun);
-                    if (!_initialized)
-                    {
-                        // look north
-                        var offset = up.ToVector3() * 100f;
-                        X += offset.x;
-                        Y += offset.y;
-                        Z += offset.z;
-
-                        transform.rotation = Quaternion.LookRotation(_unityNorth, _unityUp);
-                        //transform.eulerAngles = transform.rotation.eulerAngles
-                        _initialized = true;
-                    }
-                }
-            }
-        }
-
         public double UpdateCamera(double renderTime)
         {
             _lastRenderTime = _currentRenderTime;
             _currentRenderTime = renderTime;
 
             Move(_autoMovement);
-
 
             if (_inputLocked)
                 return renderTime;
@@ -406,40 +347,31 @@ namespace Saab.Foundation.Unity.MapStreamer
             }
 
             Quaternion rot = transform.rotation;
-            Quaternion tilt = Quaternion.identity;
-            Quaternion pan = Quaternion.identity;
-
-            if (Input.GetKey(KeyCode.LeftArrow))
-            {
-                pan = Pan(-RotSpeed);
-            }
-
-            if (Input.GetKey(KeyCode.RightArrow))
-            {
-                pan = Pan(RotSpeed);
-            }
-
-            rot = pan * rot;
-            Vector3 newForward = rot * Vector3.forward;
-            Vector3 newRight = Vector3.Cross(_unityUp, newForward).normalized;   // right on tangent plane
 
             if (Input.GetKey(KeyCode.UpArrow))
             {
-                tilt = Tilt(RotSpeed, newRight);
+                rot = rot * Tilt(RotSpeed);
             }
 
             if (Input.GetKey(KeyCode.DownArrow))
             {
-                tilt = Tilt(-RotSpeed, newRight);
+                rot = rot * Tilt(-RotSpeed);
             }
 
-            rot = tilt * rot;
+            if (Input.GetKey(KeyCode.LeftArrow))
+            {
+                rot = Pan(-RotSpeed) * rot;
+            }
+
+            if (Input.GetKey(KeyCode.RightArrow))
+            {
+                rot = Pan(RotSpeed) * rot;
+            }
 
             if (Input.GetKeyDown("p"))
             {
-                rot = rot * Quaternion.Euler(0f, 180f, 0f);
+                rot = Quaternion.Euler(0, 180, 0) * rot;
             }
-
 
 #if TEST_ROTATION
                 rot = Pan(-rotspeed) * rot;
