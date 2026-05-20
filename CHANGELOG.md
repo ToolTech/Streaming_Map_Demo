@@ -15,6 +15,7 @@ described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/
 - crash issue on certain maps (misaligned buffers)
 
 ### Changed
+- Updated to GizmoSDK 2.12.309.1
 - lowered foliage GPU memory bandwidth to increase performance.
 
 ## 4.5
