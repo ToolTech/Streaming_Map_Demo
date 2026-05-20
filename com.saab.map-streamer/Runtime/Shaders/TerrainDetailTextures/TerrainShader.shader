@@ -48,6 +48,7 @@ Shader "Custom/TerrainShader"
 		#include "UnityPBSLighting.cginc"
 		
 		static const float kPi = 3.1415926535897932384626433832795028841971;
+		static const float Modulo = 5000;
 
 		#pragma exclude_renderers nomrt addshadow
 		#pragma require 2darray
@@ -206,6 +207,32 @@ Shader "Custom/TerrainShader"
 			return faceTangent * TangentSpaceNormal.x + faceBinormal * TangentSpaceNormal.y + faceNormal * TangentSpaceNormal.z;
 		}
 
+		float PositiveModulo(float x, float m)
+		{
+			return x - floor(x / m) * m;
+		}
+
+		float2 PositiveModulo2(float2 x, float m)
+		{
+			return x - floor(x / m) * m;
+		}
+
+		float2 WorldUV(float3 worldPos, float3 worldOffset, float3 north, float3 east, float modulo)
+		{
+			north = normalize(north);
+			east  = normalize(east);
+
+			float3 p = worldPos + worldOffset;
+
+			float2 uvMeters;
+			uvMeters.x = dot(p, east);
+			uvMeters.y = dot(p, north);
+
+			uvMeters = PositiveModulo2(uvMeters, modulo);
+
+			return uvMeters;
+		}
+
 		sampler2D _FeatureMap;
 		sampler2D _MainTex;
 	
@@ -222,6 +249,8 @@ Shader "Custom/TerrainShader"
 		int _WaterIndex;
 		float3 _Ambient;
 		float3 _WindVector;
+
+		float4x4 _LocalToEUN;
 
         UNITY_DECLARE_TEX2DARRAY(_Textures);
 		UNITY_DECLARE_TEX2DARRAY(_NormalMaps);
@@ -248,7 +277,15 @@ Shader "Custom/TerrainShader"
 			void frag(v2f i, out half4 outGBuffer0 : SV_Target0, out half4 outGBuffer1 : SV_Target1, out half4 outGBuffer2 : SV_Target2, out half4 outEmission : SV_Target3)
 			{
 				// this ******NEEDS****** to match ShaderUtils.PositionTiling to work correctly!
-				float3 worldPos = (i.worldPos + _WorldOffset) % 5000;
+				float3 worldPos = (i.worldPos + _WorldOffset) % Modulo;
+
+				float3 north = mul((float3x3)_LocalToEUN, float3(0,0,1));
+				float3 east = mul((float3x3)_LocalToEUN, float3(1,0,0));
+
+				north.z *= -1;
+				east.z *= -1;
+
+				float2 worldUV = WorldUV(i.worldPos, _WorldOffset, north, east, Modulo);
 
 				uint feature = (uint)(tex2D(_FeatureMap, i.uv) * 255.0);
 
@@ -277,10 +314,9 @@ Shader "Custom/TerrainShader"
 					textureScrolling = -_Time.y * _WindVector.xy * (_WindVector.z * 0.005);
 				}
 
-				fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_Textures, float3(abs(0.005 * worldPos.xz + textureScrolling ) % 1, mappingIndex));
+				fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_Textures, float3(abs(0.005 * worldUV.xy + textureScrolling ) % 1, mappingIndex));
 				float3 finalColor = lerp(satellite.rgb, color.rgb, saturate(col.g * 2));
 
-				float scale = 1 - (length(i.worldPos) / _ProjectionParams.z);
 				
 				if(feature == _WaterIndex)
 				{
@@ -301,8 +337,8 @@ Shader "Custom/TerrainShader"
 					_DetailBumpScale *= 0.5;
 				}
 
-				fixed3 normalDetail = UnpackScaleNormal(UNITY_SAMPLE_TEX2DARRAY(_NormalMaps, float3(frac(_Detail * worldPos.xz * 0.25  + textureScrolling * 1), mappingIndex)), _DetailBumpScale);
-				fixed3 normalMain = UnpackScaleNormal(UNITY_SAMPLE_TEX2DARRAY(_NormalMaps, float3(frac(_Detail * worldPos.xz * 0.5 + textureScrolling * 3.14), mappingIndex)), _BumpScale);
+				fixed3 normalDetail = UnpackScaleNormal(UNITY_SAMPLE_TEX2DARRAY(_NormalMaps, float3(frac(_Detail * worldUV.xy * 0.25  + textureScrolling * 1), mappingIndex)), _DetailBumpScale);
+				fixed3 normalMain = UnpackScaleNormal(UNITY_SAMPLE_TEX2DARRAY(_NormalMaps, float3(frac(_Detail * worldUV.xy * 0.5 + textureScrolling * 3.14), mappingIndex)), _BumpScale);
 				
 				// if(abs(worldPos.xz).x <= 1)
 				// 	finalColor = float3(1,0,1);
@@ -314,7 +350,7 @@ Shader "Custom/TerrainShader"
 	
 				if(feature == _WaterIndex)
 				{
-					fixed3 normalExtra = UnpackScaleNormal(UNITY_SAMPLE_TEX2DARRAY(_NormalMaps, float3(frac(_Detail * worldPos.xz * 0.1 + textureScrolling * 1), mappingIndex)), 1.02);
+					fixed3 normalExtra = UnpackScaleNormal(UNITY_SAMPLE_TEX2DARRAY(_NormalMaps, float3(frac(_Detail * worldUV.xy * 0.1 + textureScrolling * 1), mappingIndex)), 1.02);
 					//normalBlend =BlendNormals(normalBlend, normalExtra);
 					normalBlend = lerp(normalBlend, normalExtra, 0.2);
 				}

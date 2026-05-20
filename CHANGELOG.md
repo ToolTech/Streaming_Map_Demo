@@ -5,6 +5,11 @@ All notable changes to this project shall be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/CHANGELOG.md_Windows_%26_Apps).
 
+## 4.7
+
+### Changed
+- Updated to GizmoSDK 2.12.326.1
+
 ## 4.6
 
 ### Added
@@ -12,8 +17,10 @@ described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/
 
 ### Fixed
 - Camera controlls now support spherical maps.
+- crash issue on certain maps (misaligned buffers)
 
 ### Changed
+- Updated to GizmoSDK 2.12.309.1
 - lowered foliage GPU memory bandwidth to increase performance.
 
 ## 4.5

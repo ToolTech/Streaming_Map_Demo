@@ -394,7 +394,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
             var nodeSize = (texSize * pixelSize);
             var centerOffset = new Vec3D(topLeftCorner.x - utmPos.Easting, 0, topLeftCorner.y - utmPos.Northing);
-
             _pixelToWorld = GeneratePixelToWorld(texSize, pixelSize, mesh, centerOffset);
 
             RenderTexture surface = null;
@@ -465,26 +464,51 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         private static GraphicsBuffer CreateIndexBufferCopy(Mesh mesh)
         {
-            var src = mesh.GetIndexBuffer();
-            GraphicsBuffer dst;
+            if (mesh == null)
+                throw new ArgumentNullException(nameof(mesh));
 
-            if (mesh.indexFormat == UnityEngine.Rendering.IndexFormat.UInt32)
+            int[] indices = mesh.GetIndices(0); // TODO: switch to meshData.GetIndexData
+
+            if (mesh.indexFormat == UnityEngine.Rendering.IndexFormat.UInt16)
             {
-                // 32-bit indices already fine
-                dst = new GraphicsBuffer(GraphicsBuffer.Target.CopyDestination | GraphicsBuffer.Target.Raw,
-                                             src.count, sizeof(uint));
-                Graphics.CopyBuffer(src, dst);
+                int packedCount = (indices.Length + 1) / 2;
+
+                uint[] packed = new uint[packedCount];
+
+                for (int i = 0; i < indices.Length; i += 2)
+                {
+                    uint low = (uint)(indices[i] & 0xffff);
+
+                    uint high = (i + 1 < indices.Length)
+                        ? ((uint)(indices[i + 1] & 0xffff) << 16)
+                        : 0u;
+
+                    packed[i / 2] = low | high;
+                }
+
+                var dst = new GraphicsBuffer(
+                    GraphicsBuffer.Target.Raw,
+                    packed.Length,
+                    sizeof(uint));
+
+                dst.SetData(packed);
+                return dst;
             }
             else
             {
-                // 16-bit indices: pack into uints (two per element)
-                int packedCount = Mathf.CeilToInt(src.count / 2.0f);
-                dst = new GraphicsBuffer(GraphicsBuffer.Target.CopyDestination | GraphicsBuffer.Target.Raw,
-                                             packedCount, sizeof(uint));
-                Graphics.CopyBuffer(src, dst);
+                uint[] indices32 = new uint[indices.Length];
+
+                for (int i = 0; i < indices.Length; i++)
+                    indices32[i] = (uint)indices[i];
+
+                var dst = new GraphicsBuffer(
+                    GraphicsBuffer.Target.Raw,
+                    indices32.Length,
+                    sizeof(uint));
+
+                dst.SetData(indices32);
+                return dst;
             }
-            src.Release();
-            return dst;
         }
 
         private ComputeBuffer GeneratePixelToWorld(Vector2 texSize, Vector2 pixelSize, Mesh mesh, Vec3D offset)
