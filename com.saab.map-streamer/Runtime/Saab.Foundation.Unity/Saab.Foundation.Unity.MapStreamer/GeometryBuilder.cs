@@ -197,8 +197,10 @@ namespace Saab.Foundation.Unity.MapStreamer
                 // release material & mesh resources
                 if (gameObject.TryGetComponent<MeshRenderer>(out var renderer))
                 {
-                    _materialManager.Free(renderer.sharedMaterial);
-                    //Destroy(renderer.sharedMaterial);
+                    Material sharedMaterial = renderer.sharedMaterial;
+                    if (sharedMaterial)
+                        _materialManager.Free(sharedMaterial);
+
                     renderer.sharedMaterial = null;
                     renderer.enabled = false;
                 }
