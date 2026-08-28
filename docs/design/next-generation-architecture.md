@@ -154,7 +154,7 @@ The managed CSW SceneManager contract must provide:
 | --- | --- |
 | Lifecycle | Initialize, uninitialize, completion, and failure |
 | Maps | Set, add, remove, clear, source identity, and correlated result |
-| Geographic context | Coordinate system, origin, units, and map compatibility |
+| Geographic context | Coordinate system, Map Origin `GeoPosition`, units, and map compatibility |
 | Structure | New, update, and delete with node and parent identity |
 | Visibility | Activation and deactivation, including LOD transitions |
 | Frames | Start and end boundaries with ordering |
@@ -234,7 +234,7 @@ The target extension points cover:
 - post-create and pre-release notifications;
 - resource decoration or substitution;
 - post-frame GPU dispatch and drawing;
-- camera/origin shader parameters;
+- camera and Local Origin Offset shader parameters;
 - capability and render-pipeline validation; and
 - per-feature diagnostics and budgets.
 
@@ -278,7 +278,7 @@ must preserve boundaries that allow later package separation:
 Runtime/
   Core/             lifecycle, configuration, command adapter, frame scheduler
   Realization/      registry, builders, identities, resource services
-  Coordinates/      camera, origin, and geographic adaptation
+  Coordinates/      camera, Local 3D Frame, and geographic adaptation
   Objects/          external object store, motion, and Unity presenters
   World/            time and environment contracts
   Movement/         input, movement models, constraints, and rigs

@@ -35,9 +35,11 @@ live operation, replay, and automated testing.
 
 ### CSWU-MOVE-004: Pose convention
 
-The authoritative pose shall use a double-precision source position and a
-documented orientation relative to an explicit local coordinate basis.
-Conversion to a Unity transform shall occur at the rig boundary.
+The authoritative pose shall use a double-precision Global 3D Position and a
+documented orientation in the active Global 3D Frame. Localization shall produce
+a Local 3D Position for the active frame. At the rig boundary, the CSWUnity
+adapter maps that value to the specifically named Unity position required by
+the target transform.
 
 ### CSWU-MOVE-005: Runtime selection
 
@@ -104,7 +106,8 @@ host-controlled object rig when their pose and constraint capabilities match.
 ### CSWU-MOVE-015: Object follow
 
 The architecture shall allow an optional model or constraint that follows an
-external world object while preserving coordinate and origin semantics.
+external world object while preserving Map Coordinate Context and Local 3D
+Frame semantics.
 
 ## Diagnostics and tests
 
@@ -127,7 +130,7 @@ tolerances for position, orientation, clearance, and coordinate transitions.
 - Flying-carpet movement remains non-blocking while terrain tiles load and
   follows its configured unavailable-data policy.
 - Switching movement models preserves pose without an unintended coordinate or
-  origin jump.
+  Local Origin Offset jump.
 - Movement remains correct on representative UTM, geodetic, and geocentric
   maps.
 
@@ -135,3 +138,4 @@ tolerances for position, orientation, clearance, and coordinate transitions.
 
 - [Movement architecture](../design/movement-models.md)
 - [Scene control](scene-control.md)
+- [Coordinate nomenclature and mapping](coordinate-nomenclature.md)

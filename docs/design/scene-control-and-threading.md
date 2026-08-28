@@ -81,8 +81,10 @@ that command submission means completion.
 
 ### Coordinate control
 
-`GeoInfo` establishes the coordinate-system descriptor and map origin. A
-coordinate-adapter registry selects an implementation for at least:
+`GeoInfo` establishes the coordinate-system descriptor and Map Origin
+`GeoPosition`, or explicitly carries the derived Origin Global 3D Position while
+the Map Coordinate Context retains the geographic anchor. A coordinate-adapter
+registry selects an implementation for at least:
 
 - UTM projected maps;
 - geodetic maps; and
@@ -91,15 +93,46 @@ coordinate-adapter registry selects an implementation for at least:
 Each adapter uses GizmoSDK coordinate conversion and exposes a common contract
 for:
 
-- source to Unity-local position;
-- Unity-local to source position;
-- geodetic conversion;
-- directions and normals;
-- local east, north, and up basis; and
-- origin rebasing.
+- `GeoPosition` to Global 3D Position;
+- Global 3D Position to `GeoPosition`;
+- Global 3D Position to Local 3D Position through an explicit Local 3D Frame;
+- Local 3D Position to a specifically named Unity position frame;
+- inverse localization and viewer mappings;
+- positions, directions, offsets, normals, and orientations through distinct
+  operations;
+- Local Tangent Frame orientation; and
+- atomic Local 3D Frame rebasing.
 
-The authoritative position remains double precision. Unity-local floats are a
-view relative to the active origin.
+The terminology and conversion stages follow
+[Coordinate nomenclature and mapping](../requirements/coordinate-nomenclature.md).
+Global 3D Position and Local Origin Offset remain double precision.
+Origin subtraction occurs before conversion to single-precision Local 3D
+Position. The Unity mapping then names whether its result is a Transform Local
+Position, Unity World Position, or another Unity frame.
+
+#### Required coordinate value contracts
+
+The design uses immutable semantic values or equivalent value-plus-context
+records:
+
+| Contract | Required content |
+| --- | --- |
+| Map Coordinate Context | Identity and revision, CRS, metadata, Global 3D mapping, and Map Origin `GeoPosition` |
+| Global 3D Position | Context identity and double-precision XYZ |
+| Local 3D Frame | Identity and generation, source Global 3D Frame, double-precision Local Origin Offset, basis and units, and inverse basis |
+| Local 3D Position | Local frame identity and generation plus single-precision XYZ |
+| Viewer Mapping Snapshot | Local frame identity and generation, specifically named Unity target frame, axis/unit policy, forward transform, and inverse transform |
+
+A bare `Vec3D`, `Vec3`, `Vector3`, or matrix shall not cross a new public service
+boundary without the contract establishing its semantic frame. Internal generic
+templates may adapt scalar or matrix representation, but semantic operations
+remain explicitly named as point, offset, direction, normal, or orientation
+mapping.
+
+One mapping snapshot is used consistently for camera transfer, streamed scene
+content, external objects, and spatial-query results. A frame or mapping update
+publishes a new generation atomically; consumers reject stale values rather
+than combining generations.
 
 ### Position and camera control
 
@@ -126,10 +159,12 @@ sequenceDiagram
     U-->>H: typed result or failure
 ```
 
-Results include source and Unity-local positions as appropriate, surface
-normal, up direction, distance or altitude, status, and a stable hit-instance
-identity. Waiting for dynamic data is an explicit request option and never
-blocks the Unity main thread.
+Results include Global 3D Position, requested `GeoPosition` representation,
+Local 3D Position with frame identity and generation, and a specifically named
+Unity position as appropriate. They also include surface normal, up direction,
+distance or altitude, status, and a stable hit-instance identity. Waiting for
+dynamic data is an explicit request option and never blocks the Unity main
+thread.
 
 ### Asset control
 

@@ -66,8 +66,8 @@ The world context binds all state that must remain coherent:
 - world/session identity;
 - world and simulation clock;
 - coordinate-system descriptor;
-- source/map origin;
-- Unity local-origin generation;
+- Map Origin `GeoPosition`;
+- Local 3D Frame identity and generation;
 - environment revision;
 - active map-source identities; and
 - object-store revision.

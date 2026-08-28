@@ -61,7 +61,7 @@ Configuration is split by ownership:
 | --- | --- |
 | Map URLs and retry policy | Host project or map-source asset |
 | Loader, LOD, and source capabilities | SceneManager configuration |
-| Camera and coordinate origin | Camera/coordinate adapter |
+| Camera and Local 3D Frame | Camera/coordinate adapter |
 | Builders and fallbacks | Realization profile |
 | Mesh, texture, material, and object budgets | Resource profile |
 | Shader and GPU features | Optional feature profiles |

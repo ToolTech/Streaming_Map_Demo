@@ -69,14 +69,18 @@ ordering, identities, and common realizers shall not depend on GZD classes.
 
 ## Coordinate flow
 
-CSW SceneManager publishes coordinate system and origin information. CSWUnity
-retains source positions at the precision supplied by CSW/GizmoSDK and applies
-the configured axis, unit, and local-origin transformation when producing
-Unity transforms.
+CSW SceneManager publishes the information needed to establish the Map
+Coordinate Context, including the Map Origin `GeoPosition` for georeferenced
+maps. CSWUnity retains numeric `GeoPosition` values, Global 3D Positions, and
+Local Origin Offsets in double precision. It subtracts the active Local Origin
+Offset before narrowing to Local 3D Position and then applies the Unity Viewer
+Coordinate Mapping to a specifically named Unity position frame.
 
 Camera data travels in the opposite direction: CSWUnity snapshots the active
-Unity camera, converts it into the CSW coordinate contract, and submits it
-before requesting a refresh.
+Unity camera, applies the inverse Unity mapping and Local 3D localization to
+obtain its Global 3D Camera Pose, and submits that pose before requesting a
+refresh. The composed Viewer Transform may execute both stages, but shall not
+apply the Local Origin Offset twice.
 
 ## Ownership boundaries
 
@@ -85,7 +89,10 @@ before requesting a refresh.
 | Source datasets and build settings | CSWMapGenerator |
 | GZD generation and publication | CSWMapGenerator |
 | Source-format reading and native scene | GizmoSDK |
+| `GeoPosition` and Global 3D conversion | GizmoSDK `gzCoordinate` |
+| Global-to-Local 3D localization contract | Shared coordinate boundary |
 | Map lifecycle, traversal, dynamic loading, and scene buffers | C# CSW SceneManager |
+| Local 3D to named Unity position mapping | CSWUnity viewer adapter |
 | Thread transfer and frame application | CSWUnity |
 | Unity-object conversion | CSWUnity realizers |
 | Unity resource lifetime | CSWUnity resource services |
@@ -105,5 +112,6 @@ A release validates a complete pipeline:
 ## Related documentation
 
 - [Streaming Map input requirements](../requirements/streaming-map-input.md)
+- [Coordinate nomenclature and mapping](../requirements/coordinate-nomenclature.md)
 - [Next-generation architecture](next-generation-architecture.md)
 - [Load a MapGen GZD map](../howto/load-mapgen-map.md)

@@ -65,65 +65,152 @@ the native GizmoSDK scene.
 
 ## Coordinate-system control
 
+The normative terms and conversion stages are defined in
+[Coordinate nomenclature and mapping](coordinate-nomenclature.md).
+
 ### CSWU-COORD-001: Required coordinate modes
 
 CSWUnity shall support at least:
 
-- UTM projected coordinates;
-- geodetic latitude, longitude, and altitude; and
-- Earth-centered geocentric coordinates.
+- UTM Positions;
+- Geodetic Positions; and
+- Geocentric Positions.
 
-Additional projected or local coordinate systems shall be addable through the
-same coordinate-service boundary.
+Additional `GeoPosition` representations supported by GizmoSDK, including
+general Projected Positions, MGRS References, and Flat-Earth Positions, shall
+be addable through the same coordinate-service boundary.
 
-### CSWU-COORD-002: Coordinate description
+### CSWU-COORD-002: Map Coordinate Context
 
-CSW SceneManager shall provide CSWUnity with the coordinate-system descriptor
-and map origin before Unity scene content depending on that context is
-committed.
+For a georeferenced map, CSW SceneManager shall provide the CRS descriptor,
+required metadata, Global 3D mapping, Map Origin `GeoPosition`, and stable
+context identity or revision needed to establish the Map Coordinate Context
+before dependent scene content is committed. A non-georeferenced Cartesian map
+shall instead declare its explicit 3D frame and lack of geographic anchor.
 
-### CSWU-COORD-003: Bidirectional conversion
+The Map Origin shall remain a `GeoPosition`. Its mapped XYZ value shall be named
+Origin Global 3D Position and shall not be passed or documented as though it
+were the same value.
 
-The coordinate service shall provide checked conversion between:
+A transport may carry the derived Origin Global 3D Position for efficient scene
+setup, but the field shall be named and typed accordingly and the Map Coordinate
+Context shall retain the originating Map Origin `GeoPosition`.
 
-- source/map coordinates;
-- geodetic coordinates;
-- geocentric coordinates;
-- UTM coordinates when defined by the active system; and
-- Unity-local coordinates.
+### CSWU-COORD-003: Global 3D conversion
 
-Conversions shall use GizmoSDK coordinate services rather than duplicate
-projection formulas in CSWUnity.
+The coordinate service shall provide checked, bidirectional conversion between
+supported `GeoPosition` representations and double-precision Global 3D
+Positions in the active Map Coordinate Context.
 
-### CSWU-COORD-004: Precision
+CRS, datum, projection, height-model, and Global 3D mapping operations shall use
+GizmoSDK coordinate services rather than duplicate formulas in viewer code.
 
-Source, geodetic, geocentric, UTM, and world-origin values shall retain double
-precision until conversion to a Unity representation that requires
-single-precision values.
+### CSWU-COORD-004: Local 3D localization
 
-### CSWU-COORD-005: Local origin
+The shared coordinate boundary shall provide checked, bidirectional
+localization between:
 
-CSWUnity shall support a configurable Unity-local origin and origin rebasing
-without changing authoritative source coordinates or object identity.
+- a double-precision Global 3D Position; and
+- a single-precision Local 3D Position associated with an explicit Local 3D
+  Frame identity and generation.
 
-### CSWU-COORD-006: Orientation
+The Local 3D Frame shall declare its double-precision Local Origin Offset,
+basis, and units. Translation-only localization shall compute the Global 3D
+offset in double precision before converting the result to `float`.
+The subtraction result is a displacement vector and shall be called a Local 3D
+Position only after it has been expressed in the declared local frame.
 
-The coordinate service shall provide local up, north, and east directions and
-the transformations required to convert positions, directions, normals, and
-rotations correctly for each supported coordinate mode.
+### CSWU-COORD-005: Precision boundary
+
+Numeric `GeoPosition` values, Global 3D Positions, Origin Global 3D Positions,
+Local Origin Offsets, and all operands used for origin subtraction shall retain
+double precision.
+
+Conversion to Local 3D or viewer-native single precision shall occur only after
+origin subtraction and any required double-precision basis or unit mapping.
+The conversion shall reject non-finite or out-of-range values rather than
+silently overflow.
+
+### CSWU-COORD-006: Viewer mapping
+
+Each viewer adapter shall define a bidirectional mapping between Local 3D
+Position and one specifically named native target frame. The mapping shall
+state its axis permutation, signs, handedness conversion, unit scale, native
+precision, and root, level, actor, or component transform.
+
+Generic names such as *Unity Position* or *Unreal Position* shall not be used
+where World, Transform Local, Level, Actor Relative, or Component Relative
+semantics differ.
+
+### CSWU-COORD-007: Semantic transform operations
+
+Coordinate and viewer adapters shall expose semantically distinct operations
+for:
+
+- positions;
+- offset and direction vectors;
+- normals; and
+- orientations or bases.
+
+Only position conversion shall apply the Local Origin Offset. Direction and
+offset vectors shall use the applicable linear mapping, normals the normal
+mapping, and orientations the basis mapping.
+
+### CSWU-COORD-008: Local-frame rebasing
+
+Changing a Local Origin Offset shall create a new Local 3D Frame generation.
+The frame update and all dependent transforms shall become visible atomically.
+Local 3D Positions from different identities or generations shall not be
+combined.
+
+Rebasing shall not modify the Map Origin, authoritative `GeoPosition` values,
+Global 3D Positions, object identities, or core camera state.
+
+### CSWU-COORD-009: Round trip and failure
+
+Every supported forward conversion shall define its supported inverse,
+tolerance, and failure behavior. Round trips through single-precision Local 3D
+or viewer positions shall be validated against a published tolerance rather
+than exact equality.
+
+Unsupported coordinate types, missing metadata, stale frame generations, and
+failed precision checks shall produce explicit failures and shall not expose a
+partially converted position as valid.
+
+### CSWU-COORD-010: Local tangent orientation
+
+The coordinate service shall provide the Local Tangent Frame required for
+heading, movement, normals, and orientation. ENU is a basis at a `GeoPosition`;
+it is not synonymous with Local 3D Position.
+
+In particular, subtracting two geocentric ECEF positions produces an
+ECEF-axis offset and shall not be described as ENU without the required basis
+rotation.
+
+### CSWU-COORD-011: Mapping API semantics
+
+Generic and templated conversion helpers shall identify their semantic source
+and target frames at the API or policy level. Scalar conversion, component
+permutation, handedness conversion, unit scaling, origin translation, and
+native hierarchy transforms shall remain distinguishable in implementation and
+tests.
+
+Matching C++ or C# scalar and vector types shall not be treated as proof that
+two values use the same position frame.
 
 ## Position and spatial-query control
 
 ### CSWU-POS-001: Camera state
 
-CSWUnity shall submit camera position, orientation, projection, viewport, LOD
-factor, and render time to CSW SceneManager using source-coordinate semantics.
+CSWUnity shall submit the camera's Global 3D Position, orientation, projection,
+viewport, LOD factor, and render time to CSW SceneManager in the active Map
+Coordinate Context.
 
 ### CSWU-POS-002: Object positioning
 
-The host shall be able to position a Unity object from a map, geodetic,
-geocentric, or UTM position and recover the authoritative world position from
-a Unity object.
+The host shall be able to position a Unity object from a supported
+`GeoPosition` or Global 3D Position and recover the corresponding Global 3D
+Position and requested `GeoPosition` representation from a Unity object.
 
 ### CSWU-QUERY-001: Ray intersection
 
@@ -203,6 +290,14 @@ and without retaining unlocked mutable native references.
   map service.
 - UTM, geodetic, and geocentric test maps produce correct Unity positions,
   orientations, and round-trip conversions.
+- Coordinate tests independently verify `GeoPosition` to Global 3D mapping,
+  double-precision origin subtraction, Local 3D narrowing, and Unity mapping.
+- Rebase tests prove that Global 3D Positions remain unchanged, Local 3D Frame
+  generations change atomically, and no visible jump occurs.
+- Position, offset, direction, normal, and orientation tests prove that
+  translation is applied only to positions.
+- Unsupported mappings, stale frame generations, and out-of-range float
+  conversions fail explicitly.
 - Camera, intersection, and ground-clamp operations remain responsive while
   map streaming and geometry preparation are active.
 - Asset instances share immutable resources and receive independent transform,

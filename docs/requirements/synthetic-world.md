@@ -50,7 +50,7 @@ clock when the selected CSW time provider supports those operations.
 
 Map, coordinate, object, environment, movement, query, sensor, and rendering
 services shall use the same world identity, time context, coordinate context,
-and origin generation.
+and Local 3D Frame identity and generation.
 
 ## Environment contract
 

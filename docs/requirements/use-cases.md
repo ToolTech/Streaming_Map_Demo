@@ -25,7 +25,44 @@ A use case belongs in this catalog when it:
 Application-specific controls remain the responsibility of the host project.
 The host maps them to semantic CSWUnity operations.
 
-## Domain catalogs
+## Core nomenclature
+
+The core use cases use platform-independent spatial terminology shared by
+CSWUnity, CSWUnreal, and other viewer realizations. The complete definitions
+and conversion stages are specified in
+[Coordinate nomenclature and mapping](coordinate-nomenclature.md).
+
+### GeoPosition
+
+A `GeoPosition` is a coordinate value associated with a Coordinate Reference
+System. It is the collective term for geodetic, geocentric, projected, UTM,
+MGRS, and flat-earth position representations.
+
+### Global 3D Position
+
+A Global 3D Position is the double-precision Cartesian XYZ value produced or
+consumed by GizmoSDK `gzCoordinate` for a specific Map Coordinate Context. It
+is the canonical position used by the core camera and scene model, before any
+Unity or Unreal mapping.
+
+### Map Origin and Local Origin Offset
+
+The Map Origin is a `GeoPosition`. Mapping it produces an Origin Global 3D
+Position. A Local Origin Offset is instead a double-precision 3D displacement
+that locates one Local 3D Frame origin in the Global 3D Frame.
+
+### Local 3D Position
+
+A Local 3D Position is a single-precision Cartesian XYZ value relative to an
+explicit Local 3D Frame. Its Local Origin Offset is represented in Global 3D
+double precision, and subtraction occurs before conversion to `float`.
+A viewer adapter maps Local 3D Position to a specifically named native engine
+position.
+
+## Core domain catalogs
+
+These catalogs define behavior that can be shared by multiple viewer
+realizations. Platform-specific constraints are documented separately.
 
 - [Camera and movement](camera-use-cases.md)
 
@@ -66,16 +103,21 @@ profile.
 ### CSWU-UC-COORD-001: Work in different map coordinate systems
 
 1. The operator or application opens a UTM, geodetic, or geocentric map.
-2. CSWUnity selects the corresponding coordinate adapter.
-3. Camera, world objects, spatial queries, and shader origin data use the same
-   coordinate context.
-4. The operator views positions in the coordinate representation required by
-   the host application.
+2. The map establishes its Map Coordinate Context.
+3. Camera, scene objects, and spatial queries use Global 3D Positions in that
+   context.
+4. The coordinate boundary derives Local 3D Positions for the active Local 3D
+   Frame without changing the authoritative Global 3D Positions.
+5. The viewer adapter maps those values to explicitly named native viewer
+   positions.
+6. The operator views each `GeoPosition` in the representation required by the
+   host application.
 
 **Expected outcome**
 
-Map content and world objects align, and round-trip position conversion remains
-within the configured tolerance.
+Map content and scene objects align, and round-trip conversion between
+`GeoPosition`, Global 3D Position, Local 3D Position, and supported native
+viewer positions remains within the configured tolerance.
 
 ### CSWU-UC-MOVE-001: Navigate with a flying-carpet model
 
@@ -165,7 +207,7 @@ on HLA, MCP, Distribution, DIS, or another transport.
    clouds, precipitation, water, lighting, or vegetation state.
 2. The programmer implements a render-pipeline-specific Unity module.
 3. The module declares required semantic inputs and hardware capabilities.
-4. The module subscribes to environment snapshots and frame/origin updates.
+4. The module subscribes to environment snapshots and Local 3D Frame updates.
 
 ### CSWU-UC-MOVE-002: Add a movement model
 
@@ -194,8 +236,8 @@ snapshots, and query results.
 ### CSWU-UC-TEST-002: Verify coordinate systems
 
 The tester runs representative UTM, geodetic, and geocentric maps through
-known control points, camera paths, intersections, ground clamps, origin
-rebases, and round-trip conversions.
+known control points, camera paths, intersections, ground clamps, Local Origin
+Offset rebases, and round-trip conversions.
 
 ### CSWU-UC-TEST-003: Verify streaming and rendering performance
 

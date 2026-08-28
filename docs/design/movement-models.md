@@ -63,7 +63,7 @@ Movement state contains:
 - optional focus position;
 - distance, linear velocity, and angular velocity;
 - active model and transition;
-- coordinate-context and origin generation; and
+- Map Coordinate Context and Local 3D Frame generation; and
 - latest valid surface sample.
 
 ### Movement model
@@ -225,7 +225,8 @@ cannot be followed within active constraints.
   main thread when they use immutable data and thread-safe GizmoSDK services.
 - Surface queries are asynchronous CSW SceneManager operations.
 - Query completion is applied by correlation identity and movement generation.
-- Late results from a cancelled action, old map, or old origin are discarded.
+- Late results from a cancelled action, old map, or stale Local 3D Frame
+  generation are discarded.
 
 ## Diagnostics
 
@@ -237,7 +238,7 @@ The movement service exposes:
 - transition and tracking state;
 - active constraints and corrections;
 - surface clearance and fallback state;
-- coordinate/origin generation; and
+- Map Coordinate Context and Local 3D Frame generation; and
 - movement and query processing time.
 
 ## Migration

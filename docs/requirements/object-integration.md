@@ -49,7 +49,10 @@ or revision, and correlation identity.
 ### CSWU-OBJ-006: Coordinate frame
 
 Position, orientation, velocity, acceleration, and angular values shall declare
-their coordinate frame, origin, axis convention, and SI units.
+their coordinate frame, axis convention, and SI units. A Local 3D value shall
+also declare its Local 3D Frame identity and generation. Positions shall use a
+`GeoPosition` with its CRS context, a Global 3D Position with its Map Coordinate
+Context, or a Local 3D Position with its complete frame context.
 
 ### CSWU-OBJ-007: Authority
 
@@ -131,8 +134,8 @@ stage.
 
 ### CSWU-OBJ-020: Map alignment
 
-External objects shall use the same world, coordinate, and local-origin
-generation as streamed map content.
+External objects shall use the same world, Map Coordinate Context, and Local 3D
+Frame identity and generation as streamed map content.
 
 ### CSWU-OBJ-021: Host extension
 
@@ -154,3 +157,4 @@ schemas, presenters, and event handlers without forking CSWUnity.
 
 - [External object architecture](../design/object-integration.md)
 - [Scene control and threading](../design/scene-control-and-threading.md)
+- [Coordinate nomenclature and mapping](coordinate-nomenclature.md)

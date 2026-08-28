@@ -9,7 +9,7 @@ CSWUnity must present several coordinated streams efficiently:
 - streamed map scene changes from C# CSW SceneManager;
 - externally updated world objects;
 - world time and environment state;
-- camera and local-origin changes; and
+- camera and Local 3D Frame changes; and
 - optional synthetic-world rendering features.
 
 The architecture separates semantic state, CPU preparation, Unity publication,
@@ -46,7 +46,7 @@ Every visible change is associated with:
 
 - world time or presentation time;
 - coordinate context;
-- local-origin generation;
+- Local 3D Frame identity and generation;
 - source and object/map generation; and
 - scene or object-store revision.
 
@@ -172,8 +172,8 @@ A feature module declares:
 - fallback or disable policy; and
 - diagnostics.
 
-Camera-relative world offsets and local coordinate bases come from one shared
-coordinate/render service rather than independent shader scripts.
+Camera-relative Local Origin Offsets and local coordinate bases come from one
+shared coordinate/render service rather than independent shader scripts.
 
 ## Quality profiles
 
@@ -197,7 +197,7 @@ documented API.
 A repeatable scenario includes:
 
 - versioned maps and object/environment recordings;
-- deterministic camera and origin path;
+- deterministic camera and Local Origin Offset path;
 - target hardware, operating system, Unity version, and render pipeline;
 - warm-up and measurement intervals; and
 - expected visible-state checkpoints.

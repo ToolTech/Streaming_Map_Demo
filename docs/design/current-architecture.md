@@ -103,7 +103,8 @@ core `SceneManager`:
   through texture arrays and a feature mapping buffer.
 - `FoliageModule` generates and culls foliage on the GPU and renders it with
   indirect procedural draws.
-- `CameraShaderUpdater` supplies global world-offset and local geodetic basis
+- `CameraShaderUpdater` supplies camera-relative shader offset and Local Tangent
+  Frame basis
   values required by shaders.
 
 The modules subscribe to `SceneManager` events such as `OnNewTerrain`,

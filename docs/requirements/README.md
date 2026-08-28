@@ -7,6 +7,7 @@ capability.
 ## Requirements
 
 - [Use cases](use-cases.md)
+- [Coordinate nomenclature and mapping contract](coordinate-nomenclature.md)
 - [Next-generation architecture](next-generation-architecture.md)
 - [Scene control](scene-control.md)
 - [Synthetic world](synthetic-world.md)

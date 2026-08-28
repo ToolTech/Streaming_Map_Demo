@@ -142,8 +142,8 @@ and GizmoSDK shutdown.
 ### CSWU-ARCH-010: Shared world context
 
 Streamed maps, external objects, environment state, movement, spatial queries,
-and rendering shall share an explicit world-time, coordinate, and local-origin
-context.
+and rendering shall share an explicit world-time, Map Coordinate Context, and
+Local 3D Frame identity and generation.
 
 ## Unity realization and extension
 

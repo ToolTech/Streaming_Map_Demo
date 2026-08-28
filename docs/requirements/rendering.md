@@ -9,11 +9,11 @@ synthetic-environment effects efficiently and coherently in Unity.
 
 ## Rendering model
 
-### CSWU-RENDER-001: Unified world frame
+### CSWU-RENDER-001: Coherent coordinate context
 
 Map geometry, external objects, environment effects, spatial queries, and
-camera state shall use the same committed world time, coordinate context, and
-local-origin generation.
+camera state shall use the same committed world time, Map Coordinate Context,
+Local 3D Frame identity and generation, and Viewer Transform.
 
 ### CSWU-RENDER-002: Representation strategies
 
@@ -34,7 +34,7 @@ capabilities, not hard-coded native node type checks in a monolithic manager.
 ### CSWU-RENDER-004: Frame coherence
 
 Rendering modules shall observe only committed map, object, environment, and
-origin state. Partial scene-buffer application shall not be visible to
+Local 3D Frame state. Partial scene-buffer application shall not be visible to
 dependent modules.
 
 ## Culling, LOD, and visibility
@@ -114,8 +114,8 @@ invalidating core map and object streaming.
 
 ### CSWU-RENDER-018: Large-world precision
 
-Rendering shall support local-origin rebasing and camera-relative shader data
-while preserving double-precision authoritative positions.
+Rendering shall support Local Origin Offset rebasing and camera-relative shader
+data while preserving double-precision authoritative positions.
 
 ## Validation
 
@@ -136,14 +136,14 @@ and end-to-end visibility latency.
 ### CSWU-RENDER-021: Visual tests
 
 Supported profiles shall include controlled visual tests for geometry,
-materials, LOD, shadows, origin shifts, weather, lighting, external objects,
-and optional sensor modes.
+materials, LOD, shadows, Local Origin Offset changes, weather, lighting,
+external objects, and optional sensor modes.
 
 ### CSWU-RENDER-022: Stress tests
 
 Stress tests shall cover rapid camera movement, map replacement, dense external
-updates, environment transitions, queue overload, asset churn, origin rebasing,
-and shutdown during active work.
+updates, environment transitions, queue overload, asset churn, Local 3D Frame
+rebasing, and shutdown during active work.
 
 ## Acceptance criteria
 
@@ -154,7 +154,7 @@ and shutdown during active work.
 - Optional rendering modules can be removed without changing core map or
   external-object contracts.
 - Stale map or object work cannot become visible after delete, replacement, or
-  origin-generation change.
+  Local 3D Frame generation change.
 
 ## Related design
 

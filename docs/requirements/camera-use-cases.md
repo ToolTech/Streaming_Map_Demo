@@ -1,16 +1,24 @@
 # Camera and movement use cases
 
-**Status:** Draft CSWUnity SDK use cases
+**Status:** Draft core viewer use cases
 
 ## Scope
 
-These use cases define reusable camera and movement behavior for CSWUnity.
+These use cases define platform-independent camera and movement behavior shared
+by CSWUnity, CSWUnreal, and other viewer realizations.
 They do not prescribe input bindings, application UI, selection behavior, or a
-specific Unity camera rig.
+specific viewer camera rig.
 
-The host project maps mouse, keyboard, touch, controller, network, replay, or
-other input to semantic operations. CSWUnity owns the map-relative movement,
-coordinate, query, constraint, transition, and outcome contracts.
+The host maps mouse, keyboard, touch, controller, network, replay, or other
+input to semantic operations. Core services own the movement, coordinate,
+query, constraint, transition, and outcome contracts.
+
+Position terminology follows
+[Coordinate nomenclature and mapping](coordinate-nomenclature.md). The camera's
+authoritative position is a Global 3D Position in the active Map Coordinate
+Context. The coordinate boundary localizes that position into the active
+Local 3D Frame, and a viewer adapter maps the Local 3D Position into a
+specifically named native camera-position frame.
 
 ## Actors
 
@@ -114,14 +122,16 @@ preserving heading and tilt.
 
 ### CSWU-UC-CAM-021: Focus a position
 
-The host supplies a valid map-relative position. It becomes the current focus,
-while distance is preserved unless the request supplies a target distance.
+The host supplies a valid `GeoPosition` or Global 3D Position. After conversion
+to the active Map Coordinate Context, it becomes the current focus while
+distance is preserved unless the request supplies a target distance.
 
 ### CSWU-UC-CAM-022: Look, move, or fly to a target
 
-The host requests a semantic look-at, move-to, or fly-to operation using map
-coordinates. The operation applies the selected transition and active
-constraints without requiring Unity world coordinates.
+The host requests a semantic look-at, move-to, or fly-to operation using a
+`GeoPosition` or Global 3D Position. The operation applies the selected
+transition and active constraints without requiring a platform-specific Viewer
+Position.
 
 On a spherical map, long-distance movement follows a continuous valid path and
 does not pass through the reference ellipsoid.
@@ -158,7 +168,7 @@ through asynchronous surface queries. Height and optional orientation changes
 are smoothed.
 
 If surface data is unavailable, the configured hold, limited-inertial, safe
-climb, or stop policy is applied without blocking the Unity main thread.
+climb, or stop policy is applied without blocking the viewer update loop.
 
 ## Transitions and outcomes
 
@@ -182,9 +192,9 @@ completed, cancelled, unavailable, or failed.
 
 ### CSWU-UC-CAM-050: Track a moving target
 
-The host starts tracking a map-relative target. The camera preserves configured
-target framing, distance, heading, and tilt using immediate or smoothed
-tracking.
+The host starts tracking a target resolved to a Global 3D Position. The camera
+preserves configured target framing, distance, heading, and tilt using
+immediate or smoothed tracking.
 
 ### CSWU-UC-CAM-051: Stop tracking
 
@@ -208,8 +218,9 @@ reframe the camera.
 
 ### CSWU-UC-CAM-061: Preserve pose during origin rebasing
 
-When the streamed scene changes local origin, the authoritative map-relative
-camera pose remains unchanged and the user observes no jump.
+When the active Local Origin Offset changes and a new Local 3D Frame generation
+is published, the authoritative Global 3D Camera Pose remains unchanged and the
+user observes no jump.
 
 ### CSWU-UC-CAM-062: Drive scene streaming
 
@@ -238,4 +249,5 @@ The following remain candidates rather than initial requirements:
 
 - [Movement model requirements](movement-models.md)
 - [Scene control requirements](scene-control.md)
+- [Coordinate nomenclature and mapping](coordinate-nomenclature.md)
 - [Movement architecture](../design/movement-models.md)

@@ -52,9 +52,9 @@ configurable builder/factory registry.
 
 ### CSWU-MAP-007: Coordinate adaptation
 
-CSWUnity shall preserve source coordinate-system, origin, and double-precision
-position information while adapting units, axes, and local transforms to
-Unity.
+CSWUnity shall preserve the Map Coordinate Context, the Map Origin
+`GeoPosition` when georeferenced, Global 3D Positions, and Local 3D Frame
+identity and generation while applying the current Unity Viewer Transform.
 
 ### CSWU-MAP-008: Dynamic streaming
 
@@ -80,7 +80,7 @@ CSWUnity, C# CSW SceneManager, GizmoSDK, and CSWMapGenerator versions.
 - Frame buffers produce correctly ordered Unity `New`, `Update`, `Delete`, and
   `Activation` results.
 - Camera movement updates streamed content and levels of detail.
-- Map coordinates remain stable across Unity origin changes.
+- Global 3D Positions remain stable across Local Origin Offset rebases.
 - Invalid, unavailable, incompatible, and cancelled sources produce distinct
   observable results.
 - A test format provider can emit the common scene contract without requiring
@@ -95,3 +95,4 @@ CSWUnity, C# CSW SceneManager, GizmoSDK, and CSWMapGenerator versions.
 
 - [Streaming Map pipeline](../design/streaming-map-pipeline.md)
 - [Next-generation architecture](../design/next-generation-architecture.md)
+- [Coordinate nomenclature and mapping](coordinate-nomenclature.md)

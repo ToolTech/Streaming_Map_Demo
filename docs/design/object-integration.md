@@ -173,7 +173,7 @@ share:
 
 - world/session identity;
 - coordinate conversion;
-- local-origin generation;
+- Local 3D Frame identity and generation;
 - world time;
 - resource services where appropriate;
 - optional environment state; and
