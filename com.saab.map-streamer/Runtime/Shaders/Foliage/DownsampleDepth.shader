@@ -29,9 +29,6 @@ Shader "Hidden/DownsampleDepth"
                 v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.texcoord;
-#if !UNITY_UV_STARTS_AT_TOP
-                o.uv.y = 1.0 - o.uv.y;
-#endif
                 return o;
             }
 

@@ -18,7 +18,6 @@ using GizmoSDK.GizmoBase;
 using Saab.Foundation.Map;
 using Saab.Utility.GfxCaps;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
@@ -55,6 +54,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         public FoliageFeature FoliageFeature;
         public ComputeBuffer InderectBuffer;
         public ComputeBuffer FoliageData;
+        public ComputeBuffer CulledBuffer { get; set; }
 
         public float MaxHeight { get; set; }
 
@@ -96,7 +96,9 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         // **************** Generate HeightMap ****************
         private RenderTexture _surfaceheightMap;
         private RenderTexture _depthMap;
-        private bool _hasDepthTexture = false;
+        private bool _hasCullingResult;
+        private UnityEngine.Camera _cullingCamera;
+        private int _lastCullingFrame = -1;
 
         private Queue<FoliageJob> _futurePool = new Queue<FoliageJob>();
         private Dictionary<SettingsFeatureType, SettingsFeature> _settingsCache = new Dictionary<SettingsFeatureType, SettingsFeature>();
@@ -118,6 +120,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             public static readonly int FrameCount = Shader.PropertyToID("FrameCount");
             public static readonly int Occlusion = Shader.PropertyToID("Occlusion");
             public static readonly int DownscaleFactor = Shader.PropertyToID("DownscaleFactor");
+            public static readonly int ScreenSize = Shader.PropertyToID("ScreenSize");
 
             public static readonly int IndexBuffer = Shader.PropertyToID("IndexBuffer");
             public static readonly int VertexBuffer = Shader.PropertyToID("VertexBuffer");
@@ -160,10 +163,10 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         {
             _mappingTable = TerrainMapping.MapFeatureData();
 
-            StartCoroutine(WaitForDepth());
             SceneManager.OnNewTerrain += SceneManager_OnNewTerrain;
             SceneManager.OnPostTraverse += SceneManager_OnPostTraverse;
             SceneManager.OnRemoveTerrain += SceneManager_OnRemoveTerrain;
+            UnityEngine.Camera.onPostRender += Camera_OnPostRender;
 
             for (int i = 0; i < Features.Count; i++)
             {
@@ -427,6 +430,15 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         private void OnDestroy()
         {
+            UnityEngine.Camera.onPostRender -= Camera_OnPostRender;
+
+            if (SceneManager != null)
+            {
+                SceneManager.OnNewTerrain -= SceneManager_OnNewTerrain;
+                SceneManager.OnPostTraverse -= SceneManager_OnPostTraverse;
+                SceneManager.OnRemoveTerrain -= SceneManager_OnRemoveTerrain;
+            }
+
             foreach (var set in Features)
             {
                 set?.Dispose();
@@ -579,17 +591,20 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             return _pixelToWorld;
         }
 
-        private IEnumerator WaitForDepth()
+        private void DownscaleDepth(UnityEngine.Camera camera, int downscale)
         {
-            yield return new WaitUntil(() => Shader.GetGlobalTexture("_CameraDepthTexture") != null);
-            _hasDepthTexture = true;
-        }
+            int width = Mathf.Max(1, camera.pixelWidth / downscale);
+            int height = Mathf.Max(1, camera.pixelHeight / downscale);
 
-        private void DownscaleDepth(int downscale)
-        {
-            if (_depthMap == null)
+            if (_depthMap == null || _depthMap.width != width || _depthMap.height != height)
             {
-                _depthMap = new RenderTexture(Screen.width / downscale, Screen.height / downscale, 0, RenderTextureFormat.RFloat);
+                if (_depthMap != null)
+                {
+                    _depthMap.Release();
+                    Destroy(_depthMap);
+                }
+
+                _depthMap = new RenderTexture(width, height, 0, RenderTextureFormat.RFloat);
                 _depthMap.name = "foliagemodule - depthmap";
                 _depthMap.filterMode = FilterMode.Point;
                 _depthMap.useMipMap = false;
@@ -599,6 +614,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             Graphics.Blit(null, _depthMap, DownsampleMaterial);
             DownsampleMaterial.mainTexture = _depthMap;
             ComputeShader.SetInt(PlacementParameterID.DownscaleFactor, downscale);
+            ComputeShader.SetVector(PlacementParameterID.ScreenSize, new Vector2(camera.pixelWidth, camera.pixelHeight));
         }
 
         float CalculateDesiredDistance(UnityEngine.Camera camera, float objectHeight, float coverage)
@@ -618,31 +634,54 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         {
             _profilerMarker.Begin();
 
-            Render();
+            var camera = SceneManager.SceneManagerCamera?.Camera;
+            if (camera != null)
+            {
+                if (_cullingCamera != camera)
+                {
+                    _cullingCamera = camera;
+                    _hasCullingResult = false;
+                    _lastCullingFrame = -1;
+                }
+
+                camera.depthTextureMode |= DepthTextureMode.Depth;
+            }
+
+            Draw();
 
             _profilerMarker.End();
         }
 
-        private void Render()
+        private void Camera_OnPostRender(UnityEngine.Camera camera)
         {
-            if (Disabled || !_hasDepthTexture)
+            var activeCamera = SceneManager.SceneManagerCamera?.Camera;
+            if (camera != activeCamera || Disabled || _lastCullingFrame == UnityEngine.Time.frameCount)
                 return;
 
+            if (_cullingCamera != camera)
+            {
+                _cullingCamera = camera;
+                _hasCullingResult = false;
+            }
+
+            UpdateCulling(camera);
+            _lastCullingFrame = UnityEngine.Time.frameCount;
+            _hasCullingResult = true;
+        }
+
+        private void UpdateCulling(UnityEngine.Camera camera)
+        {
             if (NativeLeakDetection)
                 UnsafeUtility.SetLeakDetectionMode(NativeLeakDetectionMode.EnabledWithStackTrace);
             else
                 UnsafeUtility.SetLeakDetectionMode(NativeLeakDetectionMode.Disabled);
 
-            var cam = SceneManager.SceneManagerCamera.Camera;
-            GenerateFrustumPlane(cam);
-
-            if (cam.depthTextureMode != DepthTextureMode.Depth)
-                cam.depthTextureMode = cam.depthTextureMode | DepthTextureMode.Depth;
+            GenerateFrustumPlane(camera);
 
             ComputeShader.SetBool(PlacementParameterID.Occlusion, Occlusion);
             ComputeShader.SetInt(PlacementParameterID.FrameCount, UnityEngine.Time.frameCount);
 
-            DownscaleDepth(4);
+            DownscaleDepth(camera, 4);
 
             foreach (var set in Features)
             {
@@ -656,21 +695,38 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                     continue;
                 }
 
-                var dist = CalculateDesiredDistance(cam, set.MaxHeight, set.ScreenCoverage);
+                var dist = CalculateDesiredDistance(camera, set.MaxHeight, set.ScreenCoverage);
                 set.DrawDistance = dist * settings.DrawDistance;
                 _frustum[5].w = set.DrawDistance;  // draw distance
 
                 // Render all points
-                var buffer = set.FoliageFeature.Cull(_frustum, cam, _maxHeight, _depthMap, set);
+                var buffer = set.FoliageFeature.Cull(_frustum, camera, _maxHeight, _depthMap, set);
+                set.CulledBuffer = buffer;
                 set.FoliageMaterial.SetBuffer(PlacementParameterID.PointBuffer, buffer);
-
-                // ------- Render -------
                 ComputeBuffer.CopyCount(buffer, set.InderectBuffer, 0);
+            }
+        }
+
+        private void Draw()
+        {
+            if (Disabled || !_hasCullingResult)
+                return;
+
+            foreach (var set in Features)
+            {
+                var settings = GetSettings(set.SettingsType);
+                if (!settings.Enabled || !set.Enabled)
+                    continue;
+
+                if (set.FoliageMaterial == null)
+                    continue;
+
                 if (DebugPrintCount)
                 {
                     int[] array = new int[4];
                     set.InderectBuffer.GetData(array);
-                    UnityEngine.Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "{2} :: {0}/{1}", array[0].ToString(), buffer.count, set.FoliageSet.name);
+                    int bufferCount = set.CulledBuffer != null ? set.CulledBuffer.count : 0;
+                    UnityEngine.Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "{2} :: {0}/{1}", array[0].ToString(), bufferCount, set.FoliageSet.name);
                 }
 
                 if (DebugNoDraw)
@@ -681,8 +737,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             }
 
             DebugPrintCount = false;
-
-
         }
     }
 }

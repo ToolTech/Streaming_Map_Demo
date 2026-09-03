@@ -96,6 +96,7 @@ namespace Saab.Utility.GfxCaps
     public class GfxCaps
     {
         public static Capability CurrentCaps = KeyDatabase.GetDefaultUserKey("GfxCaps/CurrentCaps", Capability.DefaultCaps);
+        public static bool FoliageOcclusion = KeyDatabase.GetDefaultUserKey("GfxCaps/Foliage/Occlusion", true);
 
         public static RenderSettings GetGrassSettings
         {
@@ -122,7 +123,7 @@ namespace Saab.Utility.GfxCaps
         public static SettingsFeature GetFoliageSettings(SettingsFeatureType type)
         {
             var renderSettings = new SettingsFeature(1.0f, 1.0f, false);
-
+            
             switch (type)
             {
                 case SettingsFeatureType.Trees:

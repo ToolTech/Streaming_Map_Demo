@@ -84,6 +84,7 @@ Texture2D<float> DepthTexture;
 uint DownscaleFactor;
 Texture2D<float> DepthTextureLowRes;
 int FrameCount;
+float2 ScreenSize;
 
 // Camera
 float2 Fov;
@@ -521,10 +522,10 @@ float3 GetScreenPos(float3 pos)
     float DepthPos = clipCoord.z;
     float2 screenPos = clipCoord.xy / clipCoord.w; // converts to a range (-1) - 1
     screenPos = screenPos * 0.5 + 0.5; // convert to a range 0- 1
-    screenPos *= _ScreenParams.xy; // convert to pixel coordiantes
+    screenPos *= ScreenSize; // convert to pixel coordiantes
     
     // clamp screenPos to always be in screen
-    screenPos.xy = clamp(screenPos.xy, float2(0, 0), _ScreenParams.xy - 1);
+    screenPos.xy = clamp(screenPos.xy, float2(0, 0), ScreenSize - 1);
     
     return float3(screenPos.xy, DepthPos);
 }
@@ -539,7 +540,7 @@ bool IsHidden(float3 worldPos, float height, float3 toFoliage)
     float depth = mid.z - 0.01;
     
     int2 downscale = int2(DownscaleFactor, DownscaleFactor);
-    int2 screenSize = int2(_ScreenParams.xy);
+    int2 screenSize = int2(ScreenSize);
     int2 lowResSize = floor(screenSize / (float) downscale);
     
     int2 minXY = int2(floor(min(bottomLeft.xy, topRight.xy) / (float) downscale));
