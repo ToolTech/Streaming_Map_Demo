@@ -166,7 +166,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             SceneManager.OnNewTerrain += SceneManager_OnNewTerrain;
             SceneManager.OnPostTraverse += SceneManager_OnPostTraverse;
             SceneManager.OnRemoveTerrain += SceneManager_OnRemoveTerrain;
-            UnityEngine.Camera.onPostRender += Camera_OnPostRender;
 
             for (int i = 0; i < Features.Count; i++)
             {
@@ -430,8 +429,6 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
         private void OnDestroy()
         {
-            UnityEngine.Camera.onPostRender -= Camera_OnPostRender;
-
             if (SceneManager != null)
             {
                 SceneManager.OnNewTerrain -= SceneManager_OnNewTerrain;
@@ -646,6 +643,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
 
                 camera.depthTextureMode |= DepthTextureMode.Depth;
             }
+
+            Camera_OnPostRender(_cullingCamera);
 
             Draw();
 

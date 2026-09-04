@@ -287,6 +287,10 @@ namespace Saab.Foundation.Unity.MapStreamer
                     var north = enu * new Vec3(0, 1, 0);
                     var up = enu * new Vec3(0, 0, 1);
 
+                    _unityEast = east.ToVector3FlipZ();
+                    _unityNorth = north.ToVector3FlipZ();
+                    _unityUp = up.ToVector3FlipZ();
+
                     _localToEun = MapUtil.FromBasis((east.ToVector3()), (up.ToVector3()), (north.ToVector3()));
 
                     Shader.SetGlobalMatrix("_LocalToEUN", _localToEun);
