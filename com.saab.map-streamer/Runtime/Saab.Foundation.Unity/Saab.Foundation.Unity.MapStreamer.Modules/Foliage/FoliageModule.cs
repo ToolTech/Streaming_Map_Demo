@@ -179,6 +179,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
                 var featureSet = Features[i];
                 var settings = GetSettings(featureSet.SettingsType);
                 featureSet.Enabled = settings.Enabled;
+                featureSet.NearCullDistance = settings.NearCullDistance;
 
                 featureSet.FoliageFeature = new FoliageFeature(Mathf.CeilToInt(featureSet.BufferSize * settings.Density), featureSet.Density * settings.Density, TerrainMapping.FeatureTruthTable(_mappingTable, featureSet.mapFeature), ComputeShader);
 
