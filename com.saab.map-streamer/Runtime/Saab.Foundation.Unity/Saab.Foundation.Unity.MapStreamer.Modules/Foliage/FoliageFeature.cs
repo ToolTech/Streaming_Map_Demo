@@ -290,6 +290,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             public static readonly int FoliageData = Shader.PropertyToID("FoliageData");
             public static readonly int FoliageCount = Shader.PropertyToID("FoliageCount");
             public static readonly int ScreenCoverage = Shader.PropertyToID("ScreenCoverage");
+            public static readonly int NearCullDistance = Shader.PropertyToID("NearCullDistance");
         }
 
         private Matrix4x4 LocalToWorldMatrix(GameObject go)
@@ -380,6 +381,7 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             _placement.SetBuffer(_kernelCull, PlacementParameterID.FoliageData, set.FoliageData);
             _placement.SetInt(PlacementParameterID.FoliageCount, set.FoliageData.count);
             _placement.SetFloat(PlacementParameterID.ScreenCoverage, set.ScreenCoverage);
+            _placement.SetFloat(PlacementParameterID.NearCullDistance, set.NearCullDistance);
 
             for (var i = 0; i < _items.Count; ++i)
             {

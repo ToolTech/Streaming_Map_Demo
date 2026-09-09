@@ -10,6 +10,7 @@ described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/
 ### Added
 - Support for configure foliage occlusion 
 - Hi-Z depth-pyramid generator.
+- Configurable near-distance foliage culling with gradual visibility fade-out.
 
 ### Changed
 - Updated to GizmoSDK 2.12.338.1

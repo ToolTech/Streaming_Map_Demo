@@ -43,6 +43,8 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
         [Range(0.001f, 1)]
         public float ScreenCoverage = 0.001f;
         public float Density;
+        [Min(0.0f)]
+        public float NearCullDistance;
         /// <summary>
         /// Node LOD's larger than this will not use features from this set.
         /// </summary>

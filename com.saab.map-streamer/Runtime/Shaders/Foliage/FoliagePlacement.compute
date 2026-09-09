@@ -105,6 +105,7 @@ float Density;              // density of trees
 float3 MeshBoundsMax;       // Mesh offset
 float4x4 ObjToWorld;        // Local To World
 float ScreenCoverage;
+float NearCullDistance;
 
 
 // ************* triangle check ************* //
@@ -677,7 +678,21 @@ void CSCull(uint3 id : SV_DispatchThreadID)
     
     float distance = length(toFoliageMid);
     float desiredDistance = CalculateDesiredDistance(Fov.y/*This includes padding for shadows, but should maybe not*/, height, ScreenCoverage);
-    
+
+    bool isWithinNearCullDistance =
+        NearCullDistance > 0.0 && distance <= NearCullDistance;
+    float visibility = UnpackHalfLo(data.packed1);
+
+    if (isWithinNearCullDistance)
+    {
+        visibility = max(visibility - 0.01f, 0.0);
+        data.packed1 = Pack2Half(visibility, 0);
+        InputBuffer[id.x] = data;
+
+        if (visibility <= 0)
+            return;
+    }
+
     if (desiredDistance < distance)
         return;
   
@@ -695,10 +710,8 @@ void CSCull(uint3 id : SV_DispatchThreadID)
     if (!IsInFrustum(toFoliageMid, -height))
         return;
     
-    float visibility = UnpackHalfLo(data.packed1);
-        
-    // Only update visibility on matching frames
-    if ((uint) FrameCount % 2 == id.x % 2)
+    // Recover visibility only on matching frames outside the near-cull range.
+    if (!isWithinNearCullDistance && (uint) FrameCount % 2 == id.x % 2)
     {
         bool hidden =
             HiZOcclusion &&
@@ -718,7 +731,8 @@ void CSCull(uint3 id : SV_DispatchThreadID)
         return;
     
     // Otherwise decay a bit
-    visibility -= 0.01f;
+    if (!isWithinNearCullDistance)
+        visibility -= 0.01f;
         
     data.packed1 = Pack2Half(visibility, 0);
     InputBuffer[id.x] = data;
