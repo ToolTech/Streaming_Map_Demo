@@ -9,9 +9,11 @@ described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/
 
 ### Added
 - Support for configure foliage occlusion 
+- Hi-Z depth-pyramid generator.
 
 ### Changed
 - Updated to GizmoSDK 2.12.338.1
+- Foliage occlusion now uses Hi-Z depth-pyramid culling.
 
 ### Fixed
 - Null reference exception when unloading a map containing asset instances #309075
