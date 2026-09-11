@@ -35,7 +35,7 @@ using Saab.Unity.Extensions;
 using System;
 using UnityEngine;
 
-namespace Saab.Foundation.Unity.MapStreamer
+namespace Saab.Foundation.Unity.MapStreamer.GeodeticCamera
 {
     public class CameraShaderUpdater : MonoBehaviour
     {
