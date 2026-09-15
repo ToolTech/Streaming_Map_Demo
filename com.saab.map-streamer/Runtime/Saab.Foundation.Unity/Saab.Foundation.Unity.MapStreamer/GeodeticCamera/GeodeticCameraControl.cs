@@ -221,7 +221,8 @@ namespace Saab.Foundation.Unity.MapStreamer.GeodeticCamera
         /// Moves the camera towards or away from the coordinate-model surface
         /// beneath the mouse cursor, resolving terrain before the mathematical
         /// surface and then using the viewport-center surface on a pointer miss.
-        /// Distance scaling is bounded relative to that acquired reference point.
+        /// The first valid active-map framing establishes the outward bound,
+        /// which expands when farther valid framing is subsequently observed.
         /// </summary>
         /// <param name="mousePosition">The mouse position on the screen in pixels (z-component is ignored)</param>
         /// <param name="amount">Dimensionless zoom steps; positive moves in and negative moves out.</param>
@@ -713,12 +714,14 @@ namespace Saab.Foundation.Unity.MapStreamer.GeodeticCamera
         /// <remarks>
         /// Preserves any pending initial-view request, and requests synchronization
         /// of the existing orientation when the new map basis becomes available.
-        /// Repeated calls leave gestures inactive; the host must register the new map's initial pose.
+        /// Repeated calls leave gestures inactive and reset the learned zoom-out
+        /// distance; the host must register the new map's initial pose.
         /// </remarks>
         public override void MapChanged()
         {
             _groundDragGesture?.Clear();
             _orbitGesture?.Reset();
+            _zoomGesture = null;
             _initialViewFailureReported = false;
             _initializationState.MapChanged();
         }

@@ -39,6 +39,7 @@ namespace Saab.Foundation.Unity.MapStreamer.GeodeticCamera
         private readonly ReferenceQuery _queryReference;
         private readonly Func<Vec3D> _readPosition;
         private readonly Action<Vec3D> _applyPosition;
+        private double _maximumDistance = CameraZoomMath.MinimumDistance;
 
         internal delegate bool ReferenceQuery(float x, float y, out Vec3D position);
 
@@ -59,7 +60,13 @@ namespace Saab.Foundation.Unity.MapStreamer.GeodeticCamera
 
             Vec3D cameraPosition = _readPosition();
             Vec3D offset = reference - cameraPosition;
-            if (!CameraZoomMath.TryCalculateDistanceScale(offset.Length(), amount, out double scale))
+            double distance = offset.Length();
+            double maximumDistance = Math.Max(_maximumDistance, distance);
+            if (!CameraZoomMath.TryCalculateDistanceScale(
+                    distance,
+                    amount,
+                    maximumDistance,
+                    out double scale))
                 return false;
 
             Vec3D nextPosition = reference - scale * offset;
@@ -67,6 +74,7 @@ namespace Saab.Foundation.Unity.MapStreamer.GeodeticCamera
                 return false;
 
             _applyPosition(nextPosition);
+            _maximumDistance = maximumDistance;
             return true;
         }
 

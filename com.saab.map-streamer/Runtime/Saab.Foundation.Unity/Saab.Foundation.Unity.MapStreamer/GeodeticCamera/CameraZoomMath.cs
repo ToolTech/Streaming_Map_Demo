@@ -36,13 +36,13 @@ namespace Saab.Foundation.Unity.MapStreamer.GeodeticCamera
     internal static class CameraZoomMath
     {
         internal const double MinimumDistance = 1.0;
-        internal const double MaximumDistance = 10000.0;
 
         private const double ZoomFactor = 0.2;
 
         internal static bool TryCalculateDistanceScale(
             double distance,
             float steps,
+            double maximumDistance,
             out double scale)
         {
             scale = default;
@@ -51,11 +51,14 @@ namespace Saab.Foundation.Unity.MapStreamer.GeodeticCamera
                 || double.IsInfinity(distance)
                 || float.IsNaN(steps)
                 || float.IsInfinity(steps)
-                || distance <= 0.0)
+                || double.IsNaN(maximumDistance)
+                || double.IsInfinity(maximumDistance)
+                || distance <= 0.0
+                || maximumDistance < MinimumDistance)
                 return false;
 
             if (steps > 0.0f && distance <= MinimumDistance
-                || steps < 0.0f && distance >= MaximumDistance)
+                || steps < 0.0f && distance >= maximumDistance)
             {
                 scale = 1.0;
                 return true;
@@ -65,8 +68,8 @@ namespace Saab.Foundation.Unity.MapStreamer.GeodeticCamera
 
             if (steps > 0.0f && adjustedDistance < MinimumDistance)
                 adjustedDistance = MinimumDistance;
-            else if (steps < 0.0f && adjustedDistance > MaximumDistance)
-                adjustedDistance = MaximumDistance;
+            else if (steps < 0.0f && adjustedDistance > maximumDistance)
+                adjustedDistance = maximumDistance;
 
             scale = adjustedDistance / distance;
             return true;
