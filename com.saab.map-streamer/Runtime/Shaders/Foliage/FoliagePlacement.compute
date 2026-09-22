@@ -453,7 +453,7 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
             float angle = (Random2D(rand, 3.731) * 2 - 1) * 3.141592;
             float2 randDir = float2(cos(angle), sin(angle));
                 
-            float distance = Random2D(rand, 12.243) * (stepsize * 0.5) * 1.5;
+            float distance = sqrt(Random2D(rand, 12.243)) * stepsize;
             float2 randomPoint = randDir * distance;
                 
             float2 uvfrac = frac(randomPoint / Resolution);

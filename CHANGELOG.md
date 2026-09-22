@@ -22,6 +22,7 @@ described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/
 ### Fixed
 - Null reference exception when unloading a map containing asset instances #309075
 - Foliage Occlusion on Embedded Linux #407581
+- Visible pattern for foliage at far nodes. #412176
 
 ## 4.6
 
