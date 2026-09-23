@@ -6,6 +6,9 @@ capability.
 
 ## Requirements
 
+- [Generic CSW baseline use cases](generic/use-cases.md)
+- [Generic CSW baseline requirements](generic/requirements.md)
+- [CSWUnity realization baseline](unity/requirements.md)
 - [Use cases](use-cases.md)
 - [Coordinate nomenclature and mapping contract](coordinate-nomenclature.md)
 - [Next-generation architecture](next-generation-architecture.md)
@@ -19,14 +22,16 @@ capability.
 
 ## Authoring requirements
 
-Requirements describe observable behavior and user needs. They should avoid
-prescribing an implementation unless a constraint originates in Unity,
-GizmoSDK C#, or the surrounding CSW system.
+Use cases and requirements are separate artifacts. Use-case files describe
+expected use as stories and contain no normative `shall` statements.
+Requirement files contain measurable `shall` statements and link to relevant
+use cases instead of embedding them. Requirements should avoid prescribing an
+implementation unless a constraint originates in Unity, GizmoSDK C#, or the
+surrounding CSW system.
 
 Each requirement document should describe:
 
 - purpose and scope
-- actors and use cases
 - functional requirements
 - non-functional requirements
 - Unity, GizmoSDK C#, and CSW constraints
