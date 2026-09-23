@@ -30,7 +30,7 @@
 
 using UnityEngine;
 
-namespace Saab.Foundation.Unity.MapStreamer
+namespace Saab.Foundation.Unity.MapStreamer.GeodeticCamera
 {
     public class CameraInputHandler : MonoBehaviour
     {

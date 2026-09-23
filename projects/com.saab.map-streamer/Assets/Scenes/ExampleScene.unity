@@ -336,6 +336,7 @@ GameObject:
   - component: {fileID: 963194229}
   - component: {fileID: 963194231}
   - component: {fileID: 963194230}
+  - component: {fileID: 963194232}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -383,7 +384,7 @@ Camera:
   m_CullingMask:
     serializedVersion: 2
     m_Bits: 4294967295
-  m_RenderingPath: -1
+  m_RenderingPath: 3
   m_TargetTexture: {fileID: 0}
   m_TargetDisplay: 0
   m_TargetEye: 3
@@ -448,6 +449,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f3003e6312915424fba43b556b607eac, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &963194232
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 963194225}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d469e7bad05d8544f874bcc4b7ca9f1e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  BaseLodFactorFieldOfView: 60
 --- !u!1 &1692271381
 GameObject:
   m_ObjectHideFlags: 0
@@ -459,6 +473,7 @@ GameObject:
   - component: {fileID: 1692271384}
   - component: {fileID: 1692271382}
   - component: {fileID: 1692271385}
+  - component: {fileID: 1692271386}
   m_Layer: 0
   m_Name: Modules
   m_TagString: Untagged
@@ -514,13 +529,14 @@ MonoBehaviour:
   ComputeShader: {fileID: 7200000, guid: 658d4304a9fd9fe49bd7d3b0ede75fb1, type: 3}
   FoliageShader: {fileID: 4800000, guid: 068e6fbc052d17648b666532b330a5a7, type: 3}
   PerlinNoise: {fileID: 0}
-  Layer: 0
+  Layer: 13
   DebugPrintCount: 0
   Disabled: 0
   DebugNoDraw: 0
   NativeLeakDetection: 0
-  Occlusion: 0
-  DownsampleMaterial: {fileID: 2100000, guid: ebe65c385a1ee1e40b90aaffc81cc315, type: 2}
+  Occlusion: 1
+  HiZDepthBias: 0.25
+  _hiZDepthPyramid: {fileID: 1692271386}
   Features:
   - SettingsType: 0
     mapFeature: 2048
@@ -544,3 +560,19 @@ MonoBehaviour:
     Shadows: 0
     Crossboard: 0
     DrawDistance: 0
+--- !u!114 &1692271386
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1692271381}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 66d04f0e0a62475baca916d6a33187fc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _generationShader: {fileID: 7200000, guid: 6cb66abbf4754e2490415956548ddcba, type: 3}
+  _exposeGlobally: 0
+  _targetCamera: {fileID: 963194227}
+  _debugRenderTexture: {fileID: 0}
