@@ -420,7 +420,6 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
 	);
     
     uint feature = uint(SplatMap[uv] * 255);
-    float2 pixelOverlap = float2(2, 2);
 
     if (!FeatureMap[feature])
         return;
@@ -445,6 +444,10 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
 
             float offsetX = (wpx - worldCoord.x);
             float offsetY = (wpy - worldCoord.y);
+
+            // Each dispatch lane scans multiple candidates, so reject only this one.
+            if (offsetX >= (Resolution.x * subPixelX) || offsetY >= (Resolution.y * subPixelY))
+                continue;
                                 
             float2 randoffset = fmod(GetWorldCoord(uv, ToWorldTexCoord, NodeOffset), 1000);
             float2 rand = randoffset * 0.001;
@@ -455,25 +458,28 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
                 
             float distance = sqrt(Random2D(rand, 12.243)) * stepsize;
             float2 randomPoint = randDir * distance;
-                
-            float2 uvfrac = frac(randomPoint / Resolution);
-            float2 uvOffset = floor(randomPoint / Resolution);
+
+            // BTA local Z runs opposite feature-map Y.
+            float2 placementOffset = float2(
+                pixelOffset.x * Resolution.x + offsetX,
+                -(pixelOffset.y * Resolution.y + offsetY)) + randomPoint;
+            float2 placementPixelOffset = placementOffset / Resolution;
+            float2 uvfrac = frac(placementPixelOffset);
+            int2 uvOffset = int2(floor(placementPixelOffset));
             uvOffset.y *= -1;
+            int2 placementUv = int2(uv) + uvOffset;
 
             // check if uv coord is valid (handle pixel Overlap)
-            if (any((uv + uvOffset) > (terrainResolution - float2(2, 2))) || any((uv + uvOffset) < float2(1, 1)))
+            if (any(placementUv > (int2(terrainResolution) - int2(2, 2))) || any(placementUv < int2(1, 1)))
                 continue;
 
-            feature = uint(SplatMap[uv + uvOffset] * 255);
-            float3 movedCoord = BilinearPosition(uv + uvOffset, uvfrac);
+            feature = uint(SplatMap[placementUv] * 255);
+            float3 movedCoord = BilinearPosition(placementUv, uvfrac);
                 
             if (FeatureMap[feature])
             {
-                if (offsetX >= (Resolution.x * subPixelX) || offsetY >= (Resolution.y * subPixelY))
-                    return;
-                
-                float3 color = Texture[uv + uvOffset].xyz;
-                float2 texCoord = float2(clamp((uv + uvOffset).x - 1, 0, terrainResolution.x - 2), clamp((uv + uvOffset).y - 1, 0, terrainResolution.y - 2));
+                float3 color = Texture[placementUv].xyz;
+                float2 texCoord = clamp(float2(placementUv) - 1.0, 0.0, terrainResolution - 2.0);
 
                 float2 uvHeight = (texCoord / (terrainResolution.xy)) * heightResolution.xy;
                 float surfaceHeight = HeightSurface[uvHeight] * 255;
@@ -485,7 +491,6 @@ void CSPlacement(uint3 id : SV_DispatchThreadID)
                 }
                                     
                 float3 coord = movedCoord.xyz;
-                float2 uvCoord = uv.xy / terrainResolution.xy;
                     
                 FoliagePoint res;
                 res.Position = coord.xyz;

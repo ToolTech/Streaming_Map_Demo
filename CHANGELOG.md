@@ -23,6 +23,7 @@ described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/
 - Null reference exception when unloading a map containing asset instances #309075
 - Foliage Occlusion on Embedded Linux #407581
 - Visible pattern for foliage at far nodes. #412176
+- Foliage placement on 1 km nodes no longer omits every third point or snaps accepted points to feature-map texels, preserving uniform spacing across node LODs.
 
 ## 4.6
 
