@@ -1,4 +1,4 @@
-# SMD DEMO Guide
+# map-streamer DEMO Guide
 
 This guide combines the complete setup and execution workflow for the **CSWUnity Map Streamer Demo**.
 
