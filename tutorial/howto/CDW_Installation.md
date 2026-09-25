@@ -1,8 +1,8 @@
-## 1\. CDW Installation and System Requirements
+# 1\. CDW Installation and System Requirements
 
 This section describes the Cloud Development Workstation (CDW) setup and the hardware/system requirements needed to run the **CSWUnity Map Streamer** demo.
 
-### 1.1 Work Zone
+## 1.1 Work Zone
 
 **Work Zone:** CDW (Cloud Development Workstation) — Not Export Controlled.
 
@@ -12,7 +12,7 @@ Refer to the CDW onboarding guide:
 
 Follow the required onboarding steps up to Step 6.
 
-### 1.2 Request a New CDW
+## 1.2 Request a New CDW
 
 Raise a request for a default CDW configuration using:
 
@@ -31,13 +31,18 @@ After approval, the IT Service Desk initially provides a default configured CDW 
 * **16 GB RAM**
 * **128 GB storage**
 
-### 1.3 Request a GPU-Enabled CDW
+## 1.3 Request a GPU-Enabled CDW
 
 A GPU-enabled CDW is recommended for the CSWUnity Map Streamer demo.
 
 Raise the request using:
 
 `https://servicehub.saabgroup.com/esc?id=sc\_cat\_item\&sys\_id=5408c2fbafbf62100f26a2c6512749bc`
+!\[GPU-Enabled CDW request page](CDW\_IMAGES/01\_GPU\_Enabled\_CDW\_Request.png)
+
+*Figure: Modern Workspace Configuration page used to request a GPU-enabled CDW.*
+
+
 
 Use the following information in the request:
 
@@ -54,7 +59,7 @@ Suggested business justification:
 
 > \*\*Note:\*\* A GPU-enabled CDW does not support Windows Subsystem for Linux (WSL). Currently, the Map Streamer demo has no dependency on WSL.
 
-### 1.4 Hardware Requirements
+## 1.4 Hardware Requirements
 
 |Component|Requirement|
 |-|-|
@@ -64,7 +69,7 @@ Suggested business justification:
 |Graphics|GPU required|
 |Network|Internet access for Git and NuGet packages|
 
-### 1.5 Required Software
+## 1.5 Required Software
 
 |Software|Purpose|
 |-|-|

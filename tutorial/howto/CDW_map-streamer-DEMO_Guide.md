@@ -1,8 +1,8 @@
-## SMD DEMO Guide
+# SMD DEMO Guide
 
 This guide combines the complete setup and execution workflow for the **CSWUnity Map Streamer Demo**.
 
-### 1\. CDW Installation and System Requirements
+## 1\. CDW Installation and System Requirements
 
 This section describes the Cloud Development Workstation (CDW) setup and the hardware/system requirements needed to run the **CSWUnity Map Streamer** demo.
 
@@ -13,8 +13,6 @@ This section describes the Cloud Development Workstation (CDW) setup and the har
 Refer to the CDW onboarding guide:
 
 `https://saab-frontrunner-onboarding-guide.pages.saab.ghe.com/generic-onboarding/cdw-setup/`
-
-Follow the required onboarding steps up to Step 6.
 
 ### 1.2 Request a New CDW
 
@@ -42,6 +40,11 @@ A GPU-enabled CDW is recommended for the CSWUnity Map Streamer demo.
 Raise the request using:
 
 `https://servicehub.saabgroup.com/esc?id=sc\_cat\_item\&sys\_id=5408c2fbafbf62100f26a2c6512749bc`
+!\[GPU-Enabled CDW request page](CDW\_IMAGES/01\_GPU\_Enabled\_CDW\_Request.png)
+
+*Figure: Modern Workspace Configuration page used to request a GPU-enabled CDW.*
+
+
 
 Use the following information in the request:
 
@@ -103,6 +106,11 @@ Visual Studio is required to build the GizmoSDK components and generate the plug
    * **Visual Studio 2022 Professional**
    * **Visual Studio 2026 Enterprise**
 3. After installation is complete, restart the CDW.
+!\[Visual Studio in Company Portal](VISUAL\_STUDIO\_IMAGES/01\_Visual\_Studio\_Company\_Portal.png)
+
+*Figure: Visual Studio Professional available through the Company Portal.*
+
+
 
 ### 2.2 Install Required Workloads
 
@@ -116,6 +124,11 @@ Visual Studio is required to build the GizmoSDK components and generate the plug
    * `Game development with Unity`
 6. Under **Installation Details**, select **Unity Hub** if available.
 7. Click **Modify**.
+!\[Visual Studio Installer workloads](VISUAL\_STUDIO\_IMAGES/02\_Visual\_Studio\_Workloads.png)
+
+*Figure: Required Visual Studio workloads and Unity-related installation options.*
+
+
 
 This installs the dependencies required to build the GizmoSDK solution and work with Unity.
 
@@ -158,6 +171,11 @@ After installation:
    * Two-factor authentication
 
 After successful login, the account information should appear in the top-right area of Unity Hub.
+!\[Unity Hub welcome screen](UNITY\_IMAGES/01\_Unity\_Hub\_Welcome.png)
+
+*Figure: Unity Hub welcome/sign-in screen.*
+
+
 
 ### 3.2 Install Unity Editor
 
@@ -168,6 +186,11 @@ The Map Streamer demo originally used Unity `2021.3.17f1`, but the recommended v
 or the latest supported LTS version.
 
 Select the required Unity build modules depending on the target platform.
+!\[Unity build modules](UNITY\_IMAGES/02\_Unity\_Build\_Modules.png)
+
+*Figure: Example Unity build modules available during Unity Editor installation.*
+
+
 
 ### 3.3 CDW Installation Limitation
 
@@ -185,12 +208,26 @@ To show it:
 2. Click **View**.
 3. Select **Show**.
 4. Enable **Hidden Items**.
+!\[Show hidden items in File Explorer](UNITY\_IMAGES/03\_Show\_Hidden\_Items.png)
+
+*Figure: Enable Hidden Items in File Explorer to access the AppData folder.*
+
+!\[Unity downloaded installation packages](UNITY\_IMAGES/04\_Unity\_Downloaded\_Packages.png)
+
+*Figure: Example Unity installation packages downloaded by Unity Hub.*
+
+
 
 ### 3.4 Install Unity Editor and Modules Manually
 
 Install the main Unity Editor executable first:
 
 `UnitySetup<x.y.z>.exe`
+!\[Unity Editor installation](UNITY\_IMAGES/05\_Unity\_Editor\_Installation.png)
+
+*Figure: Unity Editor installation in progress.*
+
+
 
 Then install the required Unity modules.
 
@@ -199,6 +236,10 @@ For each package:
 1. Right-click the package.
 2. Select **Show more options**.
 3. Select **Run with elevated access**.
+!\[Run with elevated access](UNITY\_IMAGES/06\_Run\_With\_Elevated\_Access.png)
+
+*Figure: Run the downloaded Unity installer/module with elevated access on CDW.*
+
 4. Complete the installation.
 
 > \*\*Important:\*\* Install `UnitySetup<x.y.z>.exe` first. Otherwise, the Unity modules may not detect the Unity Editor installation directory correctly.
@@ -213,6 +254,11 @@ For each package:
 Example:
 
 `C:/Program Files/Unity 6000.3.21f1/Editor/Unity.exe`
+!\[Locate Unity Editor in Unity Hub](UNITY\_IMAGES/07\_Locate\_Unity\_Editor.png)
+
+*Figure: Use the Locate option in Unity Hub and select the installed Unity Editor.*
+
+
 
 The steps for opening and running the Map Streamer project are described in `04\_map\_streamer.md`.
 
@@ -221,6 +267,11 @@ The steps for opening and running the Map Streamer project are described in `04\
 ## 4\. Map Streamer
 
 This section describes the complete workflow for setting up and running the **CSWUnity Map Streamer** demo after CDW, Visual Studio, and Unity are installed.
+!\[Map Streamer demo workflow](MAP\_STREAMER\_IMAGES/01\_Map\_Streamer\_Workflow.png)
+
+*Figure: Overall Map Streamer workflow from installation and cloning through build and Unity demo execution.*
+
+
 
 ### 4.1 Install Git
 
@@ -301,6 +352,11 @@ Recommended usage:
 
 * **Release | x64** — Recommended for running the demo.
 * **Debug | x64** — Recommended for development and debugging.
+!\[Visual Studio Release x64 configuration](MAP\_STREAMER\_IMAGES/02\_Visual\_Studio\_x64\_Configuration.png)
+
+*Figure: Example Visual Studio build configuration using Release and x64.*
+
+
 
 Use only one configuration at a time.
 
@@ -311,6 +367,11 @@ To build the solution in Visual Studio:
 or press:
 
 `Ctrl + Shift + B`
+!\[Visual Studio build solution output](MAP\_STREAMER\_IMAGES/03\_Build\_Solution\_Output.png)
+
+*Figure: Example successful build output for the Install\_Gizmo solution.*
+
+
 
 ### 4.6 Switching Between Debug and Release
 
@@ -351,8 +412,16 @@ Before switching between build configurations, run:
 4. Select:
 
 `CSWUnity/projects/com.saab.map-streamer`
+!\[Add Map Streamer project from disk](MAP\_STREAMER\_IMAGES/04\_Add\_Project\_From\_Disk.png)
+
+*Figure: Select the com.saab.map-streamer project folder when adding the project in Unity Hub.*
 
 > Ensure that the correct Unity project folder is selected.
+!\[Incorrect Unity project directory example](MAP\_STREAMER\_IMAGES/05\_Incorrect\_Project\_Directory.png)
+
+*Figure: Example of an incorrectly selected project directory resulting in missing Assets.*
+
+
 
 ### 4.9 Open the Project in Unity
 
@@ -373,6 +442,11 @@ Before switching between build configurations, run:
 Press the **Play (▶)** button at the top of the Unity Editor.
 
 The streaming map should load in the scene.
+!\[Map Streamer expected output](MAP\_STREAMER\_IMAGES/06\_Map\_Streamer\_Expected\_Output.png)
+
+*Figure: Expected Map Streamer demo output in the Unity Editor.*
+
+
 
 ### 4.11 Navigation Controls
 
@@ -387,7 +461,7 @@ The streaming map should load in the scene.
 |`Arrow Keys`|Rotate Camera|
 |`Shift`|Increase Movement Speed|
 
-### 4.12 Troubleshooting
+### 4.12 Important Build Note
 
 If the plugin build is changed from **Release to Debug** or from **Debug to Release**:
 
