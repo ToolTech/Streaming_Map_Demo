@@ -7,11 +7,23 @@ described with adjustments and template in [TSWiki](https://tswiki.corp.saab.se/
 
 ## 4.7
 
+### Added
+- Support for configure foliage occlusion 
+- Hi-Z depth-pyramid generator.
+- Configurable near-distance foliage culling with gradual visibility fade-out.
+- Geodetic camera control for projected and spherical maps, with geodesy-aware orientation and origin-locked shader synchronization.
+- Terrain-aware ground drag, pointer-anchored zoom, and pointer or viewport-center orbit for UTM, SWEREF99, and geocentric WGS84 maps, with configurable orbit pivots and optional pitch limits. Navigation falls back to the coordinate-model surface, retains its reference throughout each gesture, safely rejects invalid queries, keeps bounded orbit upright and its pivot fixed on screen, allows inward zoom to one metre from the selected surface, and derives the outward bound from valid active-map framing.
+- Atomic camera positioning and repeatable host-defined initial views through `TrySetPose`, `TrySetInitialViewPose`, and `RequestInitialView`.
+
 ### Changed
-- Updated to GizmoSDK 2.12.326.1
+- Updated to GizmoSDK 2.12.338.1
+- Foliage occlusion now uses Hi-Z depth-pyramid culling.
 
 ### Fixed
 - Null reference exception when unloading a map containing asset instances #309075
+- Foliage Occlusion on Embedded Linux #407581
+- Visible pattern for foliage at far nodes. #412176
+- Foliage placement on 1 km nodes no longer omits every third point or snaps accepted points to feature-map texels, preserving uniform spacing across node LODs.
 
 ## 4.6
 

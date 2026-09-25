@@ -75,6 +75,7 @@ Shader "Custom/Foliage/Billboard"
 				float2 MaxMin;
 				float2 Offset;
 				float Weight;
+				float CullAreaWidth;
 			};
 
 			// ---- Global ----
