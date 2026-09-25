@@ -26,6 +26,19 @@ The maintained Install_Gizmo solution uses Visual Studio 2022 format and can als
 You could also simply just run the corresponding .bat script (build_x64, build_x64_d, etc..) and every thing will be setup correctly.
 
 
+CDW installation guides
+=======================
+
+The following guides apply to users who run CSWUnity from a Cloud Development
+Workstation (CDW). They describe the complete CDW setup and Map Streamer demo
+workflow:
+
+1. [CDW installation and system requirements](tutorial/howto/CDW_Installation.md)
+2. [Visual Studio installation](tutorial/howto/CDW_Visual_Studio_Installation.md)
+3. [Unity installation](tutorial/howto/CDW_Unity_Installation.md)
+4. [Map Streamer demo](tutorial/howto/CDW_map_streamer_DEMO.md)
+
+
 Running the demo
 ================
 Open the unity project found under the under directory 'projects\com.saab.map-streamer' and Press the "play" button in the Unity editor. 
