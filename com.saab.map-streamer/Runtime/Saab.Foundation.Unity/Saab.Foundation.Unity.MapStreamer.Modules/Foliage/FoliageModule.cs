@@ -257,7 +257,10 @@ namespace Saab.Foundation.Unity.MapStreamer.Modules
             if (featureSet.FoliageData != null)
                 featureSet.FoliageData.Release();
 
-            featureSet.FoliageData = new ComputeBuffer(foliageTypes.Count, sizeof(float) * 6, ComputeBufferType.Default);
+            featureSet.FoliageData = new ComputeBuffer(
+                foliageTypes.Count,
+                UnsafeUtility.SizeOf<FoliageShaderData>(),
+                ComputeBufferType.Default);
             featureSet.FoliageData.SetData(data);
             featureSet.FoliageMaterial.SetBuffer(PlacementParameterID.FoliageData, featureSet.FoliageData);
         }
